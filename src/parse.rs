@@ -22,6 +22,20 @@ impl Default for Prefix {
     }
 }
 
+impl core::convert::TryFrom<u8> for Prefix {
+    type Error = ();
+
+    #[inline(always)]
+    fn try_from(code: u8) -> Result<Self, Self::Error> {
+        match code {
+            0x00 => Ok(Prefix::None),
+            0xDD => Ok(Prefix::Xdd),
+            0xFD => Ok(Prefix::Yfd),
+            _ => Err(())
+        }
+    }
+}
+
 /// Displays prefix as a corresponding address register pair. Used by the debugger.
 impl fmt::Display for Prefix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -2,10 +2,8 @@
 //! and execution to the instructions::instr! macro via instruction_dispatch!.
 #![macro_use]
 macro_rules! match_instruction {
-    ([$code:expr]
-    $deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident;
-    break $main:tt) => { instruction_dispatch! { $deb; $prefix, $flags, $pc, $cpu, $control, $tsc;
-        match (__,$code) {
+    (@none [$code:expr]; break $main:tt) => { instruction_dispatch! {
+        match ($code) {
             0x40..=0x7F => {            LD r,r | LD (HL),r | LD r,(HL) | HALT break $main } // 0b01_rrr_rrr
             0x80..=0xBF => {            @ops A, r | @ops A, (HL)              } // 0b10_ops_rrr
             0xDD => {                   @prefix = Xdd                         }
@@ -70,10 +68,8 @@ macro_rules! match_instruction {
         }
     }};
 
-    (DD|FD [$code:expr]
-    $deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident;
-    $repeat:tt) => { instruction_dispatch! { $deb; $prefix, $flags, $pc, $cpu, $control, $tsc;
-        match (__,$code) {
+    (DD|FD [$code:expr]; $repeat:tt) => { instruction_dispatch! {
+        match ($code) {
             0x00..=0x08|0x0A..=0x18|0x1A..=0x20|0x27|0x28|0x2F..=0x33|0x37|0x38|0x3A..=0x43|
             0x47..=0x4B|0x4F..=0x53|0x57..=0x5B|0x5F|0x76|0x78..=0x7B|
             0x7F..=0x83|0x87..=0x8B|0x8F..=0x93|0x97..=0x9B|
@@ -103,9 +99,7 @@ macro_rules! match_instruction {
         }
     }};
 
-    (ED [$code:expr]
-    $deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident;
-    break $main:tt) => { instruction_dispatch! { $deb; $prefix, $flags, $pc, $cpu, $control, $tsc;
+    (ED [$code:expr]; break $main:tt) => { instruction_dispatch! {
         match (0xED, $code) {
             0x00..=0x3F|0x7F..=0x9F|0xA4..=0xA7|0xAC..=0xAF|0xB4..=0xB7|0xBC..=0xFF|
             0x77 => {                          NOP *                   }
@@ -154,13 +148,16 @@ macro_rules! match_instruction {
 macro_rules! execute_instruction {
     ([$code:expr]
     $deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident; break $main:tt) => {{
+
+        define_instructions_scoped!($deb; $prefix, $flags, $pc, $cpu, $control, $tsc);
+
         'repeat: loop {
             match $prefix {
                 Prefix::None => {
-                    match_instruction!(      [$code] $deb; $prefix, $flags, $pc, $cpu, $control, $tsc; break $main);
+                    match_instruction!(@none [$code]; break $main);
                 }
                 Prefix::Xdd|Prefix::Yfd => {
-                    match_instruction!(DD|FD [$code] $deb; $prefix, $flags, $pc, $cpu, $control, $tsc; 'repeat);
+                    match_instruction!(DD|FD [$code]; 'repeat);
                     $prefix = Prefix::None;
                 }
             }
@@ -181,15 +178,21 @@ macro_rules! execute_next_instruction {
 
 /// Used by the match_instruction! macro to indirectly invoke the instructions::instr! macro.
 macro_rules! instruction_dispatch {
-    ($deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident;
-        match ($precode:expr, $code:expr) {
+    (match ($code:expr) {
             $($($mat:pat)|* => {$($mnem:tt)*})*
         }
     ) => {
         match $code {
-           $($($mat)|* => instr!{ @# $($mnem)* #@
-                $deb; $prefix, $flags, $pc, $cpu, $control, $tsc; [$precode, $code]
-            }),*
+           $($($mat)|* => instr!{ @# $($mnem)* #@ [$code] }),*
+        }
+    };
+
+    (match ($precode:expr, $code:expr) {
+            $($($mat:pat)|* => {$($mnem:tt)*})*
+        }
+    ) => {
+        match $code {
+           $($($mat)|* => instr!{ @# $($mnem)* #@ [$precode, $code] }),*
         }
     };
 }
