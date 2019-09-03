@@ -104,7 +104,7 @@ pub trait Memory {
 pub struct TsCounter<T: Copy>(pub Wrapping<T>);
 
 impl<T> TstateCounter for TsCounter<T>
-where T: Copy + PartialEq + PartialOrd + std::convert::From<u8>,
+where T: Copy + PartialEq + PartialOrd + core::convert::From<u8>,
       Wrapping<T>: AddAssign + Add<Output=Wrapping<T>>
 {
     type Limit = T;

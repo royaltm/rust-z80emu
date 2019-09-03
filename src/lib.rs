@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 #[macro_use]
 extern crate bitflags;
 
@@ -10,6 +12,7 @@ mod instructions;
 mod opcodes;
 mod host;
 
+use core::convert::TryFrom;
 use core::num::Wrapping;
 use core::mem::swap;
 

@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Rafal Michalski <royal@yeondir.com>"]
 edition = "2018"
 
+[features]
+default = ["std"]
+
+std = []
+
 [dependencies]
 # derive_more = "^0.15"
 bitflags = "1.1.0"
