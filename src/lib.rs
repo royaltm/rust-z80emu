@@ -7,6 +7,7 @@ mod registers;
 mod flags;
 mod ops;
 mod parse;
+mod debug;
 mod macros;
 mod instructions;
 mod opcodes;
@@ -19,7 +20,6 @@ use core::mem::swap;
 use serde::{Serialize, Deserialize};
 #[allow(unused_imports)]
 use log::{error, warn, info, debug, trace, log_enabled};
-use arrayvec::ArrayVec;
 
 use flags::*;
 use registers::*;
@@ -27,11 +27,9 @@ use parse::*;
 pub use host::*;
 use host::cycles::*;
 pub use parse::{Reg8, Reg16, Prefix};
+pub use debug::*;
 
 pub const NMI_RESTART: u16 = 0x66;
-
-pub type CpuDebugCode = ArrayVec::<[u8;4]>;
-pub type CpuDebugFn = fn(Prefix, CpuDebugCode, &str, core::fmt::Arguments);
 
 pub mod opconsts {
     pub const JP_OPCODE     : u8 = 0xC3;
@@ -113,6 +111,12 @@ fn is_int_allowed(prefix: Prefix, last_ei: bool) -> bool {
 }
 
 impl Cpu {
+    pub fn new() -> Self {
+        let mut cpu = Cpu::default();
+        cpu.reset();
+        cpu
+    }
+
     pub fn reset(&mut self) {
         self.af.set16(0xFFFF);
         self.af_alt.set16(0xFFFF);
@@ -260,7 +264,7 @@ impl Cpu {
     /// This is only possible in interrupt mode 0 and if the OUT instruction 0xD3 was placed on the bus.
     pub fn irq<M, T, F>(&mut self, control: &mut M, tsc: T, debug: Option<F>) -> Option<Result<T, T>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter,
-          F: FnOnce(Prefix, CpuDebugCode, &str, core::fmt::Arguments)
+          F: FnOnce(CpuDebug)
     {
         if self.is_irq_possible() {
             Some(self.irq_no_check::<M,T,F>(control, tsc, debug))
@@ -274,7 +278,7 @@ impl Cpu {
     /// Err indicates OUT instruction aborted execution, probably due to the need of Contention to be changed.
     fn irq_no_check<M, T, F>(&mut self, control: &mut M, mut tsc: T, debug: Option<F>) -> Result<T, T>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter,
-          F: FnOnce(Prefix, CpuDebugCode, &str, core::fmt::Arguments)
+          F: FnOnce(CpuDebug)
     {
         self.di();
         self.inc_r();
@@ -301,7 +305,7 @@ impl Cpu {
             InterruptMode::Mode2 => {
                 let ir = self.get_ir();
                 tsc.add_no_mreq(ir, 1); // ir:1
-                push16!(pc; self, control, tsc); // sp-1:3, sp-2:3
+                self.push16(pc, control, &mut tsc); // sp-1:3, sp-2:3
                 let vaddr = ir & 0xFF00 | control.irq_data(pc, tsc.as_timestamp()) as u16;
                 self.pc.set16(vaddr);
                 self.execute_instruction::<M,T,F>(control, tsc, debug, opconsts::JP_OPCODE) // pc+1:3,pc+2:3
@@ -336,9 +340,39 @@ impl Cpu {
         }
         tsc.add_mreq(pc, M1_CYCLE); // pc:4
         tsc.add_no_mreq(self.get_ir(), 1); // ir:1
-        push16!(pc; self, control, tsc); // sp-1:3, sp-2:3
+        self.push16(pc, control, &mut tsc); // sp-1:3, sp-2:3
         self.pc.set16(NMI_RESTART);
         tsc
+    }
+
+    #[inline(always)]
+    fn pop16<M, T>(&mut self, control: &mut M, tsc: &mut T) -> u16
+    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter
+    { // sp:3,sp+1:3
+        let sp = self.sp.get16();
+        let val = control.read_mem16(sp, tsc.add_mreq(sp, MEMRW_CYCLE));
+        tsc.add_mreq(sp.wrapping_add(1), MEMRW_CYCLE);
+        self.sp.set16(sp.wrapping_add(2));
+        val
+    }
+
+    #[inline(always)]
+    fn push16<M, T>(&mut self, val: u16, control: &mut M, tsc: &mut T)
+    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter
+    { // sp-1:3,sp-2:3
+        let [vlo, vhi] = val.to_le_bytes();
+        self.push2(vhi, vlo, control, tsc);
+    }
+
+    #[inline(always)]
+    fn push2<M, T>(&mut self, vhi: u8, vlo: u8, control: &mut M, tsc: &mut T)
+    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter
+    { // sp-1:3,sp-2:3
+        let sp = self.sp.get16().wrapping_sub(1);
+        control.write_mem(sp, vhi, tsc.add_mreq(sp, MEMRW_CYCLE));
+        let sp = sp.wrapping_sub(1);
+        control.write_mem(sp, vlo, tsc.add_mreq(sp, MEMRW_CYCLE));
+        self.sp.set16(sp);
     }
 
     #[inline]
@@ -637,10 +671,25 @@ impl Cpu {
         (should_break, None)
     }
 
+    #[inline]
+    fn ops8(&mut self, op: Ops8, val: u8, flags: &mut CpuFlags) {
+        match op {
+            Ops8::ADD => self.af.op8hi(|a| ops::add(a, val, flags)),
+            Ops8::ADC => self.af.op8hi(|a| ops::adc(a, val, flags)),
+            Ops8::SUB => self.af.op8hi(|a| ops::sub(a, val, flags)),
+            Ops8::SBC => self.af.op8hi(|a| ops::sbc(a, val, flags)),
+            Ops8::AND => self.af.op8hi(|a| ops::and(a, val, flags)),
+            Ops8::XOR => self.af.op8hi(|a| ops::xor(a, val, flags)),
+            Ops8::OR  => self.af.op8hi(|a| ops::or( a, val, flags)),
+            Ops8::CP  => ops::cp(self.af.get8hi(), val, flags),
+        }
+    }
+
+
     /// Err indicates Io has signalled on OUT instruction, e.g. due to the need of Contention to be changed.
     pub fn execute_instruction<M, T, F>(&mut self, control: &mut M, mut tsc: T, debug: Option<F>, code: u8) -> Result<T, T>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter,
-          F: FnOnce(Prefix, CpuDebugCode, &str, core::fmt::Arguments)
+          F: FnOnce(CpuDebug)
     {
         self.last_ei = false;
         self.halt = false;
@@ -661,10 +710,10 @@ impl Cpu {
         }
     }
 
-    /// Err indicates OUT instruction aborted execution, probably due to the need of Contention to be changed.
+    /// Err indicates that the OUT instruction aborted the execution, probably due to the need of Contention to be changed.
     pub fn execute_next<M, T, F>(&mut self, control: &mut M, mut tsc: T, debug: Option<F>) -> Result<T, T>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: TstateCounter,
-          F: FnOnce(Prefix, CpuDebugCode, &str, core::fmt::Arguments)
+          F: FnOnce(CpuDebug)
     {
         if control.is_irq(tsc.as_timestamp()) && self.is_irq_possible() {
             return self.irq_no_check::<M,T,F>(control, tsc, debug);

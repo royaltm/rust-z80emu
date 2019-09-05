@@ -150,6 +150,7 @@ macro_rules! execute_instruction {
     $deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident; break $main:tt) => {{
 
         define_instructions_scoped!($deb; $prefix, $flags, $pc, $cpu, $control, $tsc);
+        define_helpers_scoped!([$] $deb; $prefix, $flags, $pc, $cpu, $control, $tsc);
 
         'repeat: loop {
             match $prefix {
@@ -183,16 +184,16 @@ macro_rules! instruction_dispatch {
         }
     ) => {
         match $code {
-           $($($mat)|* => instr!{ @# $($mnem)* #@ [$code] }),*
+           $($($mat)|* => run_mnemonic!{ $($mnem)* @@@ $code }),*
         }
     };
 
-    (match ($precode:expr, $code:expr) {
+    (match ($code0:expr, $code1:expr) {
             $($($mat:pat)|* => {$($mnem:tt)*})*
         }
     ) => {
-        match $code {
-           $($($mat)|* => instr!{ @# $($mnem)* #@ [$precode, $code] }),*
+        match $code1 {
+           $($($mat)|* => run_mnemonic!{ $($mnem)* @@@ $code0, $code1 }),*
         }
     };
 }

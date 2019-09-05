@@ -251,52 +251,27 @@ impl Reg8 {
         Reg8::try_from(code)
     }
 
-    /// Returns a different fmt::Display implementation based on prefix.
-    /// E.g. for Reg8::H returns &"IXh" if prefix is Prefix::Xdd.
-    /// Otherwise returns the default implementation.
-    pub fn as_display(&self, prefix: Prefix) -> &dyn fmt::Display {
-        match self {
-            Reg8::H => match prefix {
-                Prefix::None => self,
-                Prefix::Xdd => &"IXh",
-                Prefix::Yfd => &"IYh",
-            }
-            Reg8::L => match prefix {
-                Prefix::None => self,
-                Prefix::Xdd => &"IXl",
-                Prefix::Yfd => &"IYl",
-            }
-            _ => self
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Reg8ParseResultDisplayWrap(pub Result<Reg8,()>);
-
-/// Displays the result of code conversion into Reg8 as a register symbol
-/// on Ok(Reg8) or "(HL)" on Err(()).
-impl fmt::Display for Reg8ParseResultDisplayWrap {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self.0 {
-            Ok(reg) => reg.fmt(f),
-            Err(_) => write!(f, "(HL)"),
+    /// Formats the given formatter based on prefix.
+    /// E.g. for Reg8::H writes "IXh" if prefix is Prefix::Xdd.
+    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
+        match (self, prefix) {
+            (Reg8::H, Prefix::Xdd) => f.write_str("IXh"),
+            (Reg8::H, Prefix::Yfd) => f.write_str("IYh"),
+            (Reg8::L, Prefix::Xdd) => f.write_str("IXl"),
+            (Reg8::L, Prefix::Yfd) => f.write_str("IYl"),
+            _ => fmt::Display::fmt(self, f)
         }
     }
 }
 
 impl Reg16 {
-    /// Returns a different fmt::Display implementation based on prefix.
-    /// E.g. for Reg16::HL returns &"IX" if prefix is Prefix::Xdd.
-    /// Otherwise returns the default implementation.
-    pub fn as_display(&self, prefix: Prefix) -> &dyn fmt::Display {
-        match self {
-            Reg16::HL => match prefix {
-                Prefix::None => self,
-                Prefix::Xdd => &"IX",
-                Prefix::Yfd => &"IY",
-            }
-            _ => self
+    /// Formats the given formatter based on prefix.
+    /// E.g. for Reg16::HL writes "IX" if prefix is Prefix::Xdd.
+    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
+        match (self, prefix) {
+            (Reg16::HL, Prefix::Xdd) => f.write_str("IX"),
+            (Reg16::HL, Prefix::Yfd) => f.write_str("IY"),
+            _ => fmt::Display::fmt(self, f),
         }
     }
 }
@@ -331,19 +306,6 @@ impl From<u8> for BitOps {
             0b10_000_000 => BitOps::Res(parse_code_bitnum(code), arg),
             0b11_000_000 => BitOps::Set(parse_code_bitnum(code), arg),
             _ => unsafe { core::hint::unreachable_unchecked() }
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct BitNumDisplayWrap(pub Option<u32>);
-
-/// Displays the bit number and a comma afterwards on Some(u32) otherwise nothing.
-impl fmt::Display for BitNumDisplayWrap {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self.0 {
-            Some(bit) => write!(f, "{}, ", bit),
-            None => Ok(())
         }
     }
 }
