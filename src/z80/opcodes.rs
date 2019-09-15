@@ -102,44 +102,44 @@ macro_rules! match_instruction {
     (ED [$code:expr]; break $main:tt) => { instruction_dispatch! {
         match (0xED, $code) {
             0x00..=0x3F|0x7F..=0x9F|0xA4..=0xA7|0xAC..=0xAF|0xB4..=0xB7|0xBC..=0xFF|
-            0x77 => {                          NOP *                   }
+            0x77 => {                   NOP *                           }
             0x44|0x4C|0x54|0x5C|
-            0x64|0x6C|0x74|0x7C => {           NEG                     }
-            0x46|0x4E|0x66|0x6E => {           IM 0                    }
-            0x56|0x76 => {                     IM 1                    }
-            0x5E|0x7E => {                     IM 2                    }
-            0x4B|0x5B|0x6B|0x7B => {           LD   dd,(nn)            } // 0b01_dd_1011
-            0x43|0x53|0x63|0x73 => {           LD   (nn),dd            } // 0b01_dd_0011
-            0x57 => {                          LD   A, I               }
-            0x5F => {                          LD   A, R               }
-            0x47 => {                          LD   I, A               }
-            0x4F => {                          LD   R, A               }
-            0x4A|0x5A|0x6A|0x7A => {           ADC  HL, dd             } // 0b01_ss_1010
-            0x42|0x52|0x62|0x72 => {           SBC  HL, dd             } // 0b01_ss_0010
-            0x6F => {                          RLD                     }
-            0x67 => {                          RRD                     }
+            0x64|0x6C|0x74|0x7C => {    NEG                             }
+            0x46|0x4E|0x66|0x6E => {    IM 0                            }
+            0x56|0x76 => {              IM 1                            }
+            0x5E|0x7E => {              IM 2                            }
+            0x4B|0x5B|0x6B|0x7B => {    LD   dd,(nn)                    } // 0b01_dd_1011
+            0x43|0x53|0x63|0x73 => {    LD   (nn),dd                    } // 0b01_dd_0011
+            0x57 => {                   LD   A, I                       }
+            0x5F => {                   LD   A, R                       }
+            0x47 => {                   LD   I, A                       }
+            0x4F => {                   LD   R, A                       }
+            0x4A|0x5A|0x6A|0x7A => {    ADC  HL, dd                     } // 0b01_ss_1010
+            0x42|0x52|0x62|0x72 => {    SBC  HL, dd                     } // 0b01_ss_0010
+            0x6F => {                   RLD                             }
+            0x67 => {                   RRD                             }
             0x45|0x4D|0x55|0x5D|
-            0x65|0x6D|0x75|0x7D => {           RETI | RETN             }
-            0xA0 => {                          LDI                     }
-            0xA8 => {                          LDD                     }
-            0xB0 => {                          LDIR                    }
-            0xB8 => {                          LDDR                    }
-            0xA1 => {                          CPI                     }
-            0xA9 => {                          CPD                     }
-            0xB1 => {                          CPIR                    }
-            0xB9 => {                          CPDR                    }
-            0xA2 => {                          INI                     }
-            0xAA => {                          IND                     }
-            0xB2 => {                          INIR                    }
-            0xBA => {                          INDR                    }
-            0xA3 => {                          OUTI | break $main      }
-            0xAB => {                          OUTD | break $main      }
-            0xB3 => {                          OTIR | break $main      }
-            0xBB => {                          OTDR | break $main      }
+            0x65|0x6D|0x75|0x7D => {    RETN | RETI | break $main       }
+            0xA0 => {                   LDI                             }
+            0xA8 => {                   LDD                             }
+            0xB0 => {                   LDIR                            }
+            0xB8 => {                   LDDR                            }
+            0xA1 => {                   CPI                             }
+            0xA9 => {                   CPD                             }
+            0xB1 => {                   CPIR                            }
+            0xB9 => {                   CPDR                            }
+            0xA2 => {                   INI                             }
+            0xAA => {                   IND                             }
+            0xB2 => {                   INIR                            }
+            0xBA => {                   INDR                            }
+            0xA3 => {                   OUTI | break $main              }
+            0xAB => {                   OUTD | break $main              }
+            0xB3 => {                   OTIR | break $main              }
+            0xBB => {                   OTDR | break $main              }
             0x40|0x48|0x50|0x58|
-            0x60|0x68|0x70|0x78 => {           IN  r, (C)              } // 0b01_rrr_000
+            0x60|0x68|0x70|0x78 => {    IN  r, (C)                      } // 0b01_rrr_000
             0x41|0x49|0x51|0x59|
-            0x61|0x69|0x71|0x79 => {           OUT (C),r | break $main } // 0b01_rrr_001
+            0x61|0x69|0x71|0x79 => {    OUT (C),r | break $main         } // 0b01_rrr_001
         }
     }};
 }

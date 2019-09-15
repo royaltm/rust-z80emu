@@ -4,7 +4,6 @@ use core::convert::TryFrom;
 use core::fmt;
 use serde::{Serialize, Deserialize};
 use super::flags::CpuFlags;
-use super::ops;
 
 /// A prefix enum that modifies behaviour of the next op-code.
 /// It's also instrumental in preventing interrupts prematurely.
@@ -88,10 +87,10 @@ macro_rules! reg_enum_mask_try_from {
 /// 2. All items must exhaust all possible bitwise combinations.
 /// Otherwise UB.
 macro_rules! reg_enum_mask_from {
-    ($name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
+    ($vis:vis $name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         #[repr(u8)]
-        pub enum $name {
+        $vis enum $name {
             $($n = $e,)*
         }
 
@@ -138,7 +137,7 @@ reg_enum_mask_try_from!{
 }
 
 reg_enum_mask_from!{
-    StkReg16  & (0b00_11_0000) {
+pub StkReg16  & (0b00_11_0000) {
             BC = 0b00_00_0000;
             DE = 0b00_01_0000;
             HL = 0b00_10_0000;
@@ -147,7 +146,7 @@ reg_enum_mask_from!{
 }
 
 reg_enum_mask_from!{
-    Reg16 & (0b00_11_0000) {
+pub Reg16 & (0b00_11_0000) {
         BC = 0b00_00_0000;
         DE = 0b00_01_0000;
         HL = 0b00_10_0000;
@@ -156,6 +155,7 @@ reg_enum_mask_from!{
 }
 
 reg_enum_mask_from!{
+pub(crate)
     Ops8   & (0b00_111_000) {
         ADD = 0b00_000_000;
         ADC = 0b00_001_000;
@@ -169,6 +169,7 @@ reg_enum_mask_from!{
 }
 
 reg_enum_mask_from!{
+pub(crate)
     Rot    & (0b00_111_000) {
         RLC = 0b00_000_000;
         RRC = 0b00_001_000;
@@ -181,7 +182,7 @@ reg_enum_mask_from!{
     }
 }
 
-reg_enum_mask_from!{ Condition
+reg_enum_mask_from!{ pub Condition
            & (0b00_111_000) {
         NZ  = 0b00_000_000;
         Z   = 0b00_001_000;
@@ -197,7 +198,7 @@ reg_enum_mask_from!{ Condition
 impl Condition {
     /// Parses JR cc OPCODE into one of the conditional variant.
     #[inline]
-    pub fn from_jr_subset(code: u8) -> Self {
+    pub(crate) fn from_jr_subset(code: u8) -> Self {
         Condition::from(code & 0b00_011_000)
     }
     #[inline]
@@ -215,44 +216,27 @@ impl Condition {
     }
 }
 
-/// Converts Rot enum into one of the appriopriate ops function.
-impl From<Rot> for fn(u8, &mut CpuFlags) -> u8 {
-    #[inline]
-    fn from(rot: Rot) -> Self {
-        match rot {
-            Rot::RLC  => ops::rlc,
-            Rot::RRC  => ops::rrc,
-            Rot::RL   => ops::rl,
-            Rot::RR   => ops::rr,
-            Rot::SLA  => ops::sla,
-            Rot::SRA  => ops::sra,
-            Rot::SLL  => ops::sll,
-            Rot::SRL  => ops::srl
-        }
-    }
-}
-
 impl Reg8 {
     /// Attepmpts to convert bits 3..=5 and 0..=2 of code into a tuple of Reg8 enums.
     #[inline(always)]
-    pub fn tuple_from_b5_3_and_b2_0(code: u8) -> (Result<Reg8,()>, Result<Reg8,()>) {
+    pub(crate) fn tuple_from_b5_3_and_b2_0(code: u8) -> (Result<Reg8,()>, Result<Reg8,()>) {
         (Reg8::try_from(code >> 3), Reg8::try_from(code))
     }
 
     /// Attepmpts to convert bits 3..=5 of code into a Reg8 enum.
     #[inline(always)]
-    pub fn from_b5_3(code: u8) -> Result<Reg8,()> {
+    pub(crate) fn from_b5_3(code: u8) -> Result<Reg8,()> {
         Reg8::try_from(code >> 3)
     }
 
     /// Attepmpts to convert bits 0..=2 of code into a Reg8 enum.
     #[inline(always)]
-    pub fn from_b2_0(code: u8) -> Result<Reg8,()> {
+    pub(crate) fn from_b2_0(code: u8) -> Result<Reg8,()> {
         Reg8::try_from(code)
     }
 
-    /// Formats the given formatter based on prefix.
-    /// E.g. for Reg8::H writes "IXh" if prefix is Prefix::Xdd.
+    /// Formats `Reg8` as a string with the given formatter with `prefix` modification.
+    /// E.g. for [Reg8::H] writes "IXh" if prefix is [Prefix::Xdd].
     pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
         match (self, prefix) {
             (Reg8::H, Prefix::Xdd) => f.write_str("IXh"),
@@ -265,8 +249,8 @@ impl Reg8 {
 }
 
 impl Reg16 {
-    /// Formats the given formatter based on prefix.
-    /// E.g. for Reg16::HL writes "IX" if prefix is Prefix::Xdd.
+    /// Formats `Reg16` as a string with the given formatter with `prefix` modification.
+    /// E.g. for [Reg16::HL] writes "IX" if prefix is [Prefix::Xdd].
     pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
         match (self, prefix) {
             (Reg16::HL, Prefix::Xdd) => f.write_str("IX"),
@@ -279,7 +263,7 @@ impl Reg16 {
 /// An enum for dispatching 0xCB prefixed instructions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
-pub enum BitOps {
+pub(crate) enum BitOps {
     /// Bitwise shift and rotate group.
     Rot(Rot,Result<Reg8,()>),
     /// BIT b, r|(HL)
@@ -312,14 +296,14 @@ impl From<u8> for BitOps {
 
 /// Parses RST instruction code as an absolute target address.
 #[inline(always)]
-pub fn parse_restart_address(code: u8) -> u16 {
+pub(crate) fn parse_restart_address(code: u8) -> u16 {
     (code & 0b00_111_000) as u16
 }
 
 /// Determines the direction for the block instruction group.
 #[derive(Clone, Copy, Debug)]
 #[repr(i8)]
-pub enum BlockDelta {
+pub(crate) enum BlockDelta {
     Increase = 1,
     Decrease = -1
 }

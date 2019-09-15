@@ -4,63 +4,22 @@ extern crate test;
 use core::num::NonZeroI64;
 use test::{black_box, Bencher, stats::Summary};
 use serde_json::Value;
-
-
 use rand::prelude::*;
+
+#[path = "../tests/shuffle/mod.rs"]
+mod shuffle;
+
 use z80emu::*;
+use shuffle::*;
 
 const KERNEL: &[u8] = include_bytes!("../tests/shuffle/shuffle.bin");
 const META: &str = include_str!("../tests/shuffle/shuffle.meta");
 
 type TsClock = TsCounter<i32>;
 
-#[derive(Clone,Debug,Default)]
-struct TestShuffle {
-    mem: Vec<u8>
-}
-
-impl Io for TestShuffle {
-    type Timestamp = i32;
-    #[inline(always)]
-    fn read_io(&mut self, _port: u16, _ts: Self::Timestamp) -> u8 { u8::max_value() }
-    #[inline(always)]
-    fn write_io(&mut self, _port: u16, _data: u8, _ts: Self::Timestamp) -> bool { false }
-    #[inline(always)]
-    fn is_irq(&self, _ts: Self::Timestamp) -> bool { false }
-}
-
-impl Memory for TestShuffle {
-    type Timestamp = i32;
-    #[inline(always)]
-    fn read_mem(&self, addr: u16, _ts: Self::Timestamp) -> u8 {
-        self.read_debug(addr)
-    }
-    #[inline(always)]
-    fn read_mem16(&self, addr: u16, _ts: Self::Timestamp) -> u16 {
-        let mut bytes = [0;2];
-        bytes.copy_from_slice(&self.mem[addr as usize..=addr as usize + 1]);
-        u16::from_le_bytes(bytes)
-    }
-    #[inline(always)]
-    fn read_opcode(&mut self, pc: u16, _ir: u16, _ts: Self::Timestamp) -> u8 {
-        self.read_debug(pc)
-    }
-    /// This is used by the Cpu for writing to the memory.
-    #[inline(always)]
-    fn write_mem(&mut self, addr: u16, value: u8, _ts: Self::Timestamp) {
-        self.mem[addr as usize] = value;
-    }
-    /// Used by the Cpu debugger to get conditional command argument (DJNZ/JR when not jumping). No timestamp.
-    #[inline(always)]
-    fn read_debug(&self, addr: u16) -> u8 {
-        self.mem[addr as usize]
-    }
-}
-
-
 #[bench]
 fn bench_shuffle(ben: &mut Bencher) {
-    let mut cpu = Cpu::default();
+    let mut cpu = Z80::default();
     let mut shuffle = TestShuffle::default();
     shuffle.mem.extend_from_slice(KERNEL);
 

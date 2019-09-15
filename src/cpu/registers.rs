@@ -39,17 +39,17 @@ impl core::convert::TryFrom<u8> for InterruptMode {
 
 /// A block of BC, DE and HL registers.
 #[derive(Clone,Copy,Default,PartialEq,Eq,Serialize,Deserialize,Debug)]
-pub struct GeneralRegisters {
-    pub bc: RegisterPair,
-    pub de: RegisterPair,
-    pub hl: RegisterPair
+pub(crate) struct GeneralRegisters {
+    pub(crate) bc: RegisterPair,
+    pub(crate) de: RegisterPair,
+    pub(crate) hl: RegisterPair
 }
 
 /// A block of IX and IY registers.
 #[derive(Clone,Copy,Default,PartialEq,Eq,Serialize,Deserialize,Debug)]
-pub struct IndexRegisters {
-    pub ix: RegisterPair,
-    pub iy: RegisterPair
+pub(crate) struct IndexRegisters {
+    pub(crate) ix: RegisterPair,
+    pub(crate) iy: RegisterPair
 }
 
 /// A struct that represent a register pair, that can be treated as a single 16-bit

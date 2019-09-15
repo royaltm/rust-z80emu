@@ -87,14 +87,14 @@ macro_rules! run_mnemonic {
         {
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code] DI );
-            $cpu.di();
+            $cpu.disable_interrupts();
         }
     };
     (     EI break $main:tt         @@@ $code:expr) => {
         {
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code] EI );
-            $cpu.ei();
+            $cpu.enable_interrupts();
             break $main LoopExitReason::EnableInt;
         }
     };
@@ -102,21 +102,21 @@ macro_rules! run_mnemonic {
         {
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] IM  n:0);
-            $cpu.im(InterruptMode::Mode0);
+            $cpu.set_im(InterruptMode::Mode0);
         }
     };
     (     IM 1                      @@@ $code0:expr, $code1:expr) => {
         {
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] IM  n:1);
-            $cpu.im(InterruptMode::Mode1);
+            $cpu.set_im(InterruptMode::Mode1);
         }
     };
     (     IM 2                      @@@ $code0:expr, $code1:expr) => {
         {
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] IM  n:2);
-            $cpu.im(InterruptMode::Mode2);
+            $cpu.set_im(InterruptMode::Mode2);
         }
     };
     (     LD r,r | LD (HL),r | LD r,(HL) | HALT break $main:tt  @@@ $code:expr) => {
@@ -125,17 +125,17 @@ macro_rules! run_mnemonic {
             match Reg8::tuple_from_b5_3_and_b2_0($code) {
                 (Ok(dst), Ok(src)) => {
                     cpu_debug!([$code] LD r:dst, r:src);
-                    $cpu.load8(dst, src, Prefix::None);
+                    $cpu.load_reg(dst, src, Prefix::None);
                 }
                 (Ok(dst), Err(_)) => {
                     cpu_debug!([$code] LD r:dst, addr:HL);
                     // ss:3
-                    $cpu.set8(dst, read_mem8_reg16!(<- [hl]), Prefix::None);
+                    $cpu.set_reg(dst, Prefix::None, read_mem8_reg16!(<- [hl]));
                 }
                 (Err(_), Ok(src)) => {
                     cpu_debug!([$code] LD addr:HL, r:src);
                     // ss:3
-                    write_mem8_reg16!([hl] <- $cpu.get8(src, Prefix::None));
+                    write_mem8_reg16!([hl] <- $cpu.get_reg(src, Prefix::None));
                 }
                 _ => { // HALT
                     cpu_debug!([$code] HALT);
@@ -155,7 +155,7 @@ macro_rules! run_mnemonic {
                 (Ok(dst), Ok(src @ Reg8::H))|
                 (Ok(dst), Ok(src @ Reg8::L)) => {
                     cpu_debug!([$code] LD q:dst, q:src);
-                    $cpu.load8(dst, src, $prefix);
+                    $cpu.load_reg(dst, src, $prefix);
                 }
                 (Ok(dst), Err(_)) => {
                     // pc+2:3, pc+2:1 x 5
@@ -164,7 +164,7 @@ macro_rules! run_mnemonic {
                     // ii+d:3
                     // MEMPTR = INDEX+d
                     let val = read_mem8_reg16!(<- [ii+d] memptr=ii+d);
-                    $cpu.set8(dst, val, Prefix::None);
+                    $cpu.set_reg(dst, Prefix::None, val);
                 }
                 (Err(_), Ok(src)) => {
                     // pc+2:3, pc+2:1 x 5
@@ -172,7 +172,7 @@ macro_rules! run_mnemonic {
                     cpu_debug!([$code, d] LD ii:d, r:src);
                     // ii+d:3
                     // MEMPTR = INDEX+d
-                    write_mem8_reg16!([ii+d] <- $cpu.get8(src, Prefix::None); memptr=ii+d);
+                    write_mem8_reg16!([ii+d] <- $cpu.get_reg(src, Prefix::None); memptr=ii+d);
                 }
                 _ => {
                     $prefix = Prefix::None;
@@ -188,7 +188,7 @@ macro_rules! run_mnemonic {
             match Reg8::from_b5_3($code) {
                 Ok(dst) => {
                     cpu_debug!([$code, n] LD  r:dst, n:n);
-                    $cpu.set8(dst, n, Prefix::None);
+                    $cpu.set_reg(dst, Prefix::None, n);
                 }
                 Err(_) => { // pc+1:3, hl:3
                     cpu_debug!([$code, n] LD addr:HL, n:n);
@@ -204,7 +204,7 @@ macro_rules! run_mnemonic {
                 Ok(dst @ Reg8::H) | Ok(dst @ Reg8::L) => {
                     let n: u8 = fetch_next_imm8!();
                     cpu_debug!([$code, n] LD q:dst, n:n);
-                    $cpu.set8(dst, n, $prefix);
+                    $cpu.set_reg(dst, $prefix, n);
                 }
                 _ => debug_unreachable_unchecked!()
             }
@@ -255,7 +255,7 @@ macro_rules! run_mnemonic {
             // nn:3
             // LD A, (nn) MEMPTR = addr + 1
             $cpu.memptr.set16(nn.wrapping_add(1));
-            let n = $control.read_mem(nn, $tsc.add_mreq(nn, MEMRW_CYCLE));
+            let n = $control.read_mem(nn, $tsc.add_mreq(nn));
             $cpu.af.set8hi(n);
         }        
     };
@@ -268,7 +268,7 @@ macro_rules! run_mnemonic {
             // nn: 3
             // MEMPTR_low = (nn + 1) & #FF,  MEMPTR_hi = A
             $cpu.memptr.set16(nn.wrapping_add(1) & 0xFF | (a as u16) << 8);
-            $control.write_mem(nn, a, $tsc.add_mreq(nn, MEMRW_CYCLE));
+            $control.write_mem(nn, a, $tsc.add_mreq(nn));
         }
     };
     (     LD A,I                    @@@ $code0:expr, $code1:expr) => {
@@ -301,7 +301,7 @@ macro_rules! run_mnemonic {
             let nn: u16 = fetch_next_imm16!();
             let dst = Reg16::from($code);
             cpu_debug!([$code, nn as u8, (nn >> 8) as u8] LD rr:dst, nn:nn);
-            $cpu.set16(dst, nn);
+            $cpu.set_reg16(dst, nn);
         }
     };
     (     LD ii,nn                  @@@ $code:expr) => {
@@ -338,7 +338,7 @@ macro_rules! run_mnemonic {
             cpu_debug!([$code0, $code1, addr as u8, (addr >> 8) as u8] LD rr:reg, adnn:addr);
             // LD rp,(addr) MEMPTR = addr + 1
             let nn: u16 = read_mem16_addr16!(<- [addr] memptr=addr+1);
-            $cpu.set16(reg, nn);
+            $cpu.set_reg16(reg, nn);
         }
     };
     (     LD (nn),dd                @@@ $code0:expr, $code1:expr) => {
@@ -347,7 +347,7 @@ macro_rules! run_mnemonic {
             let addr: u16 = fetch_next_imm16!();
             let reg = Reg16::from($code1);
             cpu_debug!([$code0, $code1, addr as u8, (addr >> 8) as u8] LD adnn:addr, rr:reg);
-            let (vhi, vlo) = $cpu.get2(reg);
+            let (vhi, vlo) = $cpu.get_reg2(reg);
             // LD (addr),rp MEMPTR = addr + 1
             write_mem16_addr16!([addr] <- (vhi, vlo); memptr=addr+1);
         }
@@ -419,7 +419,7 @@ macro_rules! run_mnemonic {
         {
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code] EX  ss:AF, ss:AF);
-            $flags = $cpu.ex_af_af($flags);
+            $flags = $cpu.ex_af_af_with_flags($flags);
         }
     };
     (     EXX                       @@@ $code:expr) => {
@@ -514,15 +514,15 @@ macro_rules! run_mnemonic {
             let op = Ops8::from($code);
             let val: u8 = match arg {
                 Ok(src) => {
-                    $cpu.get8(src, Prefix::None)
+                    $cpu.get_reg(src, Prefix::None)
                 }
                 // hl:3
                 Err(_) => {
                     read_mem8_reg16!(<- [hl])
                 }
             };
-            cpu_debug!([$code] str(op) r_addr:arg);
-            $cpu.ops8(op, val, &mut $flags);
+            cpu_debug!([$code] op8(op) r_addr:arg);
+            $cpu.op8(op, val, &mut $flags);
             
         }
     };
@@ -532,13 +532,13 @@ macro_rules! run_mnemonic {
             let op = Ops8::from($code);
             let val: u8 = match Reg8::from_b2_0($code) {
                 Ok(src @ Reg8::H) | Ok(src @ Reg8::L) => {
-                    cpu_debug!([$code] str(op) q:src);
-                    $cpu.get8(src, $prefix)
+                    cpu_debug!([$code] op8(op) q:src);
+                    $cpu.get_reg(src, $prefix)
                 }
                 Err(_) => {
                     // pc+2:3, pc+2:1 x 5, ii+n:3
                     let d: u8 = fetch_next_imm8!(no_mreq: 1x 5);
-                    cpu_debug!([$code, d] str(op) ii:d);
+                    cpu_debug!([$code, d] op8(op) ii:d);
                     // ii+d:3
                     // MEMPTR = INDEX+d
                     read_mem8_reg16!(<- [ii+d] memptr=ii+d)
@@ -548,7 +548,7 @@ macro_rules! run_mnemonic {
                     continue $label;
                 }
             };
-            $cpu.ops8(op, val, &mut $flags);
+            $cpu.op8(op, val, &mut $flags);
         }
     };
     (     @ops A,n                  @@@ $code:expr) => {
@@ -556,8 +556,8 @@ macro_rules! run_mnemonic {
             debug_assert_eq!($prefix, Prefix::None);
             let n: u8 = fetch_next_imm8!();
             let op = Ops8::from($code);
-            $cpu.ops8(op, n, &mut $flags);
-            cpu_debug!([$code, n] str(op) n:n);
+            $cpu.op8(op, n, &mut $flags);
+            cpu_debug!([$code, n] op8(op) n:n);
         }
     };
     (     INC r | INC (HL)          @@@ $code:expr) => {
@@ -589,7 +589,7 @@ macro_rules! run_mnemonic {
             $tsc.add_no_mreq($cpu.get_ir(), 7);
             let src = Reg16::from($code);
             cpu_debug!([$code] ADD qq:ii, qq:src);
-            let nn = $cpu.get_prefix16(src, $prefix);
+            let nn = $cpu.get_reg_prefix16(src, $prefix);
             let memptr = &mut $cpu.memptr;
             match $prefix {
                 Prefix::Xdd  => &mut $cpu.index.ix,
@@ -608,7 +608,7 @@ macro_rules! run_mnemonic {
             $tsc.add_no_mreq($cpu.get_ir(), 7);
             let src = Reg16::from($code1);
             cpu_debug!([$code0, $code1] ADC rr:HL, rr:src);
-            let nn = $cpu.get16(src);
+            let nn = $cpu.get_reg16(src);
             let memptr = &mut $cpu.memptr;
             $cpu.regs.hl.op16(|v| {
                 // ADD/ADC/SBC rp1,rp2 MEMPTR = rp1_before_operation + 1
@@ -623,7 +623,7 @@ macro_rules! run_mnemonic {
             $tsc.add_no_mreq($cpu.get_ir(), 7);
             let src = Reg16::from($code1);
             cpu_debug!([$code0, $code1] SBC rr:HL, rr:src);
-            let nn = $cpu.get16(src);
+            let nn = $cpu.get_reg16(src);
             let memptr = &mut $cpu.memptr;
             $cpu.regs.hl.op16(|v| {
                 // ADD/ADC/SBC rp1,rp2 MEMPTR = rp1_before_operation + 1
@@ -687,7 +687,7 @@ macro_rules! run_mnemonic {
                     BitOps::Rot(rot, arg) => {
                         let rot_fn: fn(u8, &mut CpuFlags) -> u8 = rot.into();
                         match arg {
-                            Ok(reg) => $cpu.op8(reg, Prefix::None, |v| rot_fn(v, &mut $flags)),
+                            Ok(reg) => $cpu.apply_reg8(reg, Prefix::None, |v| rot_fn(v, &mut $flags)),
                             Err(_) => { // hl:3, hl:1, hl(write):3
                                 r_op_w_mem8!(rot_fn [hl]);
                             }
@@ -697,7 +697,7 @@ macro_rules! run_mnemonic {
                     }
                     BitOps::Bit(b, arg) => {
                         match arg {
-                            Ok(reg) => ops::bit(b, $cpu.get8(reg, Prefix::None), &mut $flags),
+                            Ok(reg) => ops::bit(b, $cpu.get_reg(reg, Prefix::None), &mut $flags),
                             Err(_) => { // hl:3, hl:1
                                 let val = read_mem8_reg16!(<- [hl]; no_mreq: 1x 1);
                                 ops::bit_mp(b, val, $cpu.memptr.get8hi(), &mut $flags);
@@ -716,7 +716,7 @@ macro_rules! run_mnemonic {
                     }
                 };
                 match arg {
-                    Ok(reg) => $cpu.op8(reg, Prefix::None, |v| setres_fn(b, v)),
+                    Ok(reg) => $cpu.apply_reg8(reg, Prefix::None, |v| setres_fn(b, v)),
                     Err(_) => { // hl:3, hl:1, hl(write):3
                         r_op_w_mem8!(setres_fn b, [hl]);
                     }
@@ -733,7 +733,7 @@ macro_rules! run_mnemonic {
             let ii_d = indexed_address!($cpu.get_index16($prefix), d);
             // Any instruction with (INDEX+d): MEMPTR = INDEX+d
             $cpu.memptr.set16(ii_d);
-            let val = $control.read_mem(ii_d, $tsc.add_mreq(ii_d, MEMRW_CYCLE));
+            let val = $control.read_mem(ii_d, $tsc.add_mreq(ii_d));
             $tsc.add_no_mreq(ii_d, 1);
             loop {
                 let (result, op, bit, arg) = match BitOps::from(code1) {
@@ -753,9 +753,9 @@ macro_rules! run_mnemonic {
                         (ops::set(b, val), "SET", Some(b), arg)
                     }
                 };
-                $control.write_mem(ii_d, result, $tsc.add_mreq(ii_d, MEMRW_CYCLE));
+                $control.write_mem(ii_d, result, $tsc.add_mreq(ii_d));
                 match arg {
-                    Ok(reg) => $cpu.set8(reg, result, Prefix::None),
+                    Ok(reg) => $cpu.set_reg(reg, Prefix::None, result),
                     Err(_) => {}
                 }
                 cpu_debug!([$code0, d, code1] str(op) maybe_b:bit, ii:d, maybe_r:arg);
@@ -825,7 +825,7 @@ macro_rules! run_mnemonic {
                 $pc = addr;
             }
             else {
-                $tsc.add_mreq($pc.0, MEMRW_CYCLE);
+                $tsc.add_mreq($pc.0);
                 let e = $control.read_debug($pc.0);
                 $pc += Wrapping(1);
                 cpu_debug!([$code, e] JR cc:cc, rel:e);
@@ -854,7 +854,7 @@ macro_rules! run_mnemonic {
                     $pc = addr;
                 }
                 else {
-                    $tsc.add_mreq($pc.0, MEMRW_CYCLE);
+                    $tsc.add_mreq($pc.0);
                     let e = $control.read_debug($pc.0);
                     $pc += Wrapping(1);
                     cpu_debug!([$code, e] DJNZ rel:e);
@@ -914,21 +914,25 @@ macro_rules! run_mnemonic {
             }
         }
     };
-    (     RETI | RETN               @@@ $code0:expr, $code1:expr) => {
+    (     RETN | RETI | break $main:tt  @@@ $code0:expr, $code1:expr) => {
         { // sp:3, sp+1:3
             debug_assert_eq!($prefix, Prefix::None);
-            $cpu.restore_iff(); // Both RETI and RETN do that.
-            if $code1 == opconsts::RETI_OPCODE {
+            $cpu.restore_iff1(); // Both RETI and RETN do that.
+            let should_break = if $code1 == opconsts::RETI_OPCODE_T2.1 {
                 cpu_debug!([$code0, $code1] RETI );
-                $control.reti($pc.0, $tsc.as_timestamp());
+                $control.reti($pc.0, $tsc.as_timestamp())
             }
             else {
                 cpu_debug!([$code0, $code1] RETN );
-            }
+                false
+            };
             let addr: u16 = pop16!();
             // JR/DJNZ/RET/RETI/RST (jumping to addr) MEMPTR = addr
             $cpu.memptr.set16(addr);
             $pc = Wrapping(addr);
+            if should_break {
+                break $main LoopExitReason::RetInt;
+            }
         }
     };
     (     RST p                     @@@ $code:expr) => {
@@ -965,7 +969,7 @@ macro_rules! run_mnemonic {
             match Reg8::from_b5_3($code1) {
                 Ok(dst) => { // IN r,(C)
                     cpu_debug!([$code0, $code1] IN r:dst, port:C);
-                    $cpu.set8(dst, val, Prefix::None);
+                    $cpu.set_reg(dst, Prefix::None, val);
                 }
                 Err(_) => { // IN F, (c)
                     cpu_debug!([$code0, $code1] IN port:C);
@@ -1031,7 +1035,7 @@ macro_rules! run_mnemonic {
             let val = match Reg8::from_b5_3($code1) {
                 Ok(src) => {
                     cpu_debug!([$code0, $code1] OUT port:C, r:src);
-                    $cpu.get8(src, Prefix::None)
+                    $cpu.get_reg(src, Prefix::None)
                 }
                 Err(_) => {// TODO: CMOS does OUT (C), 255
                     cpu_debug!([$code0, $code1] OUT port:C);
@@ -1190,7 +1194,7 @@ macro_rules! instr_inc_dec8 {
             cpu_debug!([$code] str(incdec_str!($op)) r_addr:arg);
             let opfn = ops::$op;
             match arg {
-                Ok(src) => $cpu.op8(src, Prefix::None, |v| opfn(v, &mut $flags)),
+                Ok(src) => $cpu.apply_reg8(src, Prefix::None, |v| opfn(v, &mut $flags)),
                 // hl:3,hl:1,hl(write):3
                 Err(_) => r_op_w_mem8!(opfn [hl])
             };
@@ -1203,7 +1207,7 @@ macro_rules! instr_inc_dec8 {
             match arg {
                 Ok(src @ Reg8::H) | Ok(src @ Reg8::L) => {
                     cpu_debug!([$code] str(incdec_str!($op)) q:src);
-                    $cpu.op8(src, $prefix, |v| opfn(v, &mut $flags));
+                    $cpu.apply_reg8(src, $prefix, |v| opfn(v, &mut $flags));
                 }
                 Err(_) => {
                     // pc+2:3, pc+2:1 x 5

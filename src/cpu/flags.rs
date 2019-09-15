@@ -1,43 +1,81 @@
 //! Cpu flags register bits definitions and flag helper methods.
 bitflags! {
+    /// A type representing Z80 [Cpu](crate::Cpu) Flag register's content.
     #[derive(Default)]
     pub struct CpuFlags: u8 {
+        /// Sign Flag.
         const S  = 0b10000000;
+        /// Zero Flag.
         const Z  = 0b01000000;
+        /// Undocumented bit 5 of the Flag.
         const Y  = 0b00100000;
+        /// Half Carry Flag.
         const H  = 0b00010000;
+        /// Undocumented bit 3 of the Flag.
         const X  = 0b00001000;
+        /// Parity/Overflow Flag.
         const PV = 0b00000100;
+        /// Add/Subtract Flag.
         const N  = 0b00000010;
+        /// Carry Flag.
         const C  = 0b00000001;
+        /// An alias of [CpuFlags::PV].
         const P  = Self::PV.bits;
+        /// An alias of [CpuFlags::PV].
         const V  = Self::PV.bits;
+        /// A mask of both undocumented Flag's bits 3 and 5. [CpuFlags::X] | [CpuFlags::Y].
         const XY = Self::X.bits | Self::Y.bits;
+        /// A mask over bits 0 to 3 being used to detect half-byte carry.
         const HMASK = CpuFlags::H.bits - 1;
     }
 }
 
 impl CpuFlags {
+    /// Resets all Flags to `false`.
     #[inline]
     pub fn reset(&mut self) {
         self.bits = 0;
     }
 
+    /// Returns a value of the Sign Flag.
     #[inline]
-    pub fn cf(&self) -> bool {
-        self.contains(CpuFlags::C)
+    pub fn sf(&self) -> bool {
+        self.contains(CpuFlags::S)
     }
 
+    /// Returns a value of the Zero Flag.
+    #[inline]
+    pub fn zf(&self) -> bool {
+        self.contains(CpuFlags::Z)
+    }
+
+    /// Returns a value of the Half Carry Flag.
     #[inline]
     pub fn hf(&self) -> bool {
         self.contains(CpuFlags::H)
     }
 
+    /// Returns a value of the Parity/Overflow Flag.
+    #[inline]
+    pub fn pvf(&self) -> bool {
+        self.contains(CpuFlags::PV)
+    }
+
+    /// Returns a value of the Add/Subtract Flag.
     #[inline]
     pub fn nf(&self) -> bool {
         self.contains(CpuFlags::N)
     }
 
+    /// Returns a value of the Carry Flag.
+    #[inline]
+    pub fn cf(&self) -> bool {
+        self.contains(CpuFlags::C)
+    }
+
+    /// Returns a new instance of [CpuFlags] with Flags
+    /// [C][CpuFlags::C] | [V][CpuFlags::V] | [Z][CpuFlags::Z]
+    /// where each Flag is set depending on the value being given in the arguments.
     #[inline]
     pub fn mask_cvz(cf: bool, vf: bool, zf: bool) -> Self {
         let mut bits = CpuFlags::empty();
@@ -53,11 +91,15 @@ impl CpuFlags {
         bits
     }
 
+    /// Returns a new instance of [CpuFlags] with the [S][CpuFlags::S] Flag being set
+    /// depending on the top-most bit of the given 8-bit unsigned value being set.
     #[inline]
     pub fn mask_sign(res: u8) -> Self {
         Self::from_bits_truncate(res & CpuFlags::S.bits)
     }
 
+    /// Returns a new instance of [CpuFlags] with the [Z][CpuFlags::Z] Flag being set
+    /// depending on the given value being equal to 0 (zero).
     #[inline]
     pub fn mask_zero(res: u8) -> Self {
         if res == 0 {
@@ -68,6 +110,8 @@ impl CpuFlags {
         }
     }
 
+    /// Returns a new instance of [CpuFlags] with the [C][CpuFlags::C] Flag being set
+    /// depending on the given value.
     #[inline]
     pub fn mask_carry(cf: bool) -> Self {
         if cf {
@@ -78,6 +122,8 @@ impl CpuFlags {
         }
     }
 
+    /// Returns a new instance of [CpuFlags] with the [N][CpuFlags::N] Flag being set
+    /// depending on the given value.
     #[inline]
     pub fn mask_nf(nf: bool) -> Self {
         if nf {
@@ -88,6 +134,8 @@ impl CpuFlags {
         }
     }
 
+    /// Returns a new instance of [CpuFlags] with the [H][CpuFlags::H] Flag being set
+    /// depending on the given value.
     #[inline]
     pub fn mask_hf(hf: bool) -> Self {
         if hf {
@@ -98,6 +146,8 @@ impl CpuFlags {
         }
     }
 
+    /// Returns a new instance of [CpuFlags] with Flags [C][CpuFlags::C] | [H][CpuFlags::H] being
+    /// set depending on the given value.
     #[inline]
     pub fn mask_hcf(hcf: bool) -> Self {
         if hcf {
@@ -108,6 +158,8 @@ impl CpuFlags {
         }
     }
 
+    /// Returns a new instance of [CpuFlags] with the [PV][CpuFlags::PV] Flag being set
+    /// depending on the given value.
     #[inline]
     pub fn mask_pvf(pvf: bool) -> Self {
         if pvf {
@@ -118,23 +170,29 @@ impl CpuFlags {
         }
     }
 
+    /// Returns a new instance of [CpuFlags] with the [PV][CpuFlags::PV] Flag being set
+    /// if the number of bits equal to 1 is even in the given value.
     #[inline]
     pub fn parity(res: u8) -> Self {
         Self::mask_pvf(res.count_ones() & 1 == 0)
     }
 
+    /// Returns a new instance of [CpuFlags] with Flags [X][CpuFlags::X] | [Y][CpuFlags::Y]
+    /// being set depending on the bit value 3 for `X` and 5 for `Y` in the given argument.
     #[inline]
     pub fn mask_xy(res: u8) -> Self {
         Self::from_bits_truncate(res & CpuFlags::XY.bits)
     }
 
+    /// Returns a new instance of [CpuFlags] with Flags [S][CpuFlags::S] | [X][CpuFlags::X] | [Y][CpuFlags::Y]
+    /// being set depending on the bit value 7 for `S`, 3 for `X` and 5 for `Y` in the given argument.
     #[inline]
     pub fn mask_sxy(res: u8) -> Self {
         Self::from_bits_truncate(res & (CpuFlags::S.bits|CpuFlags::XY.bits))
     }
 
     #[inline]
-    pub fn mask_bitops(res: u8, hf: bool, cf: bool) -> Self {
+    pub(crate) fn mask_bitops(res: u8, hf: bool, cf: bool) -> Self {
         let mut bits = Self::mask_sxy(res);
         if res == 0 {
             bits |= CpuFlags::Z;
@@ -152,7 +210,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_add(tgt: u8, add: u8) -> Self {
+    pub(crate) fn mask_nh_add(tgt: u8, add: u8) -> Self {
         if (tgt & CpuFlags::HMASK.bits).wrapping_add(add & CpuFlags::HMASK.bits) & CpuFlags::H.bits != 0 {
             CpuFlags::H
         }
@@ -162,7 +220,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_add16(tgt: u16, add: u16) -> Self {
+    pub(crate) fn mask_nh_add16(tgt: u16, add: u16) -> Self {
         const HMASK16: u16 = ((CpuFlags::H.bits as u16) << 8) - 1;
         if (tgt & HMASK16).wrapping_add(add & HMASK16) & ((CpuFlags::H.bits as u16) << 8) != 0 {
             CpuFlags::H
@@ -173,7 +231,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_adc(tgt: u8, add: u8, cf: bool) -> Self {
+    pub(crate) fn mask_nh_adc(tgt: u8, add: u8, cf: bool) -> Self {
         let tgt = (tgt & CpuFlags::HMASK.bits).wrapping_add(add & CpuFlags::HMASK.bits);
         if (tgt & CpuFlags::H.bits != 0) ||
            ((tgt & CpuFlags::HMASK.bits).wrapping_add(u8::from(cf)) & CpuFlags::H.bits != 0) {
@@ -185,7 +243,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_adc16(tgt: u16, add: u16, cf: bool) -> Self {
+    pub(crate) fn mask_nh_adc16(tgt: u16, add: u16, cf: bool) -> Self {
         const HMASK16: u16 = ((CpuFlags::H.bits as u16) << 8) - 1;
         const H16: u16 = (CpuFlags::H.bits as u16) << 8;
         let tgt = (tgt & HMASK16).wrapping_add(add & HMASK16);
@@ -198,7 +256,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_sub(tgt: u8, sub: u8) -> Self {
+    pub(crate) fn mask_nh_sub(tgt: u8, sub: u8) -> Self {
         if (tgt & CpuFlags::HMASK.bits).wrapping_sub(sub & CpuFlags::HMASK.bits) & CpuFlags::H.bits != 0 {
             CpuFlags::H|CpuFlags::N
         }
@@ -208,7 +266,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_sbc(tgt: u8, sub: u8, cf: bool) -> Self {
+    pub(crate) fn mask_nh_sbc(tgt: u8, sub: u8, cf: bool) -> Self {
         let tgt = (tgt & CpuFlags::HMASK.bits).wrapping_sub(sub & CpuFlags::HMASK.bits);
         if (tgt & CpuFlags::H.bits != 0) ||
             ((tgt & CpuFlags::HMASK.bits).wrapping_sub(u8::from(cf)) & CpuFlags::H.bits != 0) {
@@ -220,7 +278,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_nh_sbc16(tgt: u16, sub: u16, cf: bool) -> Self {
+    pub(crate) fn mask_nh_sbc16(tgt: u16, sub: u16, cf: bool) -> Self {
         const HMASK16: u16 = ((CpuFlags::H.bits as u16) << 8) - 1;
         const H16: u16 = (CpuFlags::H.bits as u16) << 8;
         let tgt = (tgt & HMASK16).wrapping_sub(sub & HMASK16);
@@ -233,7 +291,7 @@ impl CpuFlags {
     }
 
     #[inline]
-    pub fn mask_block_op_xy(n: u8) -> Self {
+    pub(crate) fn mask_block_op_xy(n: u8) -> Self {
         Self::from_bits_truncate(n & CpuFlags::X.bits | n << 4 & CpuFlags::Y.bits)
     }
 }

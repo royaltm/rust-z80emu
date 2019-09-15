@@ -16,7 +16,7 @@ macro_rules! fetch_next_opcode {
     ($cpu:ident, $control:ident, $pc:ident, $tsc:ident) => {
         { // pc:4, pc+=1
             $cpu.inc_r();
-            let code = $control.read_opcode($pc.0, $cpu.get_ir(), $tsc.add_mreq($pc.0, M1_CYCLE));
+            let code = $control.read_opcode($pc.0, $cpu.get_ir(), $tsc.add_m1($pc.0));
             $pc += Wrapping(1);
             code
         }
@@ -33,6 +33,14 @@ macro_rules! define_helpers_scoped {
             };
             ([$dol($code:expr),+] $mnemonic:ident $dol($id:ident:$e:tt),*) => {
                 cpu_debug!([$dol($code),+] str(stringify!($mnemonic)) $dol($id:$e),*);
+            };
+            ([$dol($code:expr),+] op8($op:expr) $id:ident:$e:tt) => {
+                match $op {
+                    Ops8::ADD|
+                    Ops8::ADC|
+                    Ops8::SBC => cpu_debug!([$dol($code),+] str($op) r:A, $id:$e),
+                    _ => cpu_debug!([$dol($code),+] str($op) $id:$e)
+                }
             };
             ([$dol($code:expr),+] str($mnemonic:expr) $dol($id:ident:$e:tt),*) => {
                 if let Some(debugger) = $deb {
@@ -87,7 +95,12 @@ macro_rules! define_helpers_scoped {
             (@arg addr:bc)        => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::BC)) };
             (@arg addr:de)        => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::DE)) };
             (@arg addr:SP)        => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::SP)) };
-            (@arg addr:ii)        => { CpuDebugArg::Addr(CpuDebugAddr::IndexAddr($prefix, None)) };
+            (@arg addr:ii)        => { 
+                match $prefix {
+                    Prefix::None => CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::HL)),
+                    _ => CpuDebugArg::Addr(CpuDebugAddr::IndexAddr($prefix, None))
+                }
+            };
             (@arg addr:$reg:expr) => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr($reg)) };
             (@arg ii:$d:expr)     => { CpuDebugArg::Addr(CpuDebugAddr::IndexAddr($prefix, Some($d as i8))) };
             (@arg adnn:$nn:expr)  => { CpuDebugArg::Addr(CpuDebugAddr::ImmAddr($nn)) };
@@ -109,7 +122,7 @@ macro_rules! define_helpers_scoped {
         macro_rules! fetch_next_imm8 {
             ($dol(no_mreq: 1x $add_ts_more:expr)?) => {
                 { // pc:3, pc+=1
-                    let code = $control.read_mem($pc.0, $tsc.add_mreq($pc.0, MEMRW_CYCLE));
+                    let code = $control.read_mem($pc.0, $tsc.add_mreq($pc.0));
                     $dol( // pc:1 x m
                         $tsc.add_no_mreq($pc.0, $add_ts_more);
                     )?
@@ -124,9 +137,9 @@ macro_rules! define_helpers_scoped {
         macro_rules! fetch_next_imm16 {
             ($dol(no_mreq: 1x $add_ts_more:expr)?) => {
                 { // pc:3, pc+1:3, pc+=2
-                    let nn: u16 = $control.read_mem16($pc.0, $tsc.add_mreq($pc.0, MEMRW_CYCLE));
+                    let nn: u16 = $control.read_mem16($pc.0, $tsc.add_mreq($pc.0));
                     let pc1 = $pc.0.wrapping_add(1);
-                    $tsc.add_mreq(pc1, MEMRW_CYCLE);
+                    $tsc.add_mreq(pc1);
                     $dol( // pc:1 x m
                         $tsc.add_no_mreq(pc1, $add_ts_more);
                     )?
@@ -143,27 +156,27 @@ macro_rules! define_helpers_scoped {
                     let $reg16: u16 = $cpu.regs.$reg16.get16();
                     let val: u8 = $oper;
                     $tsc.add_no_mreq($reg16, 1);
-                    $control.write_mem($reg16, val, $tsc.add_mreq($reg16, MEMRW_CYCLE));
+                    $control.write_mem($reg16, val, $tsc.add_mreq($reg16));
                 }
             };
             ($opfn:ident [hl]) => {
                 r_op_w_mem8! { @internal [hl]
-                    $opfn($control.read_mem(hl, $tsc.add_mreq(hl, MEMRW_CYCLE)), &mut $flags)
+                    $opfn($control.read_mem(hl, $tsc.add_mreq(hl)), &mut $flags)
                 }
             };
             ($opfn:ident $b:expr, [hl]) => {
                 r_op_w_mem8! { @internal [hl]
-                    $opfn($b, $control.read_mem(hl, $tsc.add_mreq(hl, MEMRW_CYCLE)))
+                    $opfn($b, $control.read_mem(hl, $tsc.add_mreq(hl)))
                 }
             };
             ($opfn:ident [ii+$index8:ident] memptr=ii+d) => {
                 { // ii+d:3, ii+d:1, ii+d(write):3
                     let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
-                    let val: u8 = $opfn($control.read_mem(ii_d, $tsc.add_mreq(ii_d, MEMRW_CYCLE)), &mut $flags);
+                    let val: u8 = $opfn($control.read_mem(ii_d, $tsc.add_mreq(ii_d)), &mut $flags);
                     $tsc.add_no_mreq(ii_d, 1);
                     // Any instruction with (INDEX+d): MEMPTR = INDEX+d
                     $cpu.memptr.set16(ii_d);
-                    $control.write_mem(ii_d, val, $tsc.add_mreq(ii_d, MEMRW_CYCLE));
+                    $control.write_mem(ii_d, val, $tsc.add_mreq(ii_d));
                 }
             };
         }
@@ -176,7 +189,7 @@ macro_rules! define_helpers_scoped {
                     $dol(
                         $cpu.memptr.set16($memptr);
                     )?
-                    let val = $control.read_mem($reg16, $tsc.add_mreq($reg16, MEMRW_CYCLE));
+                    let val = $control.read_mem($reg16, $tsc.add_mreq($reg16));
                     $dol(
                         $tsc.add_no_mreq($reg16, $add_ts_more);
                     )?
@@ -188,7 +201,7 @@ macro_rules! define_helpers_scoped {
                     let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
                     // Any instruction with (INDEX+d): MEMPTR = INDEX+d
                     $cpu.memptr.set16(ii_d);
-                    $control.read_mem(ii_d, $tsc.add_mreq(ii_d, MEMRW_CYCLE))
+                    $control.read_mem(ii_d, $tsc.add_mreq(ii_d))
                 }
             };
         }
@@ -202,7 +215,7 @@ macro_rules! define_helpers_scoped {
                     $dol(
                         $cpu.memptr.set($mhi, $mlo);
                     )?
-                    $control.write_mem($reg16, $val, $tsc.add_mreq($reg16, MEMRW_CYCLE));
+                    $control.write_mem($reg16, $val, $tsc.add_mreq($reg16));
                 }
             };
             ([ii+$index8:ident] <- $val:expr; memptr=ii+d) => {
@@ -210,7 +223,7 @@ macro_rules! define_helpers_scoped {
                     let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
                     // Any instruction with (INDEX+d): MEMPTR = INDEX+d
                     $cpu.memptr.set16(ii_d);
-                    $control.write_mem(ii_d, $val, $tsc.add_mreq(ii_d, MEMRW_CYCLE));
+                    $control.write_mem(ii_d, $val, $tsc.add_mreq(ii_d));
                 }
             };
         }
@@ -220,10 +233,10 @@ macro_rules! define_helpers_scoped {
             (<- [$addr:expr] memptr=addr+1) => {
                 { // nn:3, nn+1:3
                     // LD rp,(addr) MEMPTR = addr + 1
-                    let val = $control.read_mem16($addr, $tsc.add_mreq($addr, MEMRW_CYCLE));
+                    let val = $control.read_mem16($addr, $tsc.add_mreq($addr));
                     let addr1 = $addr.wrapping_add(1);
                     $cpu.memptr.set16(addr1);
-                    $tsc.add_mreq(addr1, MEMRW_CYCLE);
+                    $tsc.add_mreq(addr1);
                     val
                 }
             };
@@ -233,11 +246,11 @@ macro_rules! define_helpers_scoped {
         macro_rules! write_mem16_addr16 {
             ([$addr:expr] <- ($vhi:expr, $vlo:expr); memptr=addr+1) => {
                 { // nn:3, nn+1:3
-                    $control.write_mem($addr, $vlo, $tsc.add_mreq($addr, MEMRW_CYCLE));
+                    $control.write_mem($addr, $vlo, $tsc.add_mreq($addr));
                     let addr_1 = $addr.wrapping_add(1);
                     // LD (addr), rp; MEMPTR = addr + 1
                     $cpu.memptr.set16(addr_1);
-                    $control.write_mem(addr_1, $vhi, $tsc.add_mreq(addr_1, MEMRW_CYCLE));
+                    $control.write_mem(addr_1, $vhi, $tsc.add_mreq(addr_1));
                 }
             };
         }
@@ -268,12 +281,12 @@ macro_rules! define_helpers_scoped {
             ($vhi:expr, $vlo:expr) => {
                 { // sp:3,sp+1:3,sp+1:1,sp+1(write):3,sp(write):3,sp(write):1 x 2
                     let sp = $cpu.sp.get16();
-                    let val = $control.read_mem16(sp, $tsc.add_mreq(sp, MEMRW_CYCLE));
+                    let val = $control.read_mem16(sp, $tsc.add_mreq(sp));
                     let sp_1 = sp.wrapping_add(1);
-                    $tsc.add_mreq(sp_1, MEMRW_CYCLE);
+                    $tsc.add_mreq(sp_1);
                     $tsc.add_no_mreq(sp_1, 1);
-                    $control.write_mem(sp_1, $vhi, $tsc.add_mreq(sp_1, MEMRW_CYCLE));
-                    $control.write_mem(sp, $vlo, $tsc.add_mreq(sp, MEMRW_CYCLE));
+                    $control.write_mem(sp_1, $vhi, $tsc.add_mreq(sp_1));
+                    $control.write_mem(sp, $vlo, $tsc.add_mreq(sp));
                     $tsc.add_no_mreq(sp, 2);
                     val
                 }
@@ -287,11 +300,11 @@ macro_rules! define_helpers_scoped {
                     let hl: u16 = $cpu.regs.hl.get16();
                     // RLD/RRD  MEMPTR = HL + 1
                     $cpu.memptr.set16(hl.wrapping_add(1));
-                    let val = $control.read_mem(hl, $tsc.add_mreq(hl, MEMRW_CYCLE));
+                    let val = $control.read_mem(hl, $tsc.add_mreq(hl));
                     $tsc.add_no_mreq(hl, 4);
                     $cpu.af.op8hi(|a| {
                         let (a, res) : (u8, u8) = $rxd(a, val, &mut $flags);
-                        $control.write_mem(hl, res, $tsc.add_mreq(hl, MEMRW_CYCLE));
+                        $control.write_mem(hl, res, $tsc.add_mreq(hl));
                         a
                     });
                 }

@@ -1,109 +1,275 @@
-//! This module defines the interfaces between a host and the Cpu.
+//! This module contains traits that should be implemented by the user.
+//!
+//! The [Cpu] emulation is only hinting on what kind of cycle is currently being performed by the current instruction.
+//! It is up to the implementors to decide when on the emulated time axis the interaction with the peripherals or memory
+//! takes place.
+//!
+//! Please see [cycles] module for the description of each emulated cycle.
 use core::num::Wrapping;
 use core::ops::{Add, AddAssign, Deref, DerefMut};
-use super::opconsts::RST_0H_OPCODE;
+
+use super::opconsts::RST_38H_OPCODE;
+
+/** These are constants indicating the number of T-states for the [Clock] to count for different [Cpu] cycles.
+
+The diagrams below show each cycle timings. They also show for each cycle, when the [Io::is_irq] is being called
+after each instruction compared with the moment when the `INT` line is being sampled by the real CPU.
+
+# M1 (opcode fetch)
+
+M1 is indicated by a call to [Clock::add_m1]. The function should return the timestamp for [Memory::read_opcode]
+and should increase the internal counter by at least [M1_CYCLE_TS].
+```text
+       T1  T2  T3  T4
+       _   _   _   _   _
+      | |_| |_| |_| |_| |_|
+      0               ^ M1_CYCLE_TS
+A0-15 |---pc--|---ir--|
+D0-7      -op-|
+MREQ  --_______--___----
+RD    --______----------
+M1    -________---------
+RFSH  ----------_______-
+WAIT  ......--..........
+      <===============> Memory::read_opcode
+                      ^ Io::is_irq ¹
+INT   ............___.. ¹
+```
+
+# Memory Read or Write.
+
+This cycle is indicated by a call to [Clock::add_mreq]. The function should return the timestamp for one of:
+[Memory::read_mem], [Memory::read_mem16] or [Memory::write_mem] and should increase the internal counter by
+at least [MEMRW_CYCLE_TS].
+```text
+       T1  T2  T3
+       _   _   _   _  
+      | |_| |_| |_| |_|
+      0           ^ MEMRW_CYCLE_TS
+A0-15 |--address--|
+D0-7      ---data-|
+MREQ  --_________--
+RD    --_________-- (read)
+WR    ------_____-- (write)
+WAIT  .....--......
+      <===========> Memory::read_mem/write_mem
+                  ^ Io::is_irq ¹
+INT   ........___.. ¹
+```
+
+# Input/Output.
+
+This cycle is indicated by a call to [Clock::add_io]. The function should return the timestamp for one of:
+[Io::read_io] or [Io::write_io] and should increase the internal counter by at least [IO_CYCLE_TS].
+```text
+       T1  T2  TW  T3
+       _   _   _   _   _   
+      | |_| |_| |_| |_| |_|
+      0               ^ IO_CYCLE_TS
+          ^ IO_IORQ_LOW_TS
+A0-15 |-----port------|
+D0-7      |----data---|
+IORQ  -----__________--
+RD    -----__________-- (read)
+WR    -----__________-- (write)
+WAIT  .........__......
+      <===============> Io::read_io/write_io
+                      ^ Io::is_irq ¹
+INT   ............___.. ¹
+```
+
+# Interrupt Request/Acknowledge.
+
+This cycle is indicated by a call to [Clock::add_irq]. The function should return the timestamp for
+[Io::irq_data] and should increase the internal counter by at least [IRQ_ACK_CYCLE_TS]
+```text
+       T1  T2  TW  TW  T3  T4
+       _   _   _   _   _   _
+      | |_| |_| |_| |_| |_| |_|
+      0                       ^ IRQ_ACK_CYCLE_TS
+              ^ INT_IORQ_LOW_TS
+A0-15 |------pc-------|---ir--|
+D0-7          |--data-|
+M1    -________________--------
+MREQ  -------------------_____-
+IORQ  -----------______--------
+WAIT  .............--..........
+      <=======================> Io::irq_data
+```
+
+# RETI
+
+This is not a cycle but rather a special case for a whole instruction which is being used by the Z80 peripherals
+to detect the end of the interrupt service routine. The currently active device in the daisy chain (with `IEI` high)
+can deactivate its `IEO` and let the device with lower priority take control over the `INT` line.
+The diagram shows when the [Io::reti] is being called while executing the `RETI` instruction.
+
+```text
+       T1  T2  T3  T4  T1  T2  T3  T4  T1  T2  T3  T1  T2  T3
+       _   _   _   _   _   _   _   _   _   _   _   _   _   _
+      | |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_|
+Clock |>>> add_m1 >>>>|>>> add_m1 >>>>|> add_mreq |> add_mreq |
+A0-15 |---pc--|---ir--|--pc+1-|---ir--|-----sp----|----sp+1---|
+D0-7      -ED-|       |   -4D-|           ----lo--|   ----hi--|
+                                      ^ Io::reti(pc+2)        ^ Io::is_irq
+INT   ....................................................___..
+```
+¹ The INT line is being probed with the rising edge of the final clock at the end of every instruction,
+except `EI` and `0xDD`, `0xFD` prefixes.
+
+ [Cpu]: crate::cpu::Cpu
+**/
 pub mod cycles {
-    /// An op-code fetch, NMI and HALT cycle T-states.
-    pub const M1_CYCLE: u8 = 4;
-    /// A memory read/write cycle T-states.
-    pub const MEMRW_CYCLE: u8 = 3;
-    /// A minimum number of T-states in the I/O cycle before the value is being provided on the bus.
-    pub const IO_PRE_OP_CYCLE: u8 = 1;
-    /// A minimum number of T-states in the I/O cycle after the value is being available on the bus.
-    pub const IO_POST_OP_CYCLE: u8 = 3;
-    /// A total number of T-states for I/O cycle.
-    pub const IO_CYCLE: u8 = IO_PRE_OP_CYCLE + IO_POST_OP_CYCLE;
-    /// A maskable interrupt request cycle T-states.
-    pub const IRQ_CYCLE: u8 = 6;
+    /// A minimal number of T-states for an `M1` cycle: opcode fetch, non-maskable interrupt and a `HALT` cycle.
+    pub const M1_CYCLE_TS: u8 = 4;
+    /// A minimal number of T-states for a memory read or write cycle.
+    pub const MEMRW_CYCLE_TS: u8 = 3;
+    /// A minimal number of T-states for an `I/O` cycle before the `IORQ` goes low
+    /// and the earlies moment the value might be available on the bus.
+    pub const IO_IORQ_LOW_TS: u8 = 1;
+    /// A minimal number of T-states for an `I/O` cycle.
+    pub const IO_CYCLE_TS: u8 = 4;
+    /// A minimal number of T-states in a maskable interrupt request/acknowledge cycle before the `IORQ` goes low
+    /// and the earlies moment the value might be put on the bus.
+    pub const INT_IORQ_LOW_TS: u8 = 2;
+    /// A number of T-states in a maskable interrupt request/acknowledge cycle.
+    pub const IRQ_ACK_CYCLE_TS: u8 = 6;
 }
+
 use cycles::*;
 
-/// A trait responsible for advancing T-state counter during various Cpu cycles.
-/// The Cpu instructions depend on this trait to properly increase the counter.
-/// It is up to the implementation however to determine how the counter is represented.
-/// The only limit is that the TstateCounter type must implement Copy and be Sized.
-/// This trait can be used to emulate the Cpu contention by increasing the counter more than the required value.
-pub trait TstateCounter: Sized + Copy {
-    /// A type for arbitrary limit representation when executing code with a limit. See Cpu.execute_with_limit.
+/// A trait responsible for counting T-states during various [Cpu] cycles.
+/// The complete emulation depends on this trait to properly increase the counter.
+///
+/// It is however up to the implementation to determine how the counter is being represented.
+/// The only limit is that the `Clock` type must implement [Copy] and be [Sized].
+///
+/// This trait can be used to emulate the [Cpu] contention by increasing the counter more than the required value.
+///
+/// [Cpu]: crate::cpu::Cpu
+pub trait Clock: Sized + Copy {
+    /// A type for an arbitrary representation of the `limit` when executing instructions.
+    /// See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit) for the explanation.
     type Limit: Sized + Copy;
-    /// A type produced by some of this trait methods that are passed to the methods of Io and Memory traits.
+    /// A type returned by some of methods in this trait that are passed later to the [Io] and [Memory] traits.
+    /// The [Clock], [Io] and [Memory] traits needs this associated type to be the same.
     type Timestamp: Sized;
-    /// If the T-states counter is at the given limit.
-    fn is_at_limit(&self, limit: Self::Limit) -> bool;
-    /// This method should add at least IRQ_CYCLE (6) T-states to self.
-    /// It's being used by the maskable interrupt requests.
-    /// The address is a value of the PC register when the interrupt was triggered
-    /// before the instruction at the address was executed.
-    fn add_irq(&mut self, address: u16);
-    /// This method should add an arbitrary T-states, at least the value given in add_ts, to self.
-    /// It's being used by internal operations of the Cpu without memory or I/O access.
-    fn add_no_mreq(&mut self, addr: u16, add_ts: u8);
-    /// This method should add an arbitrary T-states, at least the value given in add_ts, to self.
-    /// It should return the value of T-states after the addition as Self::Timestamp.
-    /// The returned value may be passed later to one of the Memory methods.
-    /// The Cpu calls this method with MEMRW_CYCLE (3) or M1_CYCLE (4).
-    /// This method is also being used by the NMI invocation and while the Cpu is in halted state.
-    fn add_mreq(&mut self, addr: u16, add_ts: u8) -> Self::Timestamp;
-    /// This method should add at least IO_CYCLE (4) T-states to self.
-    /// This method should return the value of T-states before increasing + IO_PRE_OP_CYCLE
-    /// (or more) as Self::Timestamp.
-    /// The returned value will be passed to one of Io::write_io or Io:read_io methods.
+    /// Returns `true` if the [Clock] has reached the given `limit`.
+    fn is_past_limit(&self, limit: Self::Limit) -> bool;
+    /// This method should increase the counter by at least [IRQ_ACK_CYCLE_TS] `6` T-states.
+    /// The method should return the timestamp that may be passed to [Io::irq_data].
+    /// It's being used at the beginning of the maskable interrupt request/acknowledge cycle.
+    /// The `pc` is a value of the program counter when the interrupt was accepted.
+    fn add_irq(&mut self, pc: u16) -> Self::Timestamp;
+    /// This method should increase the counter by at least the value given in `add_ts`.
+    /// It's being used by internal operations of the [Cpu](crate::cpu::Cpu) without any external access.
+    /// The address given is whatever was put on the address bus before.
+    fn add_no_mreq(&mut self, address: u16, add_ts: u8);
+    /// This method should increase the counter by at least [M1_CYCLE_TS] `4`.
+    /// The method should return the timestamp that may be passed to [Memory::read_opcode].
+    /// This method is also being used by the non-maskable interrupt and while the `Cpu` is in the `halted` state.
+    fn add_m1(&mut self, address: u16) -> Self::Timestamp;
+    /// This method should increase the counter by at least the value given in [MEMRW_CYCLE_TS] `3`.
+    /// The method should return the timestamp that may be passed to [Memory::read_mem],
+    //  [Memory::read_mem16] or [Memory::write_mem].
+    fn add_mreq(&mut self, address: u16) -> Self::Timestamp;
+    /// This method should increase the counter by at least [IO_CYCLE_TS] `4` T-states.
+    /// The method should return the timestamp that may be passed to [Io::read_io] or [Io::write_io].
     fn add_io(&mut self, port: u16) -> Self::Timestamp;
-    /// Should return a copy of self as a Self::Timestamp.
+    /// Should return a copy of self as a `Self::Timestamp`.
     fn as_timestamp(&self) -> Self::Timestamp;
 }
 
-/// I/O operations.
+/// This trait handles `IN`/`OUT` instruction family and maskable interrupts.
+/// Please also see [cycles] module.
 pub trait Io {
     /// A type used for timestamping I/O operations.
     type Timestamp: Sized;
-    /// Used by the Cpu to read data from the I/O port.
-    /// The T-states counter should be advanced by at least host::IO_CYCLE (4) by this method implementaiton.
-    /// The implementation may choose to use the TstateCounter::add_io method for that purpose.
-    fn read_io(&mut self, port: u16, ts: Self::Timestamp) -> u8;
-    /// Used by the Cpu to write data to the I/O port.
-    /// The T-states counter should be advanced by at least host::IO_CYCLE (4) by this method implementaiton.
-    /// The implementation may choose to use the TstateCounter::add_io method for that purpose.
-    fn write_io(&mut self, port: u16, data: u8, ts: Self::Timestamp) -> bool;
-    /// Should return true if the IRQ signal is active.
-    fn is_irq(&self, ts: Self::Timestamp) -> bool;
-    /// This is used by the Interrupt Mode 0 to get the command code to execute.
-    /// In reality this is obtained from the data bus where the external device places the data while requesting the interrupt.
-    fn irq_data(&mut self, _pc: u16, _ts: Self::Timestamp) -> u8 { RST_0H_OPCODE }
-    /// When a RETI instruction is being executed. This method is being called to update controller,
+    /// Should return the byte value from the device at the given `port`.
+    ///
+    /// This method is being used by the [Cpu](crate::cpu::Cpu) to read data from the I/O port.
+    /// The `timestamp` given has previously been returned from [Clock::add_io].
+    fn read_io(&mut self, port: u16, timestamp: Self::Timestamp) -> u8;
+    /// Should write the byte `data` to the device at the given `port`.
+    ///
+    /// This method is being used by the [Cpu](crate::cpu::Cpu) to write data to the I/O port.
+    /// The `timestamp` given has previously been returned from [Clock::add_io].
+    ///
+    /// Returning `true` from this method is a request to break the execution after the current
+    /// instruction completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
+    fn write_io(&mut self, port: u16, data: u8, timestamp: Self::Timestamp) -> bool;
+    /// This method should return `true` if the interrupt request signal (`INT`) is active.
+    /// The `timestamp` given has previously been returned from [Clock::as_timestamp] method.
+    fn is_irq(&mut self, timestamp: Self::Timestamp) -> bool;
+    /// Depending on the interrupt mode this should return the opcode of a command to execute
+    /// (im 0) or a lower half of the address of the vector address jump table (im 2).
+    ///
+    /// In reality the value is obtained from the data bus where the external device places one byte
+    /// while requesting the interrupt.
+    /// The default implementation returns [RST_38H_OPCODE] equalizing mode 0 to mode 1.
+    fn irq_data(&mut self, _pc: u16, _timestamp: Self::Timestamp) -> u8 { RST_38H_OPCODE }
+    /// When `RETI` instruction is being executed. This method is being called to update the I/O instance,
     /// so another interrupt signal can be set up if necessary.
-    /// This is called before the returning address is popped from the machine stack and the address given
-    /// is pointing immediately after the RETI instruction opcode.
-    /// The Marker value given here is after advancing the M1 cycle (op-code fetch) but before the pop stack operation.
-    fn reti(&mut self, _address: u16, _ts: Self::Timestamp) {}
+    ///
+    /// This method is being called in the middle of the instruction execution, before the returning
+    /// address is popped from the machine stack.
+    /// The given address is pointing immediately after the `RETI` instruction opcode.
+    /// The given timestamp is taken after the `RETI` instruction opcode was read but before popping
+    /// the return value from the stack. After calling this method the [Clock] counter will be
+    /// increased by at least `2 x` [MEMRW_CYCLE_TS].
+    ///
+    /// Returning `true` from this method is a request to break the execution after the execution of
+    /// `RETI` completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
+    /// The default implementation returns `false`.
+    fn reti(&mut self, _address: u16, _timestamp: Self::Timestamp) -> bool { false }
 }
 
-/// An interface to the memory.
+/// An interface to the host memory. Please also see [cycles] module.
 pub trait Memory {
     /// A type used for timestamping memory operations.
     type Timestamp: Sized;
-    /// Used by the Cpu to read from the memory.
-    /// For the M1 cycles (op-code fetches) read_opcode is used instead.
-    fn read_mem(&self, addr: u16, ts: Self::Timestamp) -> u8;
-    /// Used by the Cpu to read 2 bytes of memory in LE order.
-    /// Real CPU splits this read but we are cutting corners here slightly.
-    fn read_mem16(&self, addr: u16, ts: Self::Timestamp) -> u16;
-    /// Used by the Cpu during M1 cycle for reading op-code.
-    /// Can be used for ROM traps etc.
-    /// Other Cpu read operation are performed via read and read16 methods.
+    /// Should return the value of the byte from memory present at the given `address`.
+    ///
+    /// This method is being used by the [Cpu](crate::cpu::Cpu) to read data from memory.
+    /// The `timestamp` given has previously been returned from [Clock::add_mreq].
+    /// For the `M1` cycles [Memory::read_opcode] is used instead.
+    fn read_mem(&self, address: u16, ts: Self::Timestamp) -> u8;
+    /// Should return the unaligned 2 consecutive bytes from memory at present the given
+    /// `address` as a 16-bit unsigned integer in LE order.
+    ///
+    /// This method is being used by the [Cpu](crate::cpu::Cpu) to read 16 bit values from memory.
+    /// The real CPU splits this read but we are cutting corners here slightly.
+    /// The `timestamp` given has previously been returned from [Clock::add_mreq].
+    fn read_mem16(&self, address: u16, ts: Self::Timestamp) -> u16;
+    /// Should return the byte value from memory present at the given `pc` address.
+    ///
+    /// Used by the [Cpu](crate::cpu::Cpu) during `M1` cycle for reading opcodes.
+    /// Can be used for ROM or instruction traps etc.
+    ///
+    /// Other [Cpu](crate::cpu::Cpu) read operation are performed via [Memory::read_mem] and
+    /// [Memory::read_mem16] methods.
+    ///
+    /// The `timestamp` given has previously been returned from [Clock::add_m1].
+    /// `pc` contains an address in the memory from which the opcode should be read.
+    /// `ir` contains a memory refresh value that the real CPU would put on the bus during memory refresh cycles.
     fn read_opcode(&mut self, pc: u16, ir: u16, ts: Self::Timestamp) -> u8;
-    /// This is used by the Cpu for writing to the memory.
-    fn write_mem(&mut self, addr: u16, value: u8, ts: Self::Timestamp);
-    /// Used by the Cpu debugger to get conditional command argument (DJNZ/JR when not jumping). No timestamp.
-    fn read_debug(&self, addr: u16) -> u8;
+    /// Should store a byte `value` at the given `address` in memory.
+    ///
+    /// This is used by the [Cpu](crate::cpu::Cpu) for writing to memory.
+    /// The `timestamp` given has previously been returned from [Clock::add_mreq].
+    fn write_mem(&mut self, address: u16, value: u8, ts: Self::Timestamp);
+    /// Should return the value of the byte from memory present at the given `address`.
+    ///
+    /// Used by the [Cpu](crate::cpu::Cpu) debugger to get a conditional command argument.
+    fn read_debug(&self, address: u16) -> u8;
 }
 
 /// A simple T-states counter wrapping at 2^bitsize of T.
-/// Please refer to it as a template for implementing TstateCounter trait methods.
+/// Please refer to it as a template for implementing Clock trait methods.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TsCounter<T: Copy>(pub Wrapping<T>);
 
-impl<T> TstateCounter for TsCounter<T>
+impl<T> Clock for TsCounter<T>
 where T: Copy + PartialEq + PartialOrd + core::convert::From<u8>,
       Wrapping<T>: AddAssign + Add<Output=Wrapping<T>>
 {
@@ -112,30 +278,42 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8>,
 
     /// Returns true if self >= limit.
     #[inline]
-    fn is_at_limit(&self, limit: Self::Limit) -> bool {
+    fn is_past_limit(&self, limit: Self::Limit) -> bool {
         (self.0).0 >= limit
     }
-    /// Adds IRQ_CYCLE (6) T-states to self.
+    /// Returns self (before addition of `IRQ_ACK_CYCLE_TS`) + [INT_IORQ_LOW_TS] as `T`.
+    /// Adds [IRQ_ACK_CYCLE_TS] T-states to self.
     #[inline]
-    fn add_irq(&mut self, _addr: u16) {
-        self.0 += Wrapping(IRQ_CYCLE.into());
+    fn add_irq(&mut self, _addr: u16) -> T {
+        let ts = (self.0 + Wrapping(INT_IORQ_LOW_TS.into())).0;
+        self.0 += Wrapping(IRQ_ACK_CYCLE_TS.into());
+        ts
     }
-    /// Adds add_ts T-states to self.
+    /// Adds `add_ts` T-states to self.
     #[inline]
     fn add_no_mreq(&mut self, _addr: u16, add_ts: u8) {
         self.0 += Wrapping(add_ts.into());
     }
-    /// Returns T-state value after adding IO_PRE_OP_CYCLE. Adds IO_CYCLE (4) T-states to self. 
+    /// Returns self (before addition of `IO_CYCLE_TS`) + [IO_IORQ_LOW_TS] as `T`.
+    /// Adds [IO_CYCLE_TS] T-states to self.
     #[inline]
     fn add_io(&mut self, _port: u16) -> T {
-        let ts = (self.0 + Wrapping(IO_PRE_OP_CYCLE.into())).0;
-        self.0 += Wrapping(IO_CYCLE.into());
+        let ts = (self.0 + Wrapping(IO_IORQ_LOW_TS.into())).0;
+        self.0 += Wrapping(IO_CYCLE_TS.into());
         ts
     }
-    /// Adds MEMRW_CYCLE (3) T-states to self.
+    /// Adds [MEMRW_CYCLE_TS] T-states to self.
+    /// Returns self as `T`.
     #[inline]
-    fn add_mreq(&mut self, _addr: u16, add_ts: u8) -> T {
-        self.0 += Wrapping(add_ts.into());
+    fn add_mreq(&mut self, _addr: u16) -> T {
+        self.0 += Wrapping(MEMRW_CYCLE_TS.into());
+        (self.0).0
+    }
+    /// Adds [MEMRW_CYCLE_TS] T-states to self.
+    /// Returns self as `T`.
+    #[inline]
+    fn add_m1(&mut self, _addr: u16) -> T {
+        self.0 += Wrapping(M1_CYCLE_TS.into());
         (self.0).0
     }
     /// Returns a copy of self as T.

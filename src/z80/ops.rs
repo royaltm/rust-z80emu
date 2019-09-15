@@ -1,5 +1,7 @@
-//! Arithmetic, logic, bit and block operators. All flags involved operations goes through these methods.
-use super::flags::CpuFlags;
+//! Arithmetic, logic, bit and block operations.
+//!
+//! All Flags involved instructions uses these methods to alter Flags state.
+use crate::cpu::CpuFlags;
 
 const CARRY16: u32 = u16::max_value() as u32 + 1;
 const CARRY8: u16 = u8::max_value() as u16 + 1;
@@ -199,7 +201,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
         (true ,      _     ,   _  , 0xA..=0xF) => 0x66,
         (false, 0x90..=0xF0,   _  , 0xA..=0xF) => 0x66,
         (false, 0xA0..=0xF0, true , 0x0..=0x9) => 0x66,
-        _ => unreachable!()
+        _ => debug_unreachable_unchecked!()
     };
     let cf = match (cf0, high_nibble, low_nibble) {
         (false, 0x00..=0x90, 0x0..=0x9) => false,
@@ -207,7 +209,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
         (false, 0x90..=0xF0, 0xA..=0xF) => true,
         (false, 0xA0..=0xF0, 0x0..=0x9) => true,
         (true ,      _     ,     _    ) => true,
-        _ => unreachable!()
+        _ => debug_unreachable_unchecked!()
     };
     let hf = match (nf0, hf0, low_nibble) {
         (false,   _  , 0x0..=0x9) => false,
@@ -215,7 +217,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
         (true , false,     _    ) => false,
         (true , true , 0x6..=0xF) => false,
         (true , true , 0x0..=0x5) => true,
-        _ => unreachable!()
+        _ => debug_unreachable_unchecked!()
     };
     let res = if nf0 {
         acc.wrapping_sub(diff)
@@ -382,7 +384,7 @@ pub fn ld_a_ir(ir: u8, iff2: bool, flags: &mut CpuFlags) {
 
 #[inline]
 pub fn io(val: u8, flags: &mut CpuFlags) {
-    *flags = CpuFlags::mask_bitops(val, false, false)|(*flags & CpuFlags::C);
+    *flags = CpuFlags::mask_bitops(val, false, flags.cf());
 }
 
 #[inline]

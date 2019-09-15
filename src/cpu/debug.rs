@@ -1,51 +1,124 @@
 use core::fmt::{self, Write};
 use arrayvec::ArrayString;
-use crate::parse::{Reg8, Reg16, StkReg16, Prefix, Condition};
+use super::{Reg8, Reg16, StkReg16, Prefix, Condition};
 
+/// A type that stores the copy of the instruction's full byte code.
 pub type CpuDebugCode = arrayvec::ArrayVec::<[u8;4]>;
+
+/// A type that can be passed to methods of the [Cpu][crate::Cpu] that require a `debug` argument. E.g.:
+/// ```ignore
+/// cpu.execute_instruction::<_,_,CpuDebugFn>(control, clock, None, code)
+/// ```
 pub type CpuDebugFn = fn(CpuDebug);
 
+/// This struct is being passed to the user debugger function when the command is being executed.
+/// The [Display][core::fmt::Display], [LowerHex][core::fmt::LowerHex] and [UpperHex][core::fmt::UpperHex]
+/// traits are implemented for this type and all its components so it's just easy to use:
+/// ```ignore
+/// format_args!("{}", deb)
+/// ```
+/// to get the commands as text:
+/// ```text
+///   143 SUB  B              [144]
+///   144 ADC  HL, HL         [237, 106]
+///   146 JR   NC, 151        [48, 3]
+/// ```
+/// The hex modifier `"{:x}"`:
+/// ```text
+/// 008fh SUB  B              [90]
+/// 0090h ADC  HL, HL         [ed, 6a]
+/// 0092h JR   NC, 0097h      [30, 03]
+/// ```
+/// and it's alternative `"{:#x}"`:
+/// ```text
+/// 0x008f SUB  B               [90]
+/// 0x0090 ADC  HL, HL          [ed, 6a]
+/// 0x0092 JR   NC, 0x0097      [30, 03]
+/// ```
+/// can be used to format numbers. One can use upper case hex also: `"{:X}"` and `"{:#X}"`.
+/// If the different formatting or spacing is required the following can be used:
+/// ```ignore
+/// format_args!("{:04x} : {:6} {:#20x} {:02X?}", deb.pc, deb.mnemonic, deb.args, deb.code.as_slice())
+/// ```
+///
+/// ```text
+/// 008f : SUB    B                    [90]
+/// 0090 : ADC    HL, HL               [ED, 6A]
+/// 0092 : JR     NC, 0x0097           [30, 03]
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct CpuDebug {
+    /// A copy of bytes that assemble the command that has been executed.
     pub code: CpuDebugCode,
+    /// An assmebler mnemonic symbol of the executed command.
     pub mnemonic: &'static str,
+    /// A program counter addressing the executed command in the memory.
     pub pc: u16,
+    /// A prefix of the executed command.
     pub prefix: Prefix,
+    /// Arguments of the command.
     pub args: CpuDebugArgs
 }
 
+/// An address command argument.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CpuDebugAddr {
+    /// An immediate address.
     ImmAddr(u16),
+    /// An indirect addressing via a 16-bit register.
     RegAddr(Reg16),
-    IndexAddr(Prefix,Option<i8>)
+    /// An indirect addressing via an indexing register indicated by the [Prefix] and with an optional 8-bit signed index offset.
+    /// `Option<i8>` is `None` only in arguments to `JP (IX)`, `JP (IY)`.
+    /// This variant is never constructed with the [Prefix::None] by the debugger.
+    IndexAddr(Prefix, Option<i8>)
 }
 
+/// An I/O port address.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CpuDebugPort {
+    /// An immediate port address.
     ImmPort(u8),
+    /// An indirect port address via `BC` register.
     RegPort
 }
 
+/// An enum holding a single command argument.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CpuDebugArg {
+    /// An immediate 8-bit integer.
     Imm8(u8),
-    Reg8(Prefix,Reg8),
+    /// An 8-bit register. Prefix changes the meaning of [H][Reg8::H] and [L][Reg8::L] registers into
+    /// `IXh` and `IXl` or `IYh` and `IYl` accordingly.
+    Reg8(Prefix, Reg8),
+    /// An immediate 16-bit integer.
     Imm16(u16),
-    Reg16(Prefix,Reg16),
+    /// A 16-bit register. Prefix changes the meaning of [HL][Reg16::HL] register into `IX` or `IY`.
+    Reg16(Prefix, Reg16),
+    /// A 16-bit register used with the machine stack commands `POP` and `PUSH`.
     Stk16(StkReg16),
+    /// An indirect value via memory address.
     Addr(CpuDebugAddr),
+    /// An I/O port address. 
     Port(CpuDebugPort),
+    /// A branching condition.
     Cond(Condition),
+    /// Interrupt page register.
     I,
+    /// Memory refresh register.
     R
 }
 
+/// An enum holding the command arguments.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CpuDebugArgs {
+    /// The command had no arguments.
     None,
+    /// The command had a single argument.
     Single(CpuDebugArg),
+    /// The command had two arguments.
     Double(CpuDebugArg, CpuDebugArg),
+    /// Some undocumented variants of SET and RES require 3 arguments.
+    /// The first argument is a bit number and the last is a register the result is being stored in.
     BitOpExt(u32, CpuDebugArg, Reg8),
 }
 
@@ -303,10 +376,10 @@ impl fmt::Display for CpuDebug {
 impl fmt::LowerHex for CpuDebug {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            write!(f, "{:#06x} {:5} {:#16x} {:02x?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
+            write!(f, "{:#06x} {:4} {:#15x} {:02x?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
         }
         else {
-            write!(f, "{:04x}h {:5} {:14x} {:02x?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
+            write!(f, "{:04x}h {:4} {:14x} {:02x?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
         }
     }
 }
@@ -314,10 +387,10 @@ impl fmt::LowerHex for CpuDebug {
 impl fmt::UpperHex for CpuDebug {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            write!(f, "{:#06X} {:5} {:#16X} {:02X?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
+            write!(f, "{:#06X} {:4} {:#15X} {:02X?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
         }
         else {
-            write!(f, "{:04X}h {:5} {:14X} {:02X?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
+            write!(f, "{:04X}h {:4} {:14X} {:02X?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
         }
     }
 }

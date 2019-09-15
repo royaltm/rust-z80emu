@@ -1,51 +1,16 @@
 //! A shuffle test.
-// use core::num::Wrapping;
-// use std::error::Error;
-// use std::convert::TryInto;
 use std::fs::{File};
 use std::io::Read;
 use serde_json::Value;
 
+mod shuffle;
+
 use z80emu::*;
+use shuffle::*;
 
 const TEST_SEEDS: [(u16,u16);3] = [(0, 25076), (0xBACA, 58893), (0xFFFF, 11751)];
 
 type TsClock = TsCounter<i32>;
-
-#[derive(Clone,Debug,Default)]
-struct TestShuffle {
-    mem: Vec<u8>
-}
-
-impl Io for TestShuffle {
-    type Timestamp = i32;
-    fn read_io(&mut self, _port: u16, _ts: Self::Timestamp) -> u8 { u8::max_value() }
-    fn write_io(&mut self, _port: u16, _data: u8, _ts: Self::Timestamp) -> bool { false }
-    fn is_irq(&self, _ts: Self::Timestamp) -> bool { false }
-}
-
-impl Memory for TestShuffle {
-    type Timestamp = i32;
-    fn read_mem(&self, addr: u16, _ts: Self::Timestamp) -> u8 {
-        self.read_debug(addr)
-    }
-    fn read_mem16(&self, addr: u16, _ts: Self::Timestamp) -> u16 {
-        let mut bytes = [0;2];
-        bytes.copy_from_slice(&self.mem[addr as usize..=addr as usize + 1]);
-        u16::from_le_bytes(bytes)
-    }
-    fn read_opcode(&mut self, pc: u16, _ir: u16, _ts: Self::Timestamp) -> u8 {
-        self.read_debug(pc)
-    }
-    /// This is used by the Cpu for writing to the memory.
-    fn write_mem(&mut self, addr: u16, value: u8, _ts: Self::Timestamp) {
-        self.mem[addr as usize] = value;
-    }
-    /// Used by the Cpu debugger to get conditional command argument (DJNZ/JR when not jumping). No timestamp.
-    fn read_debug(&self, addr: u16) -> u8 {
-        self.mem[addr as usize]
-    }
-}
 
 macro_rules! dir {
     ($file:expr) => {
@@ -55,7 +20,7 @@ macro_rules! dir {
 
 #[test]
 fn test_shuffle() {
-    let mut cpu = Cpu::default();
+    let mut cpu = Z80::default();
     let mut shuffle = TestShuffle::default();
     let mut bin = File::open(dir!(r"shuffle.bin")).expect("missing shuffle.bin file");
     assert!(bin.read_to_end(&mut shuffle.mem).expect("couldn't read shuffle.bin") > 0);
@@ -75,12 +40,13 @@ fn test_shuffle() {
         shuffle.mem[seed_offs..=seed_offs+1].copy_from_slice(&seed_in.to_le_bytes());
         let mut shuffle1 = shuffle.clone();
         let mut tsc1 = TsClock::default();
-        let debug = |info| {
-            eprintln!("{:x}", info);
+        let debug = |deb:CpuDebug| {
+            eprintln!("{:04x} : {:6} {:#20x} {:02X?}", deb.pc, deb.mnemonic, deb.args, deb.code.as_slice());
+            // eprintln!("{:x}", deb);
         };
         while !cpu.is_halt() {
             tsc1 = cpu.execute_next(&mut shuffle1, tsc1, Some(debug)).unwrap();
-            if tsc1.is_at_limit(500_000) {
+            if tsc1.is_past_limit(500_000) {
                 panic!("the shuffle takes too long");
             }
         }
