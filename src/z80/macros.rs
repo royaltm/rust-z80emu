@@ -258,21 +258,21 @@ macro_rules! define_helpers_scoped {
         /// Writes 2 bytes into memory at SP - 1 ($vhi) and SP - 2 ($vlo). Decreases SP by 2 afterwards.
         macro_rules! push2 {
             ($vhi:expr, $vlo:expr) => {
-                $cpu.push2($vhi, $vlo, $control, &mut $tsc);
+                $cpu.push2($vhi, $vlo, $control, $tsc);
             };
         }
 
         /// Writes a 16-bit LE integer into memory at SP - 1 and SP - 2. Decreases SP by 2 afterwards.
         macro_rules! push16 {
             ($val:expr) => {
-                $cpu.push16($val, $control, &mut $tsc);
+                $cpu.push16($val, $control, $tsc);
             };
         }
 
         /// Reads 2 bytes from memory at SP and SP + 1 as an LE u16 integer. Increases SP by 2 afterwards.
         macro_rules! pop16 {
             () => {
-                $cpu.pop16($control, &mut $tsc)
+                $cpu.pop16($control, $tsc)
             };
         }
 

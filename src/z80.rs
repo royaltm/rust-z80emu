@@ -16,10 +16,10 @@ use crate::cpu::*;
 use crate::host::*;
 use crate::opconsts;
 
-enum LoopExitReason {
+enum LoopExitReason<O, R> {
     LimitReached,
-    WriteIo,
-    RetInt,
+    WriteIo(O),
+    Reti(R),
     Halt,
     EnableInt,
     Irq
@@ -123,13 +123,11 @@ impl Cpu for Z80 {
         self.sp.set16(sp)
     }
 
-    /// Returns the `AF` register pair as an unsigned 16-bit integer.
     #[inline]
     fn get_af(&self) -> u16 {
         self.af.get16()
     }
 
-    /// Sets the `AF` register pair from an unsigned 16-bit integer.
     #[inline]
     fn set_af(&mut self, af: u16) {
         self.af.set16(af)
@@ -322,7 +320,7 @@ impl Cpu for Z80 {
         self.prefix
     }
 
-    fn irq<M, T, F>(&mut self, control: &mut M, tsc: T, debug: Option<F>) -> Option<Result<T, T>>
+    fn irq<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Option<Result<M::WrIoBreak, M::RetiBreak>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug)
@@ -335,19 +333,20 @@ impl Cpu for Z80 {
         }
     }
 
-    fn nmi<M, T>(&mut self, control: &mut M, tsc: T) -> Option<T>
+    fn nmi<M, T>(&mut self, control: &mut M, tsc: &mut T) -> bool
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock
     {
         if is_int_allowed(self.prefix, self.last_ei) {
-            Some(self.nmi_no_check::<M,T>(control, tsc))
+            self.nmi_no_check::<M,T>(control, tsc);
+            true
         }
         else {
-            None
+            false
         }
     }
 
-    fn execute_instruction<M, T, F>(&mut self, control: &mut M, mut tsc: T, debug: Option<F>, code: u8) -> Result<T, T>
+    fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>, code: u8) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug)
@@ -358,7 +357,7 @@ impl Cpu for Z80 {
         let mut pc = Wrapping(self.pc.get16());
         let mut flags = self.get_flags();
 
-        let reason: LoopExitReason = 'main: loop {
+        let reason: LoopExitReason<_,_> = 'main: loop {
             execute_instruction! {[code] debug; prefix, flags, pc, self, control, tsc; break 'main }
             break 'main LoopExitReason::LimitReached;
         };
@@ -366,13 +365,14 @@ impl Cpu for Z80 {
         self.pc.set16(pc.0);
         self.prefix = prefix;
         match reason {
-            LoopExitReason::WriteIo|
-            LoopExitReason::RetInt => Err(tsc),
-            _ => Ok(tsc),
+            LoopExitReason::Halt => Err(BreakCause::Halt),
+            LoopExitReason::WriteIo(cause) => Err(BreakCause::WriteIo(cause)),
+            LoopExitReason::Reti(cause) => Err(BreakCause::Reti(cause)),
+            _ => Ok(()),
         }
     }
 
-    fn execute_next<M, T, F>(&mut self, control: &mut M, mut tsc: T, debug: Option<F>) -> Result<T, T>
+    fn execute_next<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug)
@@ -383,7 +383,7 @@ impl Cpu for Z80 {
         if self.halt {
             tsc.add_m1(self.pc.get16());
             self.inc_r();
-            Ok(tsc)
+            Ok(())
         }
         else {
             let mut pc = Wrapping(self.pc.get16());
@@ -393,7 +393,7 @@ impl Cpu for Z80 {
         }
     }
 
-    fn execute_with_limit<M, T>(&mut self, control: &mut M, mut tsc: T, vc_limit: T::Limit) -> Result<T, T>
+    fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: &mut T, vc_limit: T::Limit) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock
     {
@@ -405,7 +405,7 @@ impl Cpu for Z80 {
             let pc = self.pc.get16();
             loop {
                 if tsc.is_past_limit(vc_limit) {
-                    return Ok(tsc);
+                    return Ok(());
                 }
                 if self.iff1 && control.is_irq(tsc.as_timestamp()) {
                     break
@@ -415,21 +415,18 @@ impl Cpu for Z80 {
             }
         }
         else if tsc.is_past_limit(vc_limit) {
-            return Ok(tsc);
+            return Ok(());
         }
 
         if self.last_ei {
             self.last_ei = false;
         }
         else if is_int_allowed(self.prefix, false) && self.iff1 && control.is_irq(tsc.as_timestamp()) {
-            match self.irq_no_check::<M,T,_>(control, tsc, DEBUG) {
-                Ok(t) => {
-                    tsc = t;
-                }
-                Err(t) => return Err(t)
+            if let Err(cause) = self.irq_no_check::<M,T,_>(control, tsc, DEBUG) {
+                return Err(cause);
             }
             if tsc.is_past_limit(vc_limit) {
-                return Ok(tsc);
+                return Ok(());
             }
         }
 
@@ -438,8 +435,8 @@ impl Cpu for Z80 {
         let mut flags = self.get_flags();
 
         loop {
-            let reason: LoopExitReason = 'main: loop {
-                // can break 'main with Halt, WriteIo, RetInt or EnableInt
+            let reason: LoopExitReason<_,_> = 'main: loop {
+                // can break 'main with Halt, WriteIo, Reti or EnableInt
                 execute_next_instruction! { DEBUG; prefix, flags, pc, self, control, tsc; break 'main }
 
                 if tsc.is_past_limit(vc_limit)  {
@@ -467,29 +464,21 @@ impl Cpu for Z80 {
 
             match reason {
                 LoopExitReason::EnableInt|
-                LoopExitReason::LimitReached => return Ok(tsc),
-                LoopExitReason::WriteIo|
-                LoopExitReason::RetInt => return Err(tsc), // I/O
-                LoopExitReason::Halt => {
-                    if tsc.is_past_limit(vc_limit)  {
-                        return Ok(tsc); // limit reached
-                    }
-                    else {
-                        return Err(tsc); // halt
-                    }
-                },
+                LoopExitReason::LimitReached => return Ok(()),
+                LoopExitReason::Halt => return Err(BreakCause::Halt),
+                LoopExitReason::WriteIo(cause) => return Err(BreakCause::WriteIo(cause)),
+                LoopExitReason::Reti(cause) => return Err(BreakCause::Reti(cause)),
                 LoopExitReason::Irq => match self.irq_no_check::<M,T,_>(control, tsc, DEBUG) {
-                    Ok(t) => {
-                        if t.is_past_limit(vc_limit) {
-                            return Ok(t);
+                    Ok(()) => {
+                        if tsc.is_past_limit(vc_limit) {
+                            return Ok(());
                         }
-                        tsc = t;
                         prefix = self.prefix;
                         pc = Wrapping(self.pc.get16());
                         flags = self.get_flags();
                         continue;
                     }
-                    Err(t) => return Err(t) // I/O
+                    Err(cause) => return Err(cause)
                 }
             }
         }

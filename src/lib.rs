@@ -86,7 +86,7 @@ pub use z80::Z80;
 /// An address of the NMI routine.
 pub const NMI_RESTART: u16 = 0x66;
 
-/// Some selcted Z80 op-codes for providing to the [Cpu::execute_instruction] or returning from [Io::irq_data].
+/// Some of the selected Z80 op-codes for providing to the [Cpu::execute_instruction] or returning from [Io::irq_data].
 pub mod opconsts {
     pub const NOP_OPCODE    : u8 = 0x00;
     pub const HALT_OPCODE   : u8 = 0x76;

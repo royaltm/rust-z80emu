@@ -45,9 +45,12 @@ fn test_shuffle() {
             // eprintln!("{:x}", deb);
         };
         while !cpu.is_halt() {
-            tsc1 = cpu.execute_next(&mut shuffle1, tsc1, Some(debug)).unwrap();
-            if tsc1.is_past_limit(500_000) {
-                panic!("the shuffle takes too long");
+            match cpu.execute_next(&mut shuffle1, &mut tsc1, Some(debug)) {
+                Ok(()) => if tsc1.is_past_limit(500_000) {
+                    panic!("the shuffle takes too long");
+                }
+                Err(BreakCause::Halt) => { break }
+                Err(cause) => panic!("an unexpected break cause: {:?}", cause)
             }
         }
         assert_eq!(&seed_out.to_le_bytes(), &shuffle1.mem[seed_offs..=seed_offs+1]);
@@ -61,9 +64,10 @@ fn test_shuffle() {
         assert!(!cpu.is_halt());
         let mut shuffle2 = shuffle.clone();
         let mut tsc2 = TsClock::default();
-        tsc2 = match cpu.execute_with_limit(&mut shuffle2, tsc2, 500_000) {
-            Ok(t) => panic!("the shuffle took too long: {:?}", t),
-            Err(t) => t
+        match cpu.execute_with_limit(&mut shuffle2, &mut tsc2, 500_000) {
+            Ok(()) => panic!("the shuffle took too long: {:?}", tsc2),
+            Err(BreakCause::Halt) => {}
+            Err(cause) => panic!("an unexpected break cause: {:?}", cause),
         };
         assert!(cpu.is_halt());
         assert_eq!(&seed_out.to_le_bytes(), &shuffle2.mem[seed_offs..=seed_offs+1]);

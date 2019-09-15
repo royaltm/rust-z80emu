@@ -44,9 +44,10 @@ fn bench_shuffle(ben: &mut Bencher) {
                 cpu.reset();
                 assert!(!cpu.is_halt());
                 let mut tsc = TsClock::default();
-                tsc = match cpu.execute_with_limit(&mut shuffle, tsc, 500_000) {
-                    Ok(t) => panic!("the shuffle took too long: {:?}", t),
-                    Err(t) => t
+                match cpu.execute_with_limit(&mut shuffle, &mut tsc, 500_000) {
+                    Ok(()) => panic!("the shuffle took too long: {:?}", tsc),
+                    Err(BreakCause::Halt) => {}
+                    Err(cause) => panic!("an unexpected break cause: {:?}", cause),
                 };
                 assert!(cpu.is_halt());
                 sum += i64::from((*tsc).0);

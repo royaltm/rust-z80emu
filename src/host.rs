@@ -5,7 +5,9 @@
 //! takes place.
 //!
 //! Please see [cycles] module for the description of each emulated cycle.
-use core::num::Wrapping;
+#[cfg(feature = "std")] use std::error;
+use core::fmt;
+use core::num::{NonZeroU16, Wrapping};
 use core::ops::{Add, AddAssign, Deref, DerefMut};
 
 use super::opconsts::RST_38H_OPCODE;
@@ -138,16 +140,16 @@ pub mod cycles {
 
 use cycles::*;
 
-/// A trait responsible for counting T-states during various [Cpu] cycles.
-/// The complete emulation depends on this trait to properly increase the counter.
+/// This trait defines an interface to the system clock from the [Cpu] emulation perspective.
+///
+/// An implementation of this trait is responsible for counting T-states during various [Cpu] cycles.
 ///
 /// It is however up to the implementation to determine how the counter is being represented.
-/// The only limit is that the `Clock` type must implement [Copy] and be [Sized].
 ///
 /// This trait can be used to emulate the [Cpu] contention by increasing the counter more than the required value.
 ///
 /// [Cpu]: crate::cpu::Cpu
-pub trait Clock: Sized + Copy {
+pub trait Clock {
     /// A type for an arbitrary representation of the `limit` when executing instructions.
     /// See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit) for the explanation.
     type Limit: Sized + Copy;
@@ -176,6 +178,10 @@ pub trait Clock: Sized + Copy {
     /// This method should increase the counter by at least [IO_CYCLE_TS] `4` T-states.
     /// The method should return the timestamp that may be passed to [Io::read_io] or [Io::write_io].
     fn add_io(&mut self, port: u16) -> Self::Timestamp;
+    /// This method should increase the counter by the given value in `wait_states`.
+    /// A call to one of [Io::read_io], [Io::write_io] or [Io::irq_data] may request an additional
+    /// number wait states to be added.
+    fn add_wait_states(&mut self, bus: u16, wait_states: NonZeroU16);
     /// Should return a copy of self as a `Self::Timestamp`.
     fn as_timestamp(&self) -> Self::Timestamp;
 }
@@ -185,29 +191,42 @@ pub trait Clock: Sized + Copy {
 pub trait Io {
     /// A type used for timestamping I/O operations.
     type Timestamp: Sized;
-    /// Should return the byte value from the device at the given `port`.
+    /// A type returned when a break is being requested by [Io::write_io].
+    type WrIoBreak;
+    /// A type returned when a break is being requested by [Io::reti].
+    type RetiBreak;
+    /// Should return a byte value from the device at the given `port` and the optional number of
+    /// wait states to be added to the [Clock].
     ///
     /// This method is being used by the [Cpu](crate::cpu::Cpu) to read data from the I/O port.
     /// The `timestamp` given has previously been returned from [Clock::add_io].
-    fn read_io(&mut self, port: u16, timestamp: Self::Timestamp) -> u8;
+    fn read_io(&mut self, port: u16, timestamp: Self::Timestamp) -> (u8, Option<NonZeroU16>);
     /// Should write the byte `data` to the device at the given `port`.
     ///
     /// This method is being used by the [Cpu](crate::cpu::Cpu) to write data to the I/O port.
     /// The `timestamp` given has previously been returned from [Clock::add_io].
     ///
-    /// Returning `true` from this method is a request to break the execution after the current
-    /// instruction completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
-    fn write_io(&mut self, port: u16, data: u8, timestamp: Self::Timestamp) -> bool;
+    /// Returning Some(Self::WrIoBreak) from this method is a request to break the execution after
+    /// the current instruction completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
+    ///
+    /// The returned tuple's second argument is an optional number of wait states to be added to the [Clock].
+    fn write_io(&mut self, port: u16, data: u8, timestamp: Self::Timestamp) -> (Option<Self::WrIoBreak>, Option<NonZeroU16>);
     /// This method should return `true` if the interrupt request signal (`INT`) is active.
     /// The `timestamp` given has previously been returned from [Clock::as_timestamp] method.
     fn is_irq(&mut self, timestamp: Self::Timestamp) -> bool;
     /// Depending on the interrupt mode this should return the opcode of a command to execute
-    /// (im 0) or a lower half of the address of the vector address jump table (im 2).
+    /// (`IM 0`) or a lower half of the address of the vector address jump table (`IM 2`).
+    /// This method is also being called in the interrupt mode 1 but its result is being ignored.
     ///
     /// In reality the value is obtained from the data bus where the external device places one byte
-    /// while requesting the interrupt.
+    /// while requesting an interrupt.
     /// The default implementation returns [RST_38H_OPCODE] equalizing mode 0 to mode 1.
-    fn irq_data(&mut self, _pc: u16, _timestamp: Self::Timestamp) -> u8 { RST_38H_OPCODE }
+    ///
+    /// The returned tuple's second argument is an optional number of wait states to be added to the [Clock].
+    #[allow(unused_variables)]
+    fn irq_data(&mut self, pc: u16, timestamp: Self::Timestamp) -> (u8, Option<NonZeroU16>) {
+        (RST_38H_OPCODE, None)
+    }
     /// When `RETI` instruction is being executed. This method is being called to update the I/O instance,
     /// so another interrupt signal can be set up if necessary.
     ///
@@ -218,10 +237,13 @@ pub trait Io {
     /// the return value from the stack. After calling this method the [Clock] counter will be
     /// increased by at least `2 x` [MEMRW_CYCLE_TS].
     ///
-    /// Returning `true` from this method is a request to break the execution after the execution of
-    /// `RETI` completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
-    /// The default implementation returns `false`.
-    fn reti(&mut self, _address: u16, _timestamp: Self::Timestamp) -> bool { false }
+    /// Returning Some(Self::RetiBreak) from this method is a request to break the execution after
+    /// the execution of `RETI` completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
+    /// The default implementation returns `None`.
+    #[allow(unused_variables)]
+    fn reti(&mut self, address: u16, timestamp: Self::Timestamp) -> Option<Self::RetiBreak> {
+        None
+    }
 }
 
 /// An interface to the host memory. Please also see [cycles] module.
@@ -264,13 +286,60 @@ pub trait Memory {
     fn read_debug(&self, address: u16) -> u8;
 }
 
+/// An enum representing execution error returned from execution methods of the [Cpu](crate::cpu::Cpu) trait.
+#[derive(Debug)]
+pub enum BreakCause<O, R> {
+    /// A `HALT` instruction was executed.
+    Halt,
+    /// An [Io::write_io] method requested a break while one of the `OUT` family instructions was executed.
+    WriteIo(O),
+    /// An [Io::reti] method requested a break while `RETI` was executed.
+    Reti(R)
+}
+
+/// A type returned from some of the [Cpu](crate::cpu::Cpu) trait methods.
+pub type Result<O, R> = core::result::Result<(), BreakCause<O, R>>;
+
+impl<O, R> From<BreakCause<O, R>> for &str {
+    fn from(cause: BreakCause<O, R>) -> &'static str {
+        (&cause).into()
+    }
+}
+
+impl<O, R> From<&BreakCause<O, R>> for &str {
+    fn from(cause: &BreakCause<O, R>) -> &'static str {
+        match cause {
+            BreakCause::Halt => "a HALT instruction was executed",
+            BreakCause::WriteIo(_) => "an I/O write operation has requested a break",
+            BreakCause::Reti(_) => "a break was requested at the end of an interrupt service routine",
+        }
+    }
+}
+
+impl<O, R> fmt::Display for BreakCause<O, R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Into::<&str>::into(self).fmt(f)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<O, R> error::Error for BreakCause<O, R> where O: fmt::Debug, R: fmt::Debug {
+    fn description(&self) -> &str {
+        self.into()
+    }
+
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        None
+    }
+}
+
 /// A simple T-states counter wrapping at 2^bitsize of T.
 /// Please refer to it as a template for implementing Clock trait methods.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TsCounter<T: Copy>(pub Wrapping<T>);
 
 impl<T> Clock for TsCounter<T>
-where T: Copy + PartialEq + PartialOrd + core::convert::From<u8>,
+where T: Copy + PartialEq + PartialOrd + core::convert::From<u8> + core::convert::From<u16>,
       Wrapping<T>: AddAssign + Add<Output=Wrapping<T>>
 {
     type Limit = T;
@@ -316,6 +385,13 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8>,
         self.0 += Wrapping(M1_CYCLE_TS.into());
         (self.0).0
     }
+
+    /// Adds `wait_states` to self.
+    #[inline]
+    fn add_wait_states(&mut self, _bus: u16, wait_states: NonZeroU16) {
+        self.0 += Wrapping(wait_states.get().into())
+    }
+
     /// Returns a copy of self as T.
     #[inline]
     fn as_timestamp(&self) -> T {

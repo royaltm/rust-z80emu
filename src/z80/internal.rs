@@ -45,8 +45,9 @@ impl Z80 {
     }
 
     /// Force IRQ
-    pub(super) fn irq_no_check<M, T, F>(&mut self, control: &mut M, mut tsc: T, debug: Option<F>) -> Result<T, T>
-    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock,
+    pub(super) fn irq_no_check<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Result<M::WrIoBreak, M::RetiBreak>
+    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
+          T: Clock,
           F: FnOnce(CpuDebug)
     {
         self.disable_interrupts();
@@ -58,15 +59,13 @@ impl Z80 {
             self.pc.set16(pc);
         }
         let bus_ts = tsc.add_irq(pc);
-        let vector = control.irq_data(pc, bus_ts);
+        let (vector, wait_states) = control.irq_data(pc, bus_ts);
+        if let Some(ws) = wait_states {
+            tsc.add_wait_states(pc, ws);
+        }
         match self.im {
             InterruptMode::Mode0 => {
-                let res = self.execute_instruction::<M,T,F>(control, tsc, debug, vector);
-                if self.halt {
-                    // HALT decreases PC we don't want that here
-                    self.pc.set16(self.pc.get16().wrapping_add(1));
-                }
-                res
+                self.execute_instruction::<M,T,F>(control, tsc, debug, vector)
             }
             InterruptMode::Mode1 => {
                 self.execute_instruction::<M,T,F>(control, tsc, debug, opconsts::RST_38H_OPCODE)
@@ -74,7 +73,7 @@ impl Z80 {
             InterruptMode::Mode2 => {
                 let ir = self.get_ir();
                 tsc.add_no_mreq(ir, 1); // ir:1
-                self.push16(pc, control, &mut tsc); // sp-1:3, sp-2:3
+                self.push16(pc, control, tsc); // sp-1:3, sp-2:3
                 let vaddr = ir & 0xFF00 | vector as u16;
                 self.pc.set16(vaddr);
                 self.execute_instruction::<M,T,F>(control, tsc, debug, opconsts::JP_OPCODE) // pc+1:3,pc+2:3
@@ -83,8 +82,9 @@ impl Z80 {
     }
 
     /// Force NMI
-    pub(super) fn nmi_no_check<M, T>(&mut self, control: &mut M, mut tsc: T) -> T
-    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
+    pub(super) fn nmi_no_check<M, T>(&mut self, control: &mut M, tsc: &mut T)
+    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
+          T: Clock
     {
         self.last_ei = false;
         self.iff1 = false;
@@ -96,9 +96,8 @@ impl Z80 {
         }
         tsc.add_m1(pc); // pc:4
         tsc.add_no_mreq(self.get_ir(), 1); // ir:1
-        self.push16(pc, control, &mut tsc); // sp-1:3, sp-2:3
+        self.push16(pc, control, tsc); // sp-1:3, sp-2:3
         self.pc.set16(NMI_RESTART);
-        tsc
     }
 
     #[inline(always)]
@@ -262,13 +261,16 @@ impl Z80 {
     { // ir:1, IO, hl:3, [hl:1 x 5]
         tsc.add_no_mreq(self.get_ir(), 1);
         let bc = self.regs.bc.get16();
-        let val = control.read_io(bc, tsc.add_io(bc));
+        let (data, wait_states) = control.read_io(bc, tsc.add_io(bc));
+        if let Some(ws) = wait_states {
+            tsc.add_wait_states(bc, ws);
+        }
         let hl = self.regs.hl.get16();
-        control.write_mem(hl, val, tsc.add_mreq(hl));
+        control.write_mem(hl, data, tsc.add_mreq(hl));
         // MEMPTR = BC_before_decrementing_B +/- 1
         self.memptr.set16(bc.wrapping_add(delta as u16));
         let b = ((bc >> 8) as u8).wrapping_sub(1);
-        ops::iox(val, b, (bc as u8).wrapping_add(delta as u8), flags);
+        ops::iox(data, b, (bc as u8).wrapping_add(delta as u8), flags);
         self.regs.bc.set8hi(b);
         self.regs.hl.set16(hl.wrapping_add(delta as u16));
         if let Some(pc) = pc {
@@ -280,20 +282,24 @@ impl Z80 {
         None
     }
 
-    pub(super) fn block_out<M, T>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags, delta: BlockDelta, pc: Option<Wrapping<u16>>) -> (bool, Option<Wrapping<u16>>)
+    pub(super) fn block_out<M, T>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags,
+                                    delta: BlockDelta, pc: Option<Wrapping<u16>>) -> (Option<M::WrIoBreak>, Option<Wrapping<u16>>)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ir:1, hl:3, IO, [bc:1 x 5]
         tsc.add_no_mreq(self.get_ir(), 1);
         let hl = self.regs.hl.get16();
-        let val = control.read_mem(hl, tsc.add_mreq(hl));
+        let data = control.read_mem(hl, tsc.add_mreq(hl));
         let (b, c) = self.regs.bc.get();
         let hl1 = hl.wrapping_add(delta as u16);
         let b = b.wrapping_sub(1);
-        ops::iox(val, b, hl1 as u8, flags);
+        ops::iox(data, b, hl1 as u8, flags);
         let bc = (b as u16) << 8 | c as u16;
         // MEMPTR = BC_after_decrementing_B +/- 1
         self.memptr.set16(bc.wrapping_add(delta as u16));
-        let should_break = control.write_io(bc, val, tsc.add_io(bc));
+        let (should_break, wait_states) = control.write_io(bc, data, tsc.add_io(bc));
+        if let Some(ws) = wait_states {
+            tsc.add_wait_states(bc, ws);
+        }
         self.regs.bc.set8hi(b);
         self.regs.hl.set16(hl1);
         if let Some(pc) = pc {

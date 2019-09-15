@@ -1,3 +1,4 @@
+use core::num::NonZeroU16;
 use z80emu::{Io, Memory};
 
 #[derive(Clone, Debug, Default)]
@@ -7,8 +8,10 @@ pub struct TestShuffle {
 
 impl Io for TestShuffle {
     type Timestamp = i32;
-    fn read_io(&mut self, _port: u16, _ts: Self::Timestamp) -> u8 { u8::max_value() }
-    fn write_io(&mut self, _port: u16, _data: u8, _ts: Self::Timestamp) -> bool { false }
+    type WrIoBreak = ();
+    type RetiBreak = ();
+    fn read_io(&mut self, _port: u16, _ts: Self::Timestamp) -> (u8, Option<NonZeroU16>) { (u8::max_value(), None) }
+    fn write_io(&mut self, _port: u16, _data: u8, _ts: Self::Timestamp) -> (Option<()>, Option<NonZeroU16>) { (None, None) }
     fn is_irq(&mut self, _ts: Self::Timestamp) -> bool { false }
 }
 

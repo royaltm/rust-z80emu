@@ -443,14 +443,14 @@ macro_rules! run_mnemonic {
         { // hl:3, de:3, de:1 x 2
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] LDI );
-            $cpu.block_transfer::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Increase, None);
+            $cpu.block_transfer::<M, T>($control, $tsc, &mut $flags, BlockDelta::Increase, None);
         }
     };
     (     LDIR                      @@@ $code0:expr, $code1:expr) => {
         { // hl:3, de:3, de:1 x 2 [de:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] LDIR );
-            if let Some(pc) = $cpu.block_transfer::<M, T>($control, &mut $tsc, &mut $flags,
+            if let Some(pc) = $cpu.block_transfer::<M, T>($control, $tsc, &mut $flags,
                                                             BlockDelta::Increase, Some($pc)) {
                 $pc = pc;
             }
@@ -460,14 +460,14 @@ macro_rules! run_mnemonic {
         { // hl:3, de:3, de:1 x 2
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] LDD );
-            $cpu.block_transfer::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Decrease, None);
+            $cpu.block_transfer::<M, T>($control, $tsc, &mut $flags, BlockDelta::Decrease, None);
         }
     };
     (     LDDR                      @@@ $code0:expr, $code1:expr) => {
         { // hl:3, de:3, de:1 x 2 [de:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] LDDR );
-            if let Some(pc) = $cpu.block_transfer::<M, T>($control, &mut $tsc, &mut $flags,
+            if let Some(pc) = $cpu.block_transfer::<M, T>($control, $tsc, &mut $flags,
                                                             BlockDelta::Decrease, Some($pc)) {
                 $pc = pc;
             }
@@ -477,14 +477,14 @@ macro_rules! run_mnemonic {
         { // hl:3, hl:1 x 5
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] CPI );
-            $cpu.block_search::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Increase, None);
+            $cpu.block_search::<M, T>($control, $tsc, &mut $flags, BlockDelta::Increase, None);
         }
     };
     (     CPIR                      @@@ $code0:expr, $code1:expr) => {
         { // hl:3, hl:1 x 5, [hl:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] CPIR );
-            if let Some(pc) = $cpu.block_search::<M, T>($control, &mut $tsc, &mut $flags,
+            if let Some(pc) = $cpu.block_search::<M, T>($control, $tsc, &mut $flags,
                                                         BlockDelta::Increase, Some($pc)) {
                 $pc = pc;
             }
@@ -494,14 +494,14 @@ macro_rules! run_mnemonic {
         { // hl:3, hl:1 x 5
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] CPD );
-            $cpu.block_search::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Decrease, None);
+            $cpu.block_search::<M, T>($control, $tsc, &mut $flags, BlockDelta::Decrease, None);
         }
     };
     (     CPDR                      @@@ $code0:expr, $code1:expr) => {
         { // hl:3, hl:1 x 5, [hl:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] CPDR );
-            if let Some(pc) = $cpu.block_search::<M, T>($control, &mut $tsc, &mut $flags,
+            if let Some(pc) = $cpu.block_search::<M, T>($control, $tsc, &mut $flags,
                                                         BlockDelta::Decrease, Some($pc)) {
                 $pc = pc;
             }
@@ -924,14 +924,14 @@ macro_rules! run_mnemonic {
             }
             else {
                 cpu_debug!([$code0, $code1] RETN );
-                false
+                None
             };
             let addr: u16 = pop16!();
             // JR/DJNZ/RET/RETI/RST (jumping to addr) MEMPTR = addr
             $cpu.memptr.set16(addr);
             $pc = Wrapping(addr);
-            if should_break {
-                break $main LoopExitReason::RetInt;
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::Reti(cause);
             }
         }
     };
@@ -955,21 +955,28 @@ macro_rules! run_mnemonic {
             let port: u16 = ($cpu.af.get8hi() as u16) << 8 | n as u16;
             // MEMPTR = (A_before_operation << 8) + port + 1
             $cpu.memptr.set16(port.wrapping_add(1));
-            $cpu.af.set8hi($control.read_io(port, $tsc.add_io(port)));
+            let (data, wait_states) = $control.read_io(port, $tsc.add_io(port));
+            if let Some(ws) = wait_states {
+                $tsc.add_wait_states(port, ws);
+            }
+            $cpu.af.set8hi(data);
         }
     };
     (     IN r,(C)                  @@@ $code0:expr, $code1:expr) => {
         { // IO
             debug_assert_eq!($prefix, Prefix::None);
             let bc = $cpu.regs.bc.get16();
-            let val = $control.read_io(bc, $tsc.add_io(bc));
-            ops::io(val, &mut $flags);
+            let (data, wait_states) = $control.read_io(bc, $tsc.add_io(bc));
+            if let Some(ws) = wait_states {
+                $tsc.add_wait_states(bc, ws);
+            }
+            ops::io(data, &mut $flags);
             // IN r,(C)     MEMPTR = BC + 1
             $cpu.memptr.set16(bc.wrapping_add(1));
             match Reg8::from_b5_3($code1) {
                 Ok(dst) => { // IN r,(C)
                     cpu_debug!([$code0, $code1] IN r:dst, port:C);
-                    $cpu.set_reg(dst, Prefix::None, val);
+                    $cpu.set_reg(dst, Prefix::None, data);
                 }
                 Err(_) => { // IN F, (c)
                     cpu_debug!([$code0, $code1] IN port:C);
@@ -981,14 +988,14 @@ macro_rules! run_mnemonic {
         { // ir:1, IO, hl:3
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] INI );
-            $cpu.block_in::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Increase, None);
+            $cpu.block_in::<M, T>($control, $tsc, &mut $flags, BlockDelta::Increase, None);
         }
     };
     (     INIR                      @@@ $code0:expr, $code1:expr) => {
         { // ir:1, IO, hl:3, [hl:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] INIR );
-            if let Some(pc) = $cpu.block_in::<M, T>($control, &mut $tsc, &mut $flags,
+            if let Some(pc) = $cpu.block_in::<M, T>($control, $tsc, &mut $flags,
                                                         BlockDelta::Increase, Some($pc)) {
                 $pc = pc;
             }
@@ -999,14 +1006,14 @@ macro_rules! run_mnemonic {
         { // ir:1, IO, hl:3
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] IND );
-            $cpu.block_in::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Decrease, None);
+            $cpu.block_in::<M, T>($control, $tsc, &mut $flags, BlockDelta::Decrease, None);
         }
     };
     (     INDR                      @@@ $code0:expr, $code1:expr) => {
         { // ir:1, IO, hl:3, [hl:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] INDR );
-            if let Some(pc) = $cpu.block_in::<M, T>($control, &mut $tsc, &mut $flags,
+            if let Some(pc) = $cpu.block_in::<M, T>($control, $tsc, &mut $flags,
                                                         BlockDelta::Decrease, Some($pc)) {
                 $pc = pc;
             }
@@ -1021,8 +1028,12 @@ macro_rules! run_mnemonic {
             let addr: u16 = (a as u16) << 8;
             $cpu.memptr.set16(addr | n.wrapping_add(1) as u16); // MEMPTR_low = (port + 1) & #FF,  MEMPTR_hi = A
             let port = addr|n as u16;
-            if $control.write_io(port, a, $tsc.add_io(port)) {
-                break $main LoopExitReason::WriteIo;
+            let (should_break, wait_states) = $control.write_io(port, a, $tsc.add_io(port));
+            if let Some(ws) = wait_states {
+                $tsc.add_wait_states(port, ws);
+            }
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::WriteIo(cause);
             }
         }
     };
@@ -1042,8 +1053,12 @@ macro_rules! run_mnemonic {
                     0
                 }
             };
-            if $control.write_io(bc, val, $tsc.add_io(bc)) {
-                break $main LoopExitReason::WriteIo;
+            let (should_break, wait_states) = $control.write_io(bc, val, $tsc.add_io(bc));
+            if let Some(ws) = wait_states {
+                $tsc.add_wait_states(bc, ws);
+            }
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::WriteIo(cause);
             }
         }
     };
@@ -1051,9 +1066,9 @@ macro_rules! run_mnemonic {
         { // ir:1, hl:3, IO
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] OUTI );
-            let (should_break, _) = $cpu.block_out::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Increase, None);
-            if should_break {
-                break $main LoopExitReason::WriteIo;
+            let (should_break, _) = $cpu.block_out::<M, T>($control, $tsc, &mut $flags, BlockDelta::Increase, None);
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::WriteIo(cause);
             }
         }
     };
@@ -1061,19 +1076,21 @@ macro_rules! run_mnemonic {
         { // ir:1, hl:3, IO, [bc:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] OTIR );
-            let (should_break, maybe_pc) = $cpu.block_out::<M, T>($control, &mut $tsc, &mut $flags,
+            let (should_break, maybe_pc) = $cpu.block_out::<M, T>($control, $tsc, &mut $flags,
                                                                     BlockDelta::Increase, Some($pc));
             if let Some(pc) = maybe_pc { $pc = pc; }
-            if should_break { break $main LoopExitReason::WriteIo; }
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::WriteIo(cause);
+            }
         }
     };
     (     OUTD | break $main:tt     @@@ $code0:expr, $code1:expr) => {
         { // ir:1, hl:3, IO
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] OUTD );
-            let (should_break, _) = $cpu.block_out::<M, T>($control, &mut $tsc, &mut $flags, BlockDelta::Decrease, None);
-            if should_break {
-                break $main LoopExitReason::WriteIo;
+            let (should_break, _) = $cpu.block_out::<M, T>($control, $tsc, &mut $flags, BlockDelta::Decrease, None);
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::WriteIo(cause);
             }
         }
     };
@@ -1081,10 +1098,12 @@ macro_rules! run_mnemonic {
         { // ir:1, hl:3, IO, [bc:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
             cpu_debug!([$code0, $code1] OTDR );
-            let (should_break, maybe_pc) = $cpu.block_out::<M, T>($control, &mut $tsc, &mut $flags,
+            let (should_break, maybe_pc) = $cpu.block_out::<M, T>($control, $tsc, &mut $flags,
                                                                     BlockDelta::Decrease, Some($pc));
             if let Some(pc) = maybe_pc { $pc = pc; }
-            if should_break { break $main LoopExitReason::WriteIo; }
+            if let Some(cause) = should_break {
+                break $main LoopExitReason::WriteIo(cause);
+            }
         }
     };
 //#################################################################################//

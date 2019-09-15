@@ -117,12 +117,12 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Returns the prefix value after executing the last command. See [Cpu::execute_instruction] for more information.
     fn get_prefix(&self) -> Prefix;
     /// Requests a maskable interrupt.
-    /// This is the alternative method to invoke the maskable interrupt. Usually while the instructions
-    /// are being executed the Cpu should check via [Io::is_irq] method if the interrrupt is being requested.
+    /// This is the alternative method to invoke the maskable interrupt. Usually while instructions
+    /// are being executed the [Cpu] checks via [Io::is_irq] method if the interrrupt is being requested.
     ///
     /// Returns `None` If the interrupt could not be accepted at this time.
     ///
-    /// Returns `Some(Ok(T))` holding the [Clock] instance after the appropriate number of T-states has been added.
+    /// Returns `Some(Ok(()))` if an interrupt was accepted and no break was requested by the executed instruction.
     /// In this instance at least one instruction will be executed. Depending on the interrupt mode this would be:
     /// * [InterruptMode::Mode0] an instruction provided via [Io::irq_data].
     /// * [InterruptMode::Mode1] a `RST 38h` instruction.
@@ -130,25 +130,24 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     ///   A debugger will see the `JP` command in this instance.
     ///   TODO: perhaps this should be some special case mnemonic instead.
     ///
-    /// `Some(Err(T))` indicates that an instruction requested a break. Currently this may be possible
-    /// in the interrupt mode 0 when the `OUT` instruction was provided on the `BUS` via [Io::irq_data]
-    /// method and the [Io::write_io] requested to break the execution. The `T` will hold the [Clock]
-    /// instance after the appropriate number of T-states has been added.
+    /// `Some(Err(BreakCause))` indicates that an instruction requested a break. Currently this may be possible
+    /// in the interrupt mode 0 when the `HALT`, `OUT` or `RETI` instruction was executed and the [Io::write_io]
+    /// or [Io::reti] requested to break the execution.
     ///
     /// See [Cpu::execute_instruction] for the `debug` argument description.
     ///
     /// # Note
     ///
     /// If the interrupt is being accepted this method resets the `HALT` state before everything else.
-    fn irq<M, T, F>(&mut self, control: &mut M, tsc: T, debug: Option<F>) -> Option<Result<T, T>>
+    fn irq<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Option<Result<M::WrIoBreak, M::RetiBreak>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug);
     /// Attempts to trigger a non-maskable interrupt.
-    /// Returns `None` If the interrupt could not be accepted at this time. The non-maskable interrupt
+    /// Returns `false` if the interrupt could not be accepted at this time. The non-maskable interrupt
     /// is not being accepted in some situations, e.g. right after executing the `EI` instruction or after
     /// one of the `0xDD` and `0xFD` opcode prefixes.
-    /// Returns `Some(T)` holding the [Clock] instance after the appropriate number of T-states has been added.
+    /// Returns `true` on success.
     /// No instruction will be executed but the program counter will be set to `0x0066` and the previous program
     /// counter will be pushed on the machine stack.
     /// The `interrupt flip-flop 1` is being set to false, preserving the `interrupt flip-flop 2`.
@@ -156,17 +155,16 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// # Note
     ///
     /// If the interrupt is being accepted this method resets the `HALT` state before everything else.
-    fn nmi<M, T>(&mut self, control: &mut M, tsc: T) -> Option<T>
+    fn nmi<M, T>(&mut self, control: &mut M, tsc: &mut T) -> bool
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock;
-    /// Executes a single instruction given as `code`. If the instruction is a part of the multi-byte
+    /// Executes a single instruction given as `code`. If the instruction is a first byte of the multi-byte
     /// instruction the rest of the instruction body will be fetched via calls to [Memory::read_opcode].
     ///
-    /// The return value `Err(T)` indicates that an instruction requested a break.
-    /// Currently this may be possible when the `OUT` family instruction was executed and the [Io::write_io]
-    /// returned `true` or the `RETI` instruction was executed and the [Io::reti] returned `true`.
-    ///
-    /// In both cases `T` will hold the [Clock] instance after the appropriate number of T-states has been added.
+    /// The return value `Err(BreakCause)` indicates that an instruction requested a break.
+    /// Currently this may be possible when the `HALT` instruction was executed or when the `OUT` family
+    /// instruction was executed and the [Io::write_io] requested a break or the `RETI` instruction was
+    /// executed and the [Io::reti] requested a break. See also [BreakCause].
     ///
     /// If `debug` argument is `Some(F)`, a closure `F` may be called with [CpuDebug] argument during the instruction
     /// execution. It won't be called if `code` is one of the `0xDD` or `0xFD` prefixes.
@@ -180,7 +178,7 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// # Note
     ///
     /// This method resets the `HALT` state and `after EI` state before the instruction is being executed.
-    fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: T, debug: Option<F>, code: u8) -> Result<T, T>
+    fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>, code: u8) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug);
@@ -192,25 +190,27 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// If `debug` closure is given, it will not be called in this instance.
     ///
     /// See [Cpu::execute_instruction] and [Cpu::irq] for the returned value and `debug` argument descriptions.
-    fn execute_next<M, T, F>(&mut self, control: &mut M, tsc: T, debug: Option<F>) -> Result<T, T>
+    fn execute_next<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug);
     /// Executes instructions until [Clock] reaches the given `limit` or when other conditions are met.
     ///
-    /// Returns `Ok(T)` only when `limit` has been reached and the last executed instruction didn't request a break.
+    /// Returns `Ok(())` only when `limit` has been reached and the last executed instruction didn't request a break.
     ///
-    /// Returns `Err(T)` when:
+    /// Returns `Err(BreakCause)` when:
+    /// * A `HALT` instruction was encountered.
     /// * An instruction requested a break via [Io::write_io] or [Io::reti].
-    /// * A `HALT` instruction was encountered __AND__ the `limit` has __NOT__ been reached yet.
-    /// 
+    ///
+    /// See also [BreakCause].
+    ///
     /// Before fetching each next instruction checks if the interrupt has been requested via [Io::is_irq]
     /// and executes the interrupt routines without breaking the execution.
     ///
-    /// When called while in the HALT state, increases the memory refresh register and advances the [Clock]
+    /// When called while in the `HALT` state, increases the memory refresh register and advances the [Clock]
     /// until the `limit` has been reached. If interrupts were enabled and an interrupt was requested via
-    /// [Io::is_irq] the `HALT` state is being reset and the regular execution of commands will continue.
-    fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: T, limit: T::Limit) -> Result<T, T>
+    /// [Io::is_irq] the `HALT` state is being reset and the regular execution of commands will be resumed.
+    fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: &mut T, limit: T::Limit) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock;
 }
