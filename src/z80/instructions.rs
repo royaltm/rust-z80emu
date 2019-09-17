@@ -101,21 +101,21 @@ macro_rules! run_mnemonic {
     (     IM 0                      @@@ $code0:expr, $code1:expr) => {
         {
             debug_assert_eq!($prefix, Prefix::None);
-            cpu_debug!([$code0, $code1] IM  n:0);
+            cpu_debug!([$code0, $code1] IM  m:0);
             $cpu.set_im(InterruptMode::Mode0);
         }
     };
     (     IM 1                      @@@ $code0:expr, $code1:expr) => {
         {
             debug_assert_eq!($prefix, Prefix::None);
-            cpu_debug!([$code0, $code1] IM  n:1);
+            cpu_debug!([$code0, $code1] IM  m:1);
             $cpu.set_im(InterruptMode::Mode1);
         }
     };
     (     IM 2                      @@@ $code0:expr, $code1:expr) => {
         {
             debug_assert_eq!($prefix, Prefix::None);
-            cpu_debug!([$code0, $code1] IM  n:2);
+            cpu_debug!([$code0, $code1] IM  m:2);
             $cpu.set_im(InterruptMode::Mode2);
         }
     };
@@ -940,7 +940,7 @@ macro_rules! run_mnemonic {
             debug_assert_eq!($prefix, Prefix::None);
             $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             let addr = parse_restart_address($code);
-            cpu_debug!([$code] RST adnn:addr);
+            cpu_debug!([$code] RST p:addr);
             push16!($pc.0);
             // JR/DJNZ/RET/RETI/RST (jumping to addr) MEMPTR = addr
             $cpu.memptr.set16(addr);

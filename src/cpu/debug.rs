@@ -1,6 +1,6 @@
 use core::fmt::{self, Write};
 use arrayvec::ArrayString;
-use super::{Reg8, Reg16, StkReg16, Prefix, Condition};
+use super::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};
 
 /// A type that stores the copy of the instruction's full byte code.
 pub type CpuDebugCode = arrayvec::ArrayVec::<[u8;4]>;
@@ -87,6 +87,10 @@ pub enum CpuDebugPort {
 pub enum CpuDebugArg {
     /// An immediate 8-bit integer.
     Imm8(u8),
+    /// A bit number
+    Bit(u32),
+    /// A mode
+    IntMode(InterruptMode),
     /// An 8-bit register. Prefix changes the meaning of [H][Reg8::H] and [L][Reg8::L] registers into
     /// `IXh` and `IXl` or `IYh` and `IYl` accordingly.
     Reg8(Prefix, Reg8),
@@ -142,11 +146,17 @@ impl fmt::LowerHex for CpuDebugAddr {
             else {
                 write!(f, "({:04x}h)", nn)
             }
-            CpuDebugAddr::IndexAddr(px, Some(d)) => if f.alternate() {
-                write!(f, "({}{:+#04x})", px, d)
+            CpuDebugAddr::IndexAddr(px, Some(d@0..=127)) => if f.alternate() {
+                write!(f, "({}+{:#04x})", px, d)
             }
             else {
-                write!(f, "({}{:+02x}h)", px, d)
+                write!(f, "({}+{:02x}h)", px, d)
+            }
+            CpuDebugAddr::IndexAddr(px, Some(d@-128..=-1)) => if f.alternate() {
+                write!(f, "({}-{:#04x})", px, 0u8.wrapping_sub(*d as u8))
+            }
+            else {
+                write!(f, "({}-{:02x}h)", px, 0u8.wrapping_sub(*d as u8))
             }
             _ => fmt::Display::fmt(self, f)
         }
@@ -162,11 +172,17 @@ impl fmt::UpperHex for CpuDebugAddr {
             else {
                 write!(f, "({:04X}h)", nn)
             }
-            CpuDebugAddr::IndexAddr(px, Some(d)) => if f.alternate() {
-                write!(f, "({}{:+#04X})", px, d)
+            CpuDebugAddr::IndexAddr(px, Some(d@0..=127)) => if f.alternate() {
+                write!(f, "({}+{:#04X})", px, d)
             }
             else {
-                write!(f, "({}{:+02X}h)", px, d)
+                write!(f, "({}+{:02X}h)", px, d)
+            }
+            CpuDebugAddr::IndexAddr(px, Some(d@-128..=-1)) => if f.alternate() {
+                write!(f, "({}-{:#04X})", px, 0u8.wrapping_sub(*d as u8))
+            }
+            else {
+                write!(f, "({}-{:02X}h)", px, 0u8.wrapping_sub(*d as u8))
             }
             _ => fmt::Display::fmt(self, f)
         }
@@ -214,6 +230,8 @@ impl fmt::Display for CpuDebugArg {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugArg::Imm8(n) => write!(f, "{}", n),
+            CpuDebugArg::Bit(n)  => write!(f, "{}", n),
+            CpuDebugArg::IntMode(m)  => write!(f, "{}", *m as u8),
             CpuDebugArg::Reg8(px, r8)  => r8.format_with_prefix(f, *px),
             CpuDebugArg::Imm16(nn) => write!(f, "{}", nn),
             CpuDebugArg::Reg16(px, r16) => r16.format_with_prefix(f, *px),
@@ -329,10 +347,10 @@ impl fmt::LowerHex for CpuDebugArgs {
                     write!(f, "{:x}, {:x}", arg1, arg2)
                 }
                 CpuDebugArgs::BitOpExt(arg1, arg2, arg3) => if f.alternate() {
-                    write!(f, "{:#x}, {:#x}, {}", arg1, arg2, arg3)
+                    write!(f, "{}, {:#x}, {}", arg1, arg2, arg3)
                 }
                 else {
-                    write!(f, "{:x}, {:x}, {}", arg1, arg2, arg3)
+                    write!(f, "{}, {:x}, {}", arg1, arg2, arg3)
                 }
             }
         }
@@ -357,10 +375,10 @@ impl fmt::UpperHex for CpuDebugArgs {
                     write!(f, "{:X}, {:X}", arg1, arg2)
                 }
                 CpuDebugArgs::BitOpExt(arg1, arg2, arg3) => if f.alternate() {
-                    write!(f, "{:#X}, {:#X}, {}", arg1, arg2, arg3)
+                    write!(f, "{}, {:#X}, {}", arg1, arg2, arg3)
                 }
                 else {
-                    write!(f, "{:X}, {:X}, {}", arg1, arg2, arg3)
+                    write!(f, "{}, {:X}, {}", arg1, arg2, arg3)
                 }
             }
         }

@@ -75,8 +75,10 @@ macro_rules! define_helpers_scoped {
                 }
             };
             (@arg n:$n:expr)      => { CpuDebugArg::Imm8($n) };
-            (@arg b:$b:expr)      => { CpuDebugArg::Imm8($b as u8) };
+            (@arg b:$b:expr)      => { CpuDebugArg::Bit($b) };
+            (@arg m:$m:expr)      => { CpuDebugArg::IntMode(InterruptMode::try_from($m).unwrap()) };
             (@arg nn:$nn:expr)    => { CpuDebugArg::Imm16($nn) };
+            (@arg p:$nn:expr)     => { CpuDebugArg::Imm8($nn as u8) };
             (@arg nn_0:$nn:expr)  => { CpuDebugArg::Imm16($nn.0) };
             (@arg r:A)            => { CpuDebugArg::Reg8(Prefix::None, Reg8::A) };
             (@arg r:I)            => { CpuDebugArg::I };

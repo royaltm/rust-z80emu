@@ -7,7 +7,7 @@ use super::flags::CpuFlags;
 
 /// A prefix enum that modifies behaviour of the next op-code.
 /// It's also instrumental in preventing interrupts prematurely.
-#[derive(Debug,Copy,Clone,Serialize,Deserialize,PartialEq,Eq)]
+#[derive(Debug,Copy,Clone,Serialize,Deserialize,PartialEq,Eq,Hash)]
 #[repr(u8)]
 pub enum Prefix {
     None = 0x00,
@@ -236,13 +236,13 @@ impl Reg8 {
     }
 
     /// Formats `Reg8` as a string with the given formatter with `prefix` modification.
-    /// E.g. for [Reg8::H] writes "IXh" if prefix is [Prefix::Xdd].
+    /// E.g. for [Reg8::H] writes "IXH" if prefix is [Prefix::Xdd].
     pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
         match (self, prefix) {
-            (Reg8::H, Prefix::Xdd) => f.write_str("IXh"),
-            (Reg8::H, Prefix::Yfd) => f.write_str("IYh"),
-            (Reg8::L, Prefix::Xdd) => f.write_str("IXl"),
-            (Reg8::L, Prefix::Yfd) => f.write_str("IYl"),
+            (Reg8::H, Prefix::Xdd) => f.write_str("IXH"),
+            (Reg8::H, Prefix::Yfd) => f.write_str("IYH"),
+            (Reg8::L, Prefix::Xdd) => f.write_str("IXL"),
+            (Reg8::L, Prefix::Yfd) => f.write_str("IYL"),
             _ => fmt::Display::fmt(self, f)
         }
     }
