@@ -41,8 +41,8 @@ fn test_shuffle() {
         let mut shuffle1 = shuffle.clone();
         let mut tsc1 = TsClock::default();
         let debug = |deb:CpuDebug| {
-            eprintln!("{:04x} : {:6} {:#20x} {:02X?}", deb.pc, deb.mnemonic, deb.args, deb.code.as_slice());
-            // eprintln!("{:x}", deb);
+            println!("{:04x} : {:6} {:#20x} {:02X?}", deb.pc, deb.mnemonic, deb.args, deb.code.as_slice());
+            // println!("{:x}", deb);
         };
         while !cpu.is_halt() {
             match cpu.execute_next(&mut shuffle1, &mut tsc1, Some(debug)) {

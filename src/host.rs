@@ -7,7 +7,7 @@
 //! Please see [cycles] module for the description of each emulated cycle.
 #[cfg(feature = "std")] use std::error;
 use core::fmt;
-use core::num::{NonZeroU16, Wrapping};
+use core::num::{NonZeroU8, NonZeroU16, Wrapping};
 use core::ops::{Add, AddAssign, Deref, DerefMut};
 
 use super::opconsts::RST_38H_OPCODE;
@@ -166,7 +166,7 @@ pub trait Clock {
     /// This method should increase the counter by at least the value given in `add_ts`.
     /// It's being used by internal operations of the [Cpu](crate::cpu::Cpu) without any external access.
     /// The address given is whatever was put on the address bus before.
-    fn add_no_mreq(&mut self, address: u16, add_ts: u8);
+    fn add_no_mreq(&mut self, address: u16, add_ts: NonZeroU8);
     /// This method should increase the counter by at least [M1_CYCLE_TS] `4`.
     /// The method should return the timestamp that may be passed to [Memory::read_opcode].
     /// This method is also being used by the non-maskable interrupt and while the `Cpu` is in the `halted` state.
@@ -188,6 +188,7 @@ pub trait Clock {
 
 /// This trait handles `IN`/`OUT` instruction family and maskable interrupts.
 /// Please also see [cycles] module.
+#[allow(unused_variables)]
 pub trait Io {
     /// A type used for timestamping I/O operations.
     type Timestamp: Sized;
@@ -200,7 +201,9 @@ pub trait Io {
     ///
     /// This method is being used by the [Cpu](crate::cpu::Cpu) to read data from the I/O port.
     /// The `timestamp` given has previously been returned from [Clock::add_io].
-    fn read_io(&mut self, port: u16, timestamp: Self::Timestamp) -> (u8, Option<NonZeroU16>);
+    fn read_io(&mut self, port: u16, timestamp: Self::Timestamp) -> (u8, Option<NonZeroU16>) {
+        (u8::max_value(), None)
+    }
     /// Should write the byte `data` to the device at the given `port`.
     ///
     /// This method is being used by the [Cpu](crate::cpu::Cpu) to write data to the I/O port.
@@ -210,10 +213,14 @@ pub trait Io {
     /// the current instruction completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
     ///
     /// The returned tuple's second argument is an optional number of wait states to be added to the [Clock].
-    fn write_io(&mut self, port: u16, data: u8, timestamp: Self::Timestamp) -> (Option<Self::WrIoBreak>, Option<NonZeroU16>);
+    fn write_io(&mut self, port: u16, data: u8, timestamp: Self::Timestamp) -> (Option<Self::WrIoBreak>, Option<NonZeroU16>) {
+        (None, None)
+    }
     /// This method should return `true` if the interrupt request signal (`INT`) is active.
     /// The `timestamp` given has previously been returned from [Clock::as_timestamp] method.
-    fn is_irq(&mut self, timestamp: Self::Timestamp) -> bool;
+    fn is_irq(&mut self, timestamp: Self::Timestamp) -> bool {
+        false
+    }
     /// Depending on the interrupt mode this should return the opcode of a command to execute
     /// (`IM 0`) or a lower half of the address of the vector address jump table (`IM 2`).
     /// This method is also being called in the interrupt mode 1 but its result is being ignored.
@@ -223,7 +230,6 @@ pub trait Io {
     /// The default implementation returns [RST_38H_OPCODE] equalizing mode 0 to mode 1.
     ///
     /// The returned tuple's second argument is an optional number of wait states to be added to the [Clock].
-    #[allow(unused_variables)]
     fn irq_data(&mut self, pc: u16, timestamp: Self::Timestamp) -> (u8, Option<NonZeroU16>) {
         (RST_38H_OPCODE, None)
     }
@@ -240,13 +246,13 @@ pub trait Io {
     /// Returning Some(Self::RetiBreak) from this method is a request to break the execution after
     /// the execution of `RETI` completes. See [Cpu::execute_with_limit](crate::cpu::Cpu::execute_with_limit).
     /// The default implementation returns `None`.
-    #[allow(unused_variables)]
     fn reti(&mut self, address: u16, timestamp: Self::Timestamp) -> Option<Self::RetiBreak> {
         None
     }
 }
 
 /// An interface to the host memory. Please also see [cycles] module.
+#[allow(unused_variables)]
 pub trait Memory {
     /// A type used for timestamping memory operations.
     type Timestamp: Sized;
@@ -255,14 +261,18 @@ pub trait Memory {
     /// This method is being used by the [Cpu](crate::cpu::Cpu) to read data from memory.
     /// The `timestamp` given has previously been returned from [Clock::add_mreq].
     /// For the `M1` cycles [Memory::read_opcode] is used instead.
-    fn read_mem(&self, address: u16, ts: Self::Timestamp) -> u8;
+    fn read_mem(&self, address: u16, ts: Self::Timestamp) -> u8 {
+        self.read_debug(address)
+    }
     /// Should return the unaligned 2 consecutive bytes from memory at present the given
     /// `address` as a 16-bit unsigned integer in LE order.
     ///
     /// This method is being used by the [Cpu](crate::cpu::Cpu) to read 16 bit values from memory.
     /// The real CPU splits this read but we are cutting corners here slightly.
     /// The `timestamp` given has previously been returned from [Clock::add_mreq].
-    fn read_mem16(&self, address: u16, ts: Self::Timestamp) -> u16;
+    fn read_mem16(&self, address: u16, ts: Self::Timestamp) -> u16 {
+        u16::from_le_bytes([self.read_debug(address), self.read_debug(address.wrapping_add(1))])
+    }
     /// Should return the byte value from memory present at the given `pc` address.
     ///
     /// Used by the [Cpu](crate::cpu::Cpu) during `M1` cycle for reading opcodes.
@@ -274,16 +284,20 @@ pub trait Memory {
     /// The `timestamp` given has previously been returned from [Clock::add_m1].
     /// `pc` contains an address in the memory from which the opcode should be read.
     /// `ir` contains a memory refresh value that the real CPU would put on the bus during memory refresh cycles.
-    fn read_opcode(&mut self, pc: u16, ir: u16, ts: Self::Timestamp) -> u8;
+    fn read_opcode(&mut self, pc: u16, ir: u16, ts: Self::Timestamp) -> u8 {
+        self.read_debug(pc)
+    }
     /// Should store a byte `value` at the given `address` in memory.
     ///
     /// This is used by the [Cpu](crate::cpu::Cpu) for writing to memory.
     /// The `timestamp` given has previously been returned from [Clock::add_mreq].
-    fn write_mem(&mut self, address: u16, value: u8, ts: Self::Timestamp);
+    fn write_mem(&mut self, address: u16, value: u8, ts: Self::Timestamp) {}
     /// Should return the value of the byte from memory present at the given `address`.
     ///
     /// Used by the [Cpu](crate::cpu::Cpu) debugger to get a conditional command argument.
-    fn read_debug(&self, address: u16) -> u8;
+    fn read_debug(&self, address: u16) -> u8 {
+        u8::max_value()
+    }
 }
 
 /// An enum representing execution error returned from execution methods of the [Cpu](crate::cpu::Cpu) trait.
@@ -360,8 +374,8 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8> + core::convert
     }
     /// Adds `add_ts` T-states to self.
     #[inline]
-    fn add_no_mreq(&mut self, _addr: u16, add_ts: u8) {
-        self.0 += Wrapping(add_ts.into());
+    fn add_no_mreq(&mut self, _addr: u16, add_ts: NonZeroU8) {
+        self.0 += Wrapping(add_ts.get().into());
     }
     /// Returns self (before addition of `IO_CYCLE_TS`) + [IO_IORQ_LOW_TS] as `T`.
     /// Adds [IO_CYCLE_TS] T-states to self.

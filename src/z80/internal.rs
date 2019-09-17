@@ -2,6 +2,22 @@
 use super::*;
 use crate::{NMI_RESTART, Rot};
 
+/// Constants for internal cycles.
+pub (super) mod cycles {
+    use core::num::NonZeroU8;
+    macro_rules! def_consts_non_zero_u8 {
+        ($($n:ident: $i:literal;)*) => { $(pub const $n: NonZeroU8 = unsafe { NonZeroU8::new_unchecked($i) };)* };
+    }
+    def_consts_non_zero_u8!{
+        NO_MREQ_X1: 1;
+        NO_MREQ_X2: 2;
+        NO_MREQ_X4: 4;
+        NO_MREQ_X5: 5;
+        NO_MREQ_X7: 7;
+    }
+}
+use cycles::*;
+
 /// Converts Rot enum into one of the appriopriate ops function.
 impl From<Rot> for fn(u8, &mut CpuFlags) -> u8 {
     #[inline]
@@ -72,7 +88,7 @@ impl Z80 {
             }
             InterruptMode::Mode2 => {
                 let ir = self.get_ir();
-                tsc.add_no_mreq(ir, 1); // ir:1
+                tsc.add_no_mreq(ir, NO_MREQ_X1); // ir:1
                 self.push16(pc, control, tsc); // sp-1:3, sp-2:3
                 let vaddr = ir & 0xFF00 | vector as u16;
                 self.pc.set16(vaddr);
@@ -95,7 +111,7 @@ impl Z80 {
             pc = pc.wrapping_add(1);
         }
         tsc.add_m1(pc); // pc:4
-        tsc.add_no_mreq(self.get_ir(), 1); // ir:1
+        tsc.add_no_mreq(self.get_ir(), NO_MREQ_X1); // ir:1
         self.push16(pc, control, tsc); // sp-1:3, sp-2:3
         self.pc.set16(NMI_RESTART);
     }
@@ -216,14 +232,14 @@ impl Z80 {
         let de = self.regs.de.get16();
         let val = control.read_mem(hl, tsc.add_mreq(hl));
         control.write_mem(de, val, tsc.add_mreq(de));
-        tsc.add_no_mreq(de, 2);
+        tsc.add_no_mreq(de, NO_MREQ_X2);
         self.regs.hl.set16(hl.wrapping_add(delta as u16));
         self.regs.de.set16(de.wrapping_add(delta as u16));
         let is_over = self.regs.bc.dec16_is_zero();
         ops::ldx(self.af.get8hi(), val, is_over, flags);
         if let Some(pc) = pc {
             if !is_over {
-                tsc.add_no_mreq(de, 5);
+                tsc.add_no_mreq(de, NO_MREQ_X5);
                 // MEMPTR = PC + 1
                 self.memptr.set16((pc - Wrapping(1)).0);
                 return Some(pc - Wrapping(2))
@@ -237,7 +253,7 @@ impl Z80 {
     { // hl:3, hl:1 x 5, [hl:1 x 5]
         let hl = self.regs.hl.get16();
         let val = control.read_mem(hl, tsc.add_mreq(hl));
-        tsc.add_no_mreq(hl, 5);
+        tsc.add_no_mreq(hl, NO_MREQ_X5);
         self.regs.hl.set16(hl.wrapping_add(delta as u16));
         let is_over = ops::cpx( self.af.get8hi(),
                                 val,
@@ -245,7 +261,7 @@ impl Z80 {
                                 flags);
         if let Some(pc) = pc {
             if !is_over {
-                tsc.add_no_mreq(hl, 5);
+                tsc.add_no_mreq(hl, NO_MREQ_X5);
                 // MEMPTR = PC + 1
                 self.memptr.set16((pc - Wrapping(1)).0);
                 return Some(pc - Wrapping(2))
@@ -259,7 +275,7 @@ impl Z80 {
     pub(super) fn block_in<M, T>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags, delta: BlockDelta, pc: Option<Wrapping<u16>>) -> Option<Wrapping<u16>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ir:1, IO, hl:3, [hl:1 x 5]
-        tsc.add_no_mreq(self.get_ir(), 1);
+        tsc.add_no_mreq(self.get_ir(), NO_MREQ_X1);
         let bc = self.regs.bc.get16();
         let (data, wait_states) = control.read_io(bc, tsc.add_io(bc));
         if let Some(ws) = wait_states {
@@ -275,7 +291,7 @@ impl Z80 {
         self.regs.hl.set16(hl.wrapping_add(delta as u16));
         if let Some(pc) = pc {
             if b != 0 {
-                tsc.add_no_mreq(hl, 5);
+                tsc.add_no_mreq(hl, NO_MREQ_X5);
                 return Some(pc - Wrapping(2))
             }
         }
@@ -286,7 +302,7 @@ impl Z80 {
                                     delta: BlockDelta, pc: Option<Wrapping<u16>>) -> (Option<M::WrIoBreak>, Option<Wrapping<u16>>)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ir:1, hl:3, IO, [bc:1 x 5]
-        tsc.add_no_mreq(self.get_ir(), 1);
+        tsc.add_no_mreq(self.get_ir(), NO_MREQ_X1);
         let hl = self.regs.hl.get16();
         let data = control.read_mem(hl, tsc.add_mreq(hl));
         let (b, c) = self.regs.bc.get();
@@ -304,7 +320,7 @@ impl Z80 {
         self.regs.hl.set16(hl1);
         if let Some(pc) = pc {
             if b != 0 {
-                tsc.add_no_mreq(bc, 5);
+                tsc.add_no_mreq(bc, NO_MREQ_X5);
                 return (should_break, Some(pc - Wrapping(2)))
             }
         }

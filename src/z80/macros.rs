@@ -120,7 +120,7 @@ macro_rules! define_helpers_scoped {
         /// Used only to read the immediate 8-bit instruction argument.
         /// For reading an op-code see fetch_next_opcode!.
         macro_rules! fetch_next_imm8 {
-            ($dol(no_mreq: 1x $add_ts_more:expr)?) => {
+            ($dol(no_mreq: $add_ts_more:expr)?) => {
                 { // pc:3, pc+=1
                     let code = $control.read_mem($pc.0, $tsc.add_mreq($pc.0));
                     $dol( // pc:1 x m
@@ -135,7 +135,7 @@ macro_rules! define_helpers_scoped {
         /// Reads 2 bytes from memory via PC register ($pc) as a LE u16. Increases $pc afterwards.
         /// Used to read the immediate 16-bit instruction argument.
         macro_rules! fetch_next_imm16 {
-            ($dol(no_mreq: 1x $add_ts_more:expr)?) => {
+            ($dol(no_mreq: $add_ts_more:expr)?) => {
                 { // pc:3, pc+1:3, pc+=2
                     let nn: u16 = $control.read_mem16($pc.0, $tsc.add_mreq($pc.0));
                     let pc1 = $pc.0.wrapping_add(1);
@@ -155,7 +155,7 @@ macro_rules! define_helpers_scoped {
                 { // hl:3, hl:1, hl(write):3
                     let $reg16: u16 = $cpu.regs.$reg16.get16();
                     let val: u8 = $oper;
-                    $tsc.add_no_mreq($reg16, 1);
+                    $tsc.add_no_mreq($reg16, NO_MREQ_X1);
                     $control.write_mem($reg16, val, $tsc.add_mreq($reg16));
                 }
             };
@@ -173,7 +173,7 @@ macro_rules! define_helpers_scoped {
                 { // ii+d:3, ii+d:1, ii+d(write):3
                     let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
                     let val: u8 = $opfn($control.read_mem(ii_d, $tsc.add_mreq(ii_d)), &mut $flags);
-                    $tsc.add_no_mreq(ii_d, 1);
+                    $tsc.add_no_mreq(ii_d, NO_MREQ_X1);
                     // Any instruction with (INDEX+d): MEMPTR = INDEX+d
                     $cpu.memptr.set16(ii_d);
                     $control.write_mem(ii_d, val, $tsc.add_mreq(ii_d));
@@ -183,7 +183,7 @@ macro_rules! define_helpers_scoped {
 
         /// Reads 1 byte from memory via one of the 16-bit registers: BC, DE, HL, IX or IY.
         macro_rules! read_mem8_reg16 {
-            (<- [$reg16:ident] $dol(memptr=$memptr:expr)? $dol(;no_mreq: 1x $add_ts_more:expr)?) => {
+            (<- [$reg16:ident] $dol(memptr=$memptr:expr)? $dol(;no_mreq: $add_ts_more:expr)?) => {
                 { // ss: 3
                     let $reg16: u16 = $cpu.regs.$reg16.get16();
                     $dol(
@@ -284,10 +284,10 @@ macro_rules! define_helpers_scoped {
                     let val = $control.read_mem16(sp, $tsc.add_mreq(sp));
                     let sp_1 = sp.wrapping_add(1);
                     $tsc.add_mreq(sp_1);
-                    $tsc.add_no_mreq(sp_1, 1);
+                    $tsc.add_no_mreq(sp_1, NO_MREQ_X1);
                     $control.write_mem(sp_1, $vhi, $tsc.add_mreq(sp_1));
                     $control.write_mem(sp, $vlo, $tsc.add_mreq(sp));
-                    $tsc.add_no_mreq(sp, 2);
+                    $tsc.add_no_mreq(sp, NO_MREQ_X2);
                     val
                 }
             };
@@ -301,7 +301,7 @@ macro_rules! define_helpers_scoped {
                     // RLD/RRD  MEMPTR = HL + 1
                     $cpu.memptr.set16(hl.wrapping_add(1));
                     let val = $control.read_mem(hl, $tsc.add_mreq(hl));
-                    $tsc.add_no_mreq(hl, 4);
+                    $tsc.add_no_mreq(hl, NO_MREQ_X4);
                     $cpu.af.op8hi(|a| {
                         let (a, res) : (u8, u8) = $rxd(a, val, &mut $flags);
                         $control.write_mem(hl, res, $tsc.add_mreq(hl));

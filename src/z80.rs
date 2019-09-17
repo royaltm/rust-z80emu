@@ -15,6 +15,7 @@ use serde::{Serialize, Deserialize};
 use crate::cpu::*;
 use crate::host::*;
 use crate::opconsts;
+use internal::cycles::*;
 
 enum LoopExitReason<O, R> {
     LimitReached,

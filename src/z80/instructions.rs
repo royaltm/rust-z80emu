@@ -159,7 +159,7 @@ macro_rules! run_mnemonic {
                 }
                 (Ok(dst), Err(_)) => {
                     // pc+2:3, pc+2:1 x 5
-                    let d: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+                    let d: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
                     cpu_debug!([$code, d] LD r:dst, ii:d);
                     // ii+d:3
                     // MEMPTR = INDEX+d
@@ -168,7 +168,7 @@ macro_rules! run_mnemonic {
                 }
                 (Err(_), Ok(src)) => {
                     // pc+2:3, pc+2:1 x 5
-                    let d: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+                    let d: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
                     cpu_debug!([$code, d] LD ii:d, r:src);
                     // ii+d:3
                     // MEMPTR = INDEX+d
@@ -216,7 +216,7 @@ macro_rules! run_mnemonic {
             // pc+2:3
             let d: u8 = fetch_next_imm8!();
             // pc+3:3,pc+3:1 x 2
-            let n: u8 = fetch_next_imm8!(no_mreq: 1x 2);
+            let n: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X2);
             cpu_debug!([$code, d, n] LD ii:d, n:n);
             // ii+d:3
             // MEMPTR = INDEX+d
@@ -354,7 +354,7 @@ macro_rules! run_mnemonic {
     };
     (     LD SP,ii                  @@@ $code:expr) => {
         { // ir:1 x 2
-            $tsc.add_no_mreq($cpu.get_ir(), 2);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X2);
             cpu_debug!([$code] LD rr:SP, qq:ii);
             $cpu.sp.set16($cpu.get_index16($prefix));
         }
@@ -362,7 +362,7 @@ macro_rules! run_mnemonic {
     (     PUSH ss                   @@@ $code:expr) => {
         { // ir:1, sp-1:3, sp-2:3
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 1);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             let ss = StkReg16::from($code);
             cpu_debug!([$code] PUSH ss:ss);
             let (vhi, vlo) = match ss {
@@ -394,7 +394,7 @@ macro_rules! run_mnemonic {
     (     PUSH ii                   @@@ $code:expr) => {
         { // ir:1,sp-1:3,sp-2:3
             debug_assert_ne!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 1);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             cpu_debug!([$code] PUSH qq:ii);
             let (vhi, vlo) = $cpu.get_index2($prefix);
             push2!(vhi, vlo);
@@ -537,7 +537,7 @@ macro_rules! run_mnemonic {
                 }
                 Err(_) => {
                     // pc+2:3, pc+2:1 x 5, ii+n:3
-                    let d: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+                    let d: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
                     cpu_debug!([$code, d] op8(op) ii:d);
                     // ii+d:3
                     // MEMPTR = INDEX+d
@@ -586,7 +586,7 @@ macro_rules! run_mnemonic {
     };
     (     ADD ii,dd                 @@@ $code:expr) => {
         { // ir:1 x 7
-            $tsc.add_no_mreq($cpu.get_ir(), 7);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X7);
             let src = Reg16::from($code);
             cpu_debug!([$code] ADD qq:ii, qq:src);
             let nn = $cpu.get_reg_prefix16(src, $prefix);
@@ -605,7 +605,7 @@ macro_rules! run_mnemonic {
     (     ADC HL,dd                 @@@ $code0:expr, $code1:expr) => {
         { // ir:1 x 7
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 7);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X7);
             let src = Reg16::from($code1);
             cpu_debug!([$code0, $code1] ADC rr:HL, rr:src);
             let nn = $cpu.get_reg16(src);
@@ -620,7 +620,7 @@ macro_rules! run_mnemonic {
     (     SBC HL,dd                 @@@ $code0:expr, $code1:expr) => {
         { // ir:1 x 7
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 7);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X7);
             let src = Reg16::from($code1);
             cpu_debug!([$code0, $code1] SBC rr:HL, rr:src);
             let nn = $cpu.get_reg16(src);
@@ -635,7 +635,7 @@ macro_rules! run_mnemonic {
     (     INC dd                    @@@ $code:expr) => {
         { // ir:1 x 2
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 2);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X2);
             let tgt = Reg16::from($code);
             cpu_debug!([$code] INC rr:tgt);
             $cpu.reg16_mut(tgt).inc16();
@@ -644,7 +644,7 @@ macro_rules! run_mnemonic {
     (     DEC dd                    @@@ $code:expr) => {
         { // ir:1 x 2
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 2);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X2);
             let tgt = Reg16::from($code);
             cpu_debug!([$code] DEC rr:tgt);
             $cpu.reg16_mut(tgt).dec16();
@@ -653,7 +653,7 @@ macro_rules! run_mnemonic {
     (     INC ii                    @@@ $code:expr) => {
         { // ir:1 x 2
             debug_assert_ne!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 2);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X2);
             cpu_debug!([$code] INC qq:ii);
             $cpu.index16_mut($prefix).inc16();
         }
@@ -661,7 +661,7 @@ macro_rules! run_mnemonic {
     (     DEC ii                    @@@ $code:expr) => {
         { // ir:1 x 2
             debug_assert_ne!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 2);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X2);
             cpu_debug!([$code] DEC qq:ii);
             $cpu.index16_mut($prefix).dec16();
         }
@@ -699,7 +699,7 @@ macro_rules! run_mnemonic {
                         match arg {
                             Ok(reg) => ops::bit(b, $cpu.get_reg(reg, Prefix::None), &mut $flags),
                             Err(_) => { // hl:3, hl:1
-                                let val = read_mem8_reg16!(<- [hl]; no_mreq: 1x 1);
+                                let val = read_mem8_reg16!(<- [hl]; no_mreq: NO_MREQ_X1);
                                 ops::bit_mp(b, val, $cpu.memptr.get8hi(), &mut $flags);
                             }
                         };
@@ -729,12 +729,12 @@ macro_rules! run_mnemonic {
         { // pc+2:3, pc+3:3, pc+3:1 x 2, ii+n:3, ii+n:1, [ ii+n(write):3 ]
             debug_assert_ne!($prefix, Prefix::None);
             let d: u8 = fetch_next_imm8!();
-            let code1: u8 = fetch_next_imm8!(no_mreq: 1x 2);
+            let code1: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X2);
             let ii_d = indexed_address!($cpu.get_index16($prefix), d);
             // Any instruction with (INDEX+d): MEMPTR = INDEX+d
             $cpu.memptr.set16(ii_d);
             let val = $control.read_mem(ii_d, $tsc.add_mreq(ii_d));
-            $tsc.add_no_mreq(ii_d, 1);
+            $tsc.add_no_mreq(ii_d, NO_MREQ_X1);
             loop {
                 let (result, op, bit, arg) = match BitOps::from(code1) {
                     BitOps::Rot(rot, arg) => {
@@ -804,7 +804,7 @@ macro_rules! run_mnemonic {
     (     JR e                      @@@ $code:expr) => {
         { // pc+1:3, pc+1:1 x 5
             debug_assert_eq!($prefix, Prefix::None);
-            let e: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+            let e: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
             let addr = relative_jump_address!(e);
             cpu_debug!([$code, e] JR nn_0:addr);
             // JR/DJNZ/RET/RETI/RST (jumping to addr) MEMPTR = addr
@@ -817,7 +817,7 @@ macro_rules! run_mnemonic {
             debug_assert_eq!($prefix, Prefix::None);
             let cc = Condition::from_jr_subset($code);
             if cc.is_satisfied($flags) {
-                let e: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+                let e: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
                 let addr = relative_jump_address!(e);
                 cpu_debug!([$code, e] JR cc:cc, nn_0:addr);
                 // JR/DJNZ/RET/RETI/RST (jumping to addr) MEMPTR = addr
@@ -841,12 +841,12 @@ macro_rules! run_mnemonic {
     (     DJNZ e                    @@@ $code:expr) => {
         { // ir:1,pc+1:3,[pc+1:1 x 5]
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 1);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             let memptr = &mut $cpu.memptr;
             $cpu.regs.bc.op8hi(|b| {
                 let b = b.wrapping_sub(1);
                 if b != 0 {
-                    let e: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+                    let e: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
                     let addr = relative_jump_address!(e);
                     cpu_debug!([$code, e] DJNZ nn_0:addr);
                     // JR/DJNZ/RET/RETI/RST (jumping to addr) MEMPTR = addr
@@ -866,7 +866,7 @@ macro_rules! run_mnemonic {
     (     CALL nn                   @@@ $code:expr) => {
         { // pc+1:3, pc+2:3, pc+2:1, sp-1:3, sp-2:3
             debug_assert_eq!($prefix, Prefix::None);
-            let addr: u16 = fetch_next_imm16!(no_mreq: 1x 1);
+            let addr: u16 = fetch_next_imm16!(no_mreq: NO_MREQ_X1);
             cpu_debug!([$code, addr as u8, (addr >> 8) as u8] CALL nn:addr);
             push16!($pc.0);
             // CALL addr MEMPTR = addr
@@ -884,7 +884,7 @@ macro_rules! run_mnemonic {
             // MEMPTR = addr
             $cpu.memptr.set16(addr);
             if cc.is_satisfied($flags) {
-                $tsc.add_no_mreq($pc.0.wrapping_sub(1), 1);
+                $tsc.add_no_mreq($pc.0.wrapping_sub(1), NO_MREQ_X1);
                 push16!($pc.0);
                 $pc = Wrapping(addr);
             }
@@ -903,7 +903,7 @@ macro_rules! run_mnemonic {
     (     RET cc                    @@@ $code:expr) => {
         { // ir:1, [sp:3,sp+1:3]
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 1);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             let cc = Condition::from($code);
             cpu_debug!([$code] RET cc:cc);
             if cc.is_satisfied($flags) {
@@ -938,7 +938,7 @@ macro_rules! run_mnemonic {
     (     RST p                     @@@ $code:expr) => {
         { // ir:1, sp-1:3, sp-2:3
             debug_assert_eq!($prefix, Prefix::None);
-            $tsc.add_no_mreq($cpu.get_ir(), 1);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             let addr = parse_restart_address($code);
             cpu_debug!([$code] RST adnn:addr);
             push16!($pc.0);
@@ -1144,7 +1144,7 @@ macro_rules! instr_ld_ir {
             cpu_debug!([$code0, $code1] LD r:A, r:$reg);
             let ir = $cpu.get_ir();
             // ir:1
-            $tsc.add_no_mreq(ir, 1);
+            $tsc.add_no_mreq(ir, NO_MREQ_X1);
             let val = instr_ld_ir!(@extract $reg <- ir);
             let iff2 = if $cpu.iff2 {
                 !$control.is_irq($tsc.as_timestamp()) // TODO: flavours
@@ -1163,7 +1163,7 @@ macro_rules! instr_ld_ir {
         {
             cpu_debug!([$code0, $code1] LD r:$reg, r:A);
             // ir:1
-            $tsc.add_no_mreq($cpu.get_ir(), 1);
+            $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X1);
             let a = $cpu.af.get8hi();
             instr_ld_ir!(@store $reg <- a);
         }
@@ -1230,7 +1230,7 @@ macro_rules! instr_inc_dec8 {
                 }
                 Err(_) => {
                     // pc+2:3, pc+2:1 x 5
-                    let d: u8 = fetch_next_imm8!(no_mreq: 1x 5);
+                    let d: u8 = fetch_next_imm8!(no_mreq: NO_MREQ_X5);
                     cpu_debug!([$code, d] str(incdec_str!($op)) ii:d);
                     // ii+n:3, ii+n:1, ii+n(write):3
                     // MEMPTR = INDEX+d
