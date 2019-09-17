@@ -2,12 +2,13 @@
 //! their core::fmt::Display implementations for a debugger.
 use core::convert::TryFrom;
 use core::fmt;
-use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 use super::flags::CpuFlags;
 
 /// A prefix enum that modifies behaviour of the next op-code.
 /// It's also instrumental in preventing interrupts prematurely.
-#[derive(Debug,Copy,Clone,Serialize,Deserialize,PartialEq,Eq,Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 #[repr(u8)]
 pub enum Prefix {
     None = 0x00,

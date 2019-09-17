@@ -10,6 +10,7 @@ use core::convert::TryFrom;
 use core::num::Wrapping;
 use core::mem::swap;
 
+#[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
 use crate::cpu::*;
@@ -25,8 +26,8 @@ enum LoopExitReason<O, R> {
     EnableInt,
     Irq
 }
-
-#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Eq)] // TODO: implement PartialEq and Eq with regard of R
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default, PartialEq, Eq)] // TODO: implement PartialEq and Eq with regard of R
 pub struct Z80 {
     af: RegisterPair,
     af_alt: RegisterPair,

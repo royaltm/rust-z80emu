@@ -1,25 +1,43 @@
 //! This module contains cpu registers related building blocks.
 #![allow(dead_code)]
-use serde::{Serialize, Deserialize};
+#[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 
 /// The interrupt mode enum.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
 #[repr(u8)]
-#[derive(Debug,Copy,Clone,Serialize,Deserialize,PartialEq,Eq)]
 pub enum InterruptMode {
     Mode0 = 0,
     Mode1 = 1,
     Mode2 = 2,
 }
 
+/// A struct that represent a register pair, that can be treated as a single 16-bit
+/// register or a separate 8-bit (hi/lo) registers.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone,Copy,PartialEq,Eq,Default,Hash,Debug)]
+pub struct RegisterPair([u8;2]);
+
+/// A block of BC, DE and HL registers.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone,Copy,Default,PartialEq,Eq,Debug)]
+pub(crate) struct GeneralRegisters {
+    pub(crate) bc: RegisterPair,
+    pub(crate) de: RegisterPair,
+    pub(crate) hl: RegisterPair
+}
+
+/// A block of IX and IY registers.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone,Copy,Default,PartialEq,Eq,Debug)]
+pub(crate) struct IndexRegisters {
+    pub(crate) ix: RegisterPair,
+    pub(crate) iy: RegisterPair
+}
+
 impl Default for InterruptMode {
     fn default() -> Self {
         InterruptMode::Mode0
-    }
-}
-
-impl core::fmt::Debug for RegisterPair {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:04X}", self.get16())
     }
 }
 
@@ -36,26 +54,6 @@ impl core::convert::TryFrom<u8> for InterruptMode {
         }
     }
 }
-
-/// A block of BC, DE and HL registers.
-#[derive(Clone,Copy,Default,PartialEq,Eq,Serialize,Deserialize,Debug)]
-pub(crate) struct GeneralRegisters {
-    pub(crate) bc: RegisterPair,
-    pub(crate) de: RegisterPair,
-    pub(crate) hl: RegisterPair
-}
-
-/// A block of IX and IY registers.
-#[derive(Clone,Copy,Default,PartialEq,Eq,Serialize,Deserialize,Debug)]
-pub(crate) struct IndexRegisters {
-    pub(crate) ix: RegisterPair,
-    pub(crate) iy: RegisterPair
-}
-
-/// A struct that represent a register pair, that can be treated as a single 16-bit
-/// register or a separate 8-bit (hi/lo) registers.
-#[derive(Clone,Copy,Serialize,Deserialize,PartialEq,Eq,Default)]
-pub struct RegisterPair([u8;2]);
 
 impl RegisterPair {
     #[inline]
