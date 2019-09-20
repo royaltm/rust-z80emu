@@ -22,16 +22,13 @@ impl Default for Prefix {
     }
 }
 
-impl core::convert::TryFrom<u8> for Prefix {
-    type Error = ();
-
+impl core::convert::From<u8> for Prefix {
     #[inline(always)]
-    fn try_from(code: u8) -> Result<Self, Self::Error> {
+    fn from(code: u8) -> Self {
         match code {
-            0x00 => Ok(Prefix::None),
-            0xDD => Ok(Prefix::Xdd),
-            0xFD => Ok(Prefix::Yfd),
-            _ => Err(())
+            0xDD => Prefix::Xdd,
+            0xFD => Prefix::Yfd,
+            _ => Prefix::None
         }
     }
 }
