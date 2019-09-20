@@ -31,14 +31,14 @@ macro_rules! run_mnemonic {
         {
             debug_assert_eq!($prefix, Prefix::None);
             $prefix = Prefix::$new;
-            debug_assert_eq!(Ok($prefix), Prefix::try_from($code));
+            debug_assert_eq!($prefix, Prefix::from($code));
         }
     };
     (@prefix = $new:ident; break $label:tt  @@@ $code:expr) => {
         {
             debug_assert_ne!($prefix, Prefix::None);
             $prefix = Prefix::$new;
-            debug_assert_eq!(Ok($prefix), Prefix::try_from($code));
+            debug_assert_eq!($prefix, Prefix::from($code));
             break $label;
         }
     };
