@@ -37,12 +37,6 @@ impl From<Rot> for fn(u8, &mut CpuFlags) -> u8 {
 
 impl Z80 {
     #[inline]
-    pub(super) fn get_ir(&mut self) -> u16 {
-        let ir = self.ir.get16();
-        ir & 0xFF80 | self.r.0 as u16 & 0x007F
-    }
-
-    #[inline]
     pub(super) fn ex_de_hl(&mut self) {
         swap(&mut self.regs.de, &mut self.regs.hl);
     }
