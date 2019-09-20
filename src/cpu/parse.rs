@@ -8,7 +8,7 @@ use super::flags::CpuFlags;
 /// A prefix enum that modifies behaviour of the next op-code.
 /// It's also instrumental in preventing interrupts prematurely.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Prefix {
     None = 0x00,
@@ -46,7 +46,7 @@ impl fmt::Display for Prefix {
 
 macro_rules! reg_enum_mask_try_from {
     ($name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[repr(u8)]
         pub enum $name {
             $($n = $e,)*
@@ -86,7 +86,7 @@ macro_rules! reg_enum_mask_try_from {
 /// Otherwise UB.
 macro_rules! reg_enum_mask_from {
     ($vis:vis $name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[repr(u8)]
         $vis enum $name {
             $($n = $e,)*
