@@ -10,7 +10,7 @@ use shuffle::*;
 
 const TEST_SEEDS: [(u16,u16);3] = [(0, 25076), (0xBACA, 58893), (0xFFFF, 11751)];
 
-type TsClock = TsCounter<i32>;
+type TsClock = host::TsCounter<i32>;
 
 macro_rules! dir {
     ($file:expr) => {

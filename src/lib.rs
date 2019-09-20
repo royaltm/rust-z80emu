@@ -80,7 +80,7 @@ mod cpu;
 pub mod z80;
 
 pub use cpu::*;
-pub use host::*;
+pub use host::{Clock, Io, Memory, BreakCause};
 pub use z80::Z80;
 
 /// An address of the NMI routine.
