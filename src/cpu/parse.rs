@@ -214,6 +214,24 @@ impl Condition {
     }
 }
 
+impl core::str::FromStr for Condition {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "NZ" => Ok(Condition::NZ),
+            "Z"  => Ok(Condition::Z),
+            "NC" => Ok(Condition::NC),
+            "C"  => Ok(Condition::C),
+            "PO" => Ok(Condition::PO),
+            "PE" => Ok(Condition::PE),
+            "P"  => Ok(Condition::P),
+            "M"  => Ok(Condition::M),
+            _ => Err(())
+        }
+    }
+}
+
 impl Reg8 {
     /// Attepmpts to convert bits 3..=5 and 0..=2 of code into a tuple of Reg8 enums.
     #[inline(always)]
