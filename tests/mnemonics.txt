@@ -14,7 +14,7 @@
 0d DEC C
 0e LD C,nn
 0f RRCA
-10 DJNZ offset
+10 DJNZ ee
 11 LD DE,nnnn
 12 LD (DE),A
 13 INC DE
@@ -22,7 +22,7 @@
 15 DEC D
 16 LD D,nn
 17 RLA
-18 JR offset
+18 JR ee
 19 ADD HL,DE
 1a LD A,(DE)
 1b DEC DE
@@ -30,7 +30,7 @@
 1d DEC E
 1e LD E,nn
 1f RRA
-20 JR NZ,offset
+20 JR NZ,ee
 21 LD HL,nnnn
 22 LD (nnnn),HL
 23 INC HL
@@ -38,7 +38,7 @@
 25 DEC H
 26 LD H,nn
 27 DAA
-28 JR Z,offset
+28 JR Z,ee
 29 ADD HL,HL
 2a LD HL,(nnnn)
 2b DEC HL
@@ -46,7 +46,7 @@
 2d DEC L
 2e LD L,nn
 2f CPL
-30 JR NC,offset
+30 JR NC,ee
 31 LD SP,nnnn
 32 LD (nnnn),A
 33 INC SP
@@ -54,7 +54,7 @@
 35 DEC (HL)
 36 LD (HL),nn
 37 SCF
-38 JR C,offset
+38 JR C,ee
 39 ADD HL,SP
 3a LD A,(nnnn)
 3b DEC SP
@@ -490,10 +490,11 @@ e9 JP (HL)
 ea JP PE,nnnn
 eb EX DE,HL
 ec CALL PE,nnnn
+ed,00 NOP*
 ed,40 IN B,(C)
 ed,41 OUT (C),B
 ed,42 SBC HL,BC
-ed,43 LD (nnnn),BC
+ed,43 LD (nnnn),BC *
 ed,44 NEG
 ed,45 RETN
 ed,46 IM 0
@@ -501,7 +502,7 @@ ed,47 LD I,A
 ed,48 IN C,(C)
 ed,49 OUT (C),C
 ed,4a ADC HL,BC
-ed,4b LD BC,(nnnn)
+ed,4b LD BC,(nnnn) *
 ed,4c NEG
 ed,4d RETI
 ed,4e IM 0
@@ -509,7 +510,7 @@ ed,4f LD R,A
 ed,50 IN D,(C)
 ed,51 OUT (C),D
 ed,52 SBC HL,DE
-ed,53 LD (nnnn),DE
+ed,53 LD (nnnn),DE *
 ed,54 NEG
 ed,55 RETN
 ed,56 IM 1
@@ -517,7 +518,7 @@ ed,57 LD A,I
 ed,58 IN E,(C)
 ed,59 OUT (C),E
 ed,5a ADC HL,DE
-ed,5b LD DE,(nnnn)
+ed,5b LD DE,(nnnn) *
 ed,5c NEG
 ed,5d RETN
 ed,5e IM 2
@@ -525,7 +526,7 @@ ed,5f LD A,R
 ed,60 IN H,(C)
 ed,61 OUT (C),H
 ed,62 SBC HL,HL
-ed,63 LD (nnnn),HL
+ed,63 LD (nnnn),HL *
 ed,64 NEG
 ed,65 RETN
 ed,66 IM 0
@@ -533,7 +534,7 @@ ed,67 RRD
 ed,68 IN L,(C)
 ed,69 OUT (C),L
 ed,6a ADC HL,HL
-ed,6b LD HL,(nnnn)
+ed,6b LD HL,(nnnn) *
 ed,6c NEG
 ed,6d RETN
 ed,6e IM 0
@@ -541,14 +542,14 @@ ed,6f RLD
 ed,70 IN (C)
 ed,71 OUT (C)
 ed,72 SBC HL,SP
-ed,73 LD (nnnn),SP
+ed,73 LD (nnnn),SP *
 ed,74 NEG
 ed,75 RETN
 ed,76 IM 1
 ed,78 IN A,(C)
 ed,79 OUT (C),A
 ed,7a ADC HL,SP
-ed,7b LD SP,(nnnn)
+ed,7b LD SP,(nnnn) *
 ed,7c NEG
 ed,7d RETN
 ed,7e IM 2
