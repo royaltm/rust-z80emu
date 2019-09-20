@@ -1,0 +1,352 @@
+# cy:bus - where "cy" is a cycle and "bus" is a value being put on an address bus
+#  m1 - M1 cycle (opcode)
+#  mr - memory read
+#  mw - memory write
+#  pr - I/O port read
+#  pw - I/O port write
+#  mq - MREQ access, memory read skipped (in case of relative jumps, the offset doesn't need to be read)
+#  qr - memory read no MREQ (needed when split from mq)
+#  x1,x2,x4,x5,x7 - one of internal cycles
+#  <prereq> - a prerequisite for cycles (tail excluded)
+#  |  - a head|tail cycles split point
+#
+# Placeholders for mnemonic arguments:
+#  b   - a bit number 0 to 7
+#  m   - interrupt modes: 0, 1, 2
+#  r   - registers: B, C, D, E, H, L, A
+#  q   - registers: B, C, D, E, I?H, I?L, A
+#  q!  - registers: B, C, D, E, A
+#  rr  - registers: BC, DE, HL, SP
+#  qq  - registers: BC, DE, I?, SP
+#  ss  - registers: BC, DE, HL, AF
+#  cc  - conditions: NZ, Z, NC, C, PO, PE, P, M
+#  cc! - conditions: NZ, Z, NC, C
+#  pp  - a restart address: 00, 08, 10, 18, 20, 28, 30, 38
+m1:0
+  NOP
+  LD r,r
+  HALT
+  ADD A,r
+  ADC A,r
+  SUB r
+  SBC A,r
+  AND r
+  XOR r
+  OR r
+  CP r
+  INC r
+  DEC r
+  EXX
+  EX AF,AF'
+  EX DE,HL
+  DAA
+  CPL
+  CCF
+  SCF
+  DI
+  EI
+  RLA
+  RRA
+  RLCA
+  RRCA
+  JP (HL)
+
+m1:0,m1:1
+  NOP*
+  RLC r
+  RRC r
+  RL r
+  RR r
+  SLA r
+  SRA r
+  SRL r
+  SLL r
+  BIT b,r
+  SET b,r
+  RES b,r
+  NEG
+  IM m
+  LD q,I?H
+  LD q,I?L
+  LD I?H,q!
+  LD I?L,q!
+  ADD A,I?H
+  ADD A,I?L
+  ADC A,I?H
+  ADC A,I?L
+  SUB I?H
+  SUB I?L
+  SBC A,I?H
+  SBC A,I?L
+  AND I?H
+  AND I?L
+  XOR I?H
+  XOR I?L
+  OR I?H
+  OR I?L
+  CP I?H
+  CP I?L
+  INC I?H
+  DEC I?H
+  INC I?L
+  DEC I?L
+  JP (I?)
+
+m1:0,m1:1,x1:ir+2
+  LD A,I
+  LD A,R
+  LD I,A
+  LD R,A
+
+m1:0,x2:ir+1
+  INC rr
+  DEC rr
+  LD SP,HL
+
+m1:0,m1:1,x2:ir+2
+  INC I?
+  DEC I?
+  LD SP,I?
+
+m1:0,x7:ir+1
+  ADD HL,rr
+
+m1:0,m1:1,x7:ir+2
+  ADD I?,qq
+
+m1:0,m1:1,x7:ir+2
+  ADC HL,rr
+  SBC HL,rr
+
+m1:0,mr:pc+1
+  LD r,nn
+  ADD A,nn
+  ADC A,nn
+  SUB nn
+  SBC A,nn
+  AND nn
+  XOR nn
+  OR nn
+  CP nn
+
+m1:0,m1:1,mr:pc+2
+  LD I?H,nn
+  LD I?L,nn
+
+m1:0,mr:hl
+  LD r,(HL)
+  ADD A,(HL)
+  ADC A,(HL)
+  SUB (HL)
+  SBC A,(HL)
+  AND (HL)
+  XOR (HL)
+  OR (HL)
+  CP (HL)
+
+m1:0,mr:bc
+  LD A,(BC)
+
+m1:0,mr:de
+  LD A,(DE)
+
+m1:0,mw:hl
+  LD (HL),r
+
+m1:0,mw:bc
+  LD (BC),A
+
+m1:0,mw:de
+  LD (DE),A
+
+m1:0,m1:1,mr:pc+2,x5:pc+2,mr:ii+d
+  LD r,(I?+dd)
+  ADD A,(I?+dd)
+  ADC A,(I?+dd)
+  SUB (I?+dd)
+  SBC A,(I?+dd)
+  AND (I?+dd)
+  XOR (I?+dd)
+  OR (I?+dd)
+  CP (I?+dd)
+
+m1:0,m1:1,mr:pc+2,x5:pc+2,mw:ii+d
+  LD (I?+dd),r
+
+m1:0,m1:1,mr:hl,x1:hl
+  BIT b,(HL)
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,x2:pc+3,mr:ii+d,x1:ii+d
+  BIT b,(I?+dd)
+
+m1:0,mr:pc+1,mr:pc+2
+  LD rr,nnnn
+  JP nnnn
+  JP cc,nnnn
+
+m1:0,m1:1,mr:pc+2,mr:pc+3
+  LD I?,nnnn
+
+m1:0,mr:pc+1,mw:hl
+  LD (HL),nn
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,x2:pc+3,mw:ii+d
+  LD (I?+dd),nn
+
+m1:0,mr:pc+1,mr:pc+2,mr:nn
+  LD A,(nnnn)
+
+m1:0,mr:pc+1,mr:pc+2,mw:nn
+  LD (nnnn),A
+
+m1:0,mr:pc+1,mr:pc+2,mr:nn,mr:nn+1
+  LD HL,(nnnn)
+
+m1:0,mr:pc+1,mr:pc+2,mw:nn,mw:nn+1
+  LD (nnnn),HL
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,mr:nn,mr:nn+1
+  LD I?,(nnnn)
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,mw:nn,mw:nn+1
+  LD (nnnn),I?
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,mr:nn,mr:nn+1
+  LD rr,(nnnn) *
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,mw:nn,mw:nn+1
+  LD (nnnn),rr *
+
+m1:0,mr:hl,x1:hl,mw:hl
+  INC (HL)
+  DEC (HL)
+
+m1:0,m1:1,mr:pc+2,x5:pc+2,mr:ii+d,x1:ii+d,mw:ii+d
+  INC (I?+dd)
+  DEC (I?+dd)
+
+m1:0,m1:1,mr:hl,x1:hl,mw:hl
+  SET b,(HL)
+  RES b,(HL)
+  RLC (HL)
+  RRC (HL)
+  RL (HL)
+  RR (HL)
+  SLA (HL)
+  SRA (HL)
+  SRL (HL)
+  SLL (HL)
+
+m1:0,m1:1,mr:pc+2,mr:pc+3,x2:pc+3,mr:ii+d,x1:ii+d,mw:ii+d
+  SET b,(I?+dd)
+  SET b,(I?+dd),r
+  RES b,(I?+dd)
+  RES b,(I?+dd),r
+  RLC (I?+dd)
+  RLC (I?+dd),r
+  RRC (I?+dd)
+  RRC (I?+dd),r
+  RL (I?+dd)
+  RL (I?+dd),r
+  RR (I?+dd)
+  RR (I?+dd),r
+  SLA (I?+dd)
+  SLA (I?+dd),r
+  SRA (I?+dd)
+  SRA (I?+dd),r
+  SRL (I?+dd)
+  SRL (I?+dd),r
+  SLL (I?+dd)
+  SLL (I?+dd),r
+
+m1:0,mr:sp,mr:sp+1
+  POP ss
+  RET
+
+m1:0,m1:1,mr:sp,mr:sp+1
+  POP I?
+
+m1:0,m1:1,mr:sp,mr:sp+1
+  RETI
+  RETN
+
+<F!~cc>,m1:0,x1:ir+1,|,mr:sp,mr:sp+1
+  RET cc
+
+m1:0,x1:ir+1,mw:sp-1,mw:sp-2
+  PUSH ss
+  RST pp
+
+m1:0,m1:1,x1:ir+2,mw:sp-1,mw:sp-2
+  PUSH I?
+
+m1:0,mr:pc+1,mr:pc+2,x1:pc+2,mw:sp-1,mw:sp-2
+  CALL nnnn
+
+<F!~cc>,m1:0,mr:pc+1,mr:pc+2,|,x1:pc+2,mw:sp-1,mw:sp-2
+  CALL cc,nnnn
+
+m1:0,mr:pc+1,x5:pc+1
+  JR ee
+
+<F!~cc>,m1:0,mq:pc+1,|,qr:pc+1,x5:pc+1
+  JR cc!,ee
+
+<B=1>,m1:0,x1:ir+1,mq:pc+1,|,qr:pc+1,x5:pc+1
+  DJNZ ee
+
+m1:0,m1:1,mr:hl,x4:hl,mw:hl
+  RLD
+  RRD
+
+m1:0,mr:pc+1,pr:an
+  IN A,(nn)
+
+m1:0,mr:pc+1,pw:an
+  OUT (nn),A
+
+m1:0,m1:1,pr:bc
+  IN r,(C)
+  IN (C)
+
+m1:0,m1:1,pw:bc
+  OUT (C),r
+  OUT (C)
+
+m1:0,mr:sp,mr:sp+1,x1:sp+1,mw:sp+1,mw:sp,x2:sp
+  EX (SP),HL
+
+m1:0,m1:1,mr:sp,mr:sp+1,x1:sp+1,mw:sp+1,mw:sp,x2:sp
+  EX (SP),I?
+
+m1:0,m1:1,mr:hl,mw:de,x2:de
+  LDI
+  LDD
+
+<BC=1>,m1:0,m1:1,mr:hl,mw:de,x2:de,|,x5:de
+  LDIR
+  LDDR
+
+m1:0,m1:1,mr:hl,x5:hl
+  CPI
+  CPD
+
+<BC=1||A=(HL)>,m1:0,m1:1,mr:hl,x5:hl,|,x5:hl
+  CPIR
+  CPDR
+
+m1:0,m1:1,x1:ir+2,pr:bc,mw:hl
+  INI
+  IND
+
+<B=1>,m1:0,m1:1,x1:ir+2,pr:bc,mw:hl,|,x5:hl
+  INIR
+  INDR
+
+m1:0,m1:1,x1:ir+2,mr:hl,pw:bc-256
+  OUTI
+  OUTD
+
+<B=1>,m1:0,m1:1,x1:ir+2,mr:hl,pw:bc-256,|,x5:bc-256
+  OTIR
+  OTDR
