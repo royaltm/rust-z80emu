@@ -40,9 +40,11 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Sets the memory refresh register value.
     fn set_r(&mut self, r: u8);
     /// Returns the current value of the interrupt page register.
-    fn get_i(&mut self) -> u8;
+    fn get_i(&self) -> u8;
     /// Sets the current value of the interrupt page register.
     fn set_i(&mut self, i: u8);
+    /// Returns the current memory refresh address.
+    fn get_ir(&self) -> u16;
     /// Returns values of interrupt flip-flops `(iff1, iff2)`.
     fn get_iffs(&self) -> (bool, bool);
     /// Sets the values of interrupt flip-flops.

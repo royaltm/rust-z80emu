@@ -168,13 +168,19 @@ impl Cpu for Z80 {
     }
 
     #[inline]
-    fn get_i(&mut self) -> u8 {
+    fn get_i(&self) -> u8 {
         self.ir.get8hi()
     }
 
     #[inline]
     fn set_i(&mut self, i: u8) {
         self.ir.set8hi(i);
+    }
+
+    #[inline]
+    fn get_ir(&self) -> u16 {
+        let ir = self.ir.get16();
+        ir & 0xFF80 | self.r.0 as u16 & 0x007F
     }
 
     #[inline]
