@@ -50,7 +50,7 @@ impl Z80 {
     }
 
     #[inline]
-    pub(super) fn load_reg(&mut self, dst: Reg8, src: Reg8, prefix: Prefix) {
+    pub(super) fn load_reg(&mut self, dst: Reg8, src: Reg8, prefix: Option<Prefix>) {
         self.set_reg(dst, prefix, self.get_reg(src, prefix))
     }
 
@@ -141,28 +141,28 @@ impl Z80 {
     }
 
     #[inline]
-    pub(super) unsafe fn reg8_ptr(&mut self, tgt: Reg8, prefix: Prefix) -> *mut u8 {
+    pub(super) unsafe fn reg8_ptr(&mut self, tgt: Reg8, prefix: Option<Prefix>) -> *mut u8 {
         match tgt {
             Reg8::B => self.regs.bc.ptr8hi(),
             Reg8::C => self.regs.bc.ptr8lo(),
             Reg8::D => self.regs.de.ptr8hi(),
             Reg8::E => self.regs.de.ptr8lo(),
             Reg8::H => match prefix {
-                Prefix::None => self.regs.hl.ptr8hi(),
-                Prefix::Xdd => self.index.ix.ptr8hi(),
-                Prefix::Yfd => self.index.iy.ptr8hi(),
+                None => self.regs.hl.ptr8hi(),
+                Some(Prefix::Xdd) => self.index.ix.ptr8hi(),
+                Some(Prefix::Yfd) => self.index.iy.ptr8hi(),
             }
             Reg8::L => match prefix {
-                Prefix::None => self.regs.hl.ptr8lo(),
-                Prefix::Xdd => self.index.ix.ptr8lo(),
-                Prefix::Yfd => self.index.iy.ptr8lo(),
+                None => self.regs.hl.ptr8lo(),
+                Some(Prefix::Xdd) => self.index.ix.ptr8lo(),
+                Some(Prefix::Yfd) => self.index.iy.ptr8lo(),
             }
             Reg8::A => self.af.ptr8hi()
         }
     }
 
     #[inline]
-    pub(super) fn apply_reg8<F>(&mut self, tgt: Reg8, prefix: Prefix, op: F)
+    pub(super) fn apply_reg8<F>(&mut self, tgt: Reg8, prefix: Option<Prefix>, op: F)
     where F: FnOnce(u8) -> u8
     {
         unsafe {
@@ -196,7 +196,6 @@ impl Z80 {
         match prefix {
             Prefix::Xdd => &self.index.ix,
             Prefix::Yfd => &self.index.iy,
-            Prefix::None => &self.regs.hl,
         }        
     }
 
@@ -215,7 +214,6 @@ impl Z80 {
         match prefix {
             Prefix::Xdd => &mut self.index.ix,
             Prefix::Yfd => &mut self.index.iy,
-            Prefix::None => &mut self.regs.hl,
         }        
     }
 

@@ -6,7 +6,6 @@ mod opcodes;
 mod internal;
 mod debug;
 
-use core::convert::TryFrom;
 use core::num::Wrapping;
 use core::mem::swap;
 
@@ -43,18 +42,15 @@ pub struct Z80 {
     iff1: bool,
     iff2: bool,
     halt: bool,
-    prefix: Prefix,
+    prefix: Option<Prefix>,
     r: Wrapping<u8>
 }
 
 /// Returns `true` if the interrupt should be accepted based on `prefix` and `last EI` state.
 /// Both NMI and maskable interrupts should be accepted only if this condition is `true`.
 #[inline(always)]
-fn is_int_allowed(prefix: Prefix, last_ei: bool) -> bool {
-    match prefix {
-        Prefix::None => !last_ei,
-        _ => false
-    }
+fn is_int_allowed(prefix: Option<Prefix>, last_ei: bool) -> bool {
+    prefix.is_none() && !last_ei
 }
 
 impl Z80 {
@@ -101,7 +97,7 @@ impl Cpu for Z80 {
         self.iff1 = false;
         self.iff2 = false;
         self.halt = false;
-        self.prefix = Prefix::None;
+        self.prefix = None;
         self.r = Wrapping(0);
     }
 
@@ -225,28 +221,28 @@ impl Cpu for Z80 {
     }
 
     #[inline]
-    fn get_reg(&self, reg: Reg8, prefix: Prefix) -> u8 {
+    fn get_reg(&self, reg: Reg8, prefix: Option<Prefix>) -> u8 {
         match reg {
             Reg8::B => self.regs.bc.get8hi(),
             Reg8::C => self.regs.bc.get8lo(),
             Reg8::D => self.regs.de.get8hi(),
             Reg8::E => self.regs.de.get8lo(),
             Reg8::H => match prefix {
-                Prefix::None => self.regs.hl.get8hi(),
-                Prefix::Xdd => self.index.ix.get8hi(),
-                Prefix::Yfd => self.index.iy.get8hi(),
+                None => self.regs.hl.get8hi(),
+                Some(Prefix::Xdd) => self.index.ix.get8hi(),
+                Some(Prefix::Yfd) => self.index.iy.get8hi(),
             },
             Reg8::L => match prefix {
-                Prefix::None => self.regs.hl.get8lo(),
-                Prefix::Xdd => self.index.ix.get8lo(),
-                Prefix::Yfd => self.index.iy.get8lo(),
+                None => self.regs.hl.get8lo(),
+                Some(Prefix::Xdd) => self.index.ix.get8lo(),
+                Some(Prefix::Yfd) => self.index.iy.get8lo(),
             }
             Reg8::A => self.af.get8hi(),
         }
     }
 
     #[inline]
-    fn set_reg(&mut self, dst: Reg8, prefix: Prefix, val: u8) {
+    fn set_reg(&mut self, dst: Reg8, prefix: Option<Prefix>, val: u8) {
         unsafe {
             *self.reg8_ptr(dst, prefix) = val;
         }        
@@ -317,14 +313,11 @@ impl Cpu for Z80 {
 
     #[inline]
     fn is_after_prefix(&self) -> bool {
-        match self.prefix {
-            Prefix::None => false,
-            _ => true
-        }
+        self.prefix.is_some()
     }
 
     #[inline]
-    fn get_prefix(&self) -> Prefix {
+    fn get_prefix(&self) -> Option<Prefix> {
         self.prefix
     }
 
@@ -395,7 +388,7 @@ impl Cpu for Z80 {
         }
         else {
             let mut pc = Wrapping(self.pc.get16());
-            let code: u8 = fetch_next_opcode!(self, control, pc, tsc);
+            let code: u8 = fetch_next_opcode_ext!(self, control, pc, tsc);
             self.pc.set16(pc.0);
             self.execute_instruction::<M,T,F>(control, tsc, debug, code)
         }
@@ -408,7 +401,7 @@ impl Cpu for Z80 {
         const DEBUG: Option<CpuDebugFn> = None;
 
         if self.halt {
-            debug_assert_eq!(self.prefix, Prefix::None);
+            debug_assert_eq!(self.prefix, None);
             debug_assert_eq!(self.last_ei, false);
             let pc = self.pc.get16();
             loop {

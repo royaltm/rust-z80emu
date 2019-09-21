@@ -1,5 +1,6 @@
 //! Tests cycles of Cpu instructions.
 use core::cell::RefCell;
+use core::convert::TryFrom;
 use core::num::{NonZeroU8, NonZeroU16};
 use core::str::FromStr;
 use std::collections::hash_map::HashMap;
@@ -482,7 +483,7 @@ impl BusVal {
                 (cpu.get_af()&0xFF00|n as u16).wrapping_add(off as u16)
             }
             BusVal::Index => {
-                let prefix = Prefix::from(code[0]);
+                let prefix = Prefix::try_from(code[0]).expect("not a prefix code");
                 let d = code[2];
                 cpu.get_index16(prefix).wrapping_add(d as i8 as i16 as u16)
             }
@@ -574,13 +575,13 @@ fn prepare_test_environment<C: Cpu>(code: &mut CpuDebugCode, instruction: &str, 
                 }
             }
             Prerequisite::BEq1 => {
-                let mut b = env.cpu.get_reg(Reg8::B, Prefix::None);
+                let mut b = env.cpu.get_reg(Reg8::B, None);
                 if b == 1 {
                     while b == 1 { b = random(); }
-                    env.cpu.set_reg(Reg8::B, Prefix::None, b);
+                    env.cpu.set_reg(Reg8::B, None, b);
                 }
                 else {
-                    env_tail.cpu.set_reg(Reg8::B, Prefix::None, 1);
+                    env_tail.cpu.set_reg(Reg8::B, None, 1);
                 }
             }
             Prerequisite::BcEq1 => {
@@ -594,7 +595,7 @@ fn prepare_test_environment<C: Cpu>(code: &mut CpuDebugCode, instruction: &str, 
                 }
             }
             Prerequisite::BcEq1OrAEqMemHl => {
-                let mut a = env.cpu.get_reg(Reg8::A, Prefix::None);
+                let mut a = env.cpu.get_reg(Reg8::A, None);
                 let mut bc = env.cpu.get_reg16(Reg16::BC);
                 let hl = env.cpu.get_reg16(Reg16::HL);
                 let hl_mem = code.test_read_memory(hl);
@@ -602,11 +603,11 @@ fn prepare_test_environment<C: Cpu>(code: &mut CpuDebugCode, instruction: &str, 
                     while bc == 1 { bc = random(); }
                     if a == hl_mem { a = a.wrapping_add(1); }
                     env.cpu.set_reg16(Reg16::BC, bc);
-                    env.cpu.set_reg(Reg8::A, Prefix::None, a);
+                    env.cpu.set_reg(Reg8::A, None, a);
                 }
                 else {
                     env_tail.cpu.set_reg16(Reg16::BC, 1);
-                    env_tail.cpu.set_reg(Reg8::A, Prefix::None, hl_mem);
+                    env_tail.cpu.set_reg(Reg8::A, None, hl_mem);
                 }                        
             }
         }
@@ -672,7 +673,7 @@ fn test_cycles() -> Result<(), String> {
             if let &Some(pf) = prefix {
                 code.insert(0, pf as u8);
             }
-            else if Prefix::from(code[0]) != Prefix::None {
+            else if Prefix::try_from(code[0]).is_ok() {
                 println!("skipping {:02x?} {:?}", code, instruction);
                 continue;
             }

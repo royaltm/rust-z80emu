@@ -15,7 +15,7 @@ use shuffle::*;
 const KERNEL: &[u8] = include_bytes!("../tests/shuffle/shuffle.bin");
 const META: &str = include_str!("../tests/shuffle/shuffle.meta");
 
-type TsClock = TsCounter<i32>;
+type TsClock = host::TsCounter<i32>;
 
 #[bench]
 fn bench_shuffle(ben: &mut Bencher) {

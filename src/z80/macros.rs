@@ -12,7 +12,7 @@
 /// Reads 1 byte from memory via PC register ($pc). Increases $pc afterwards.
 /// Used for the M1 cycle (op-code fetch) so a proper number of M1 cycles is being added.
 /// Increases the memory refresh (R) counter.
-macro_rules! fetch_next_opcode {
+macro_rules! fetch_next_opcode_ext {
     ($cpu:ident, $control:ident, $pc:ident, $tsc:ident) => {
         { // pc:4, pc+=1
             $cpu.inc_r();
@@ -23,9 +23,8 @@ macro_rules! fetch_next_opcode {
     };
 }
 
-/// Defines scoped macros used by opcodes::execute_instruction! macro.
-macro_rules! define_helpers_scoped {
-    ([$dol:tt] $deb:expr; $prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident) => {
+macro_rules! define_cpu_debug_scoped {
+    ([$dol:tt] $deb:expr; $maybe_prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident) => {
         /// A sugar for creating CpuDebug and calling a debugger function if it was given as $deb.
         macro_rules! cpu_debug {
             ([$dol($code:expr),+] $mnemonic:literal $dol($id:ident:$e:tt),*) => {
@@ -47,8 +46,8 @@ macro_rules! define_helpers_scoped {
                     let mnemonic: &'static str = $mnemonic.into();
                     let args: CpuDebugArgs = cpu_debug!(@args $dol($id:$e),*);
                     let mut code = CpuDebugCode::new();
-                    if $prefix != Prefix::None {
-                        code.push($prefix as u8);
+                    if let Some(prefix) = $maybe_prefix {
+                        code.push(prefix as u8);
                     }
                     code.extend([$dol($code),+].iter().cloned());
                     let pc = $pc - Wrapping(code.len() as u16);
@@ -56,7 +55,7 @@ macro_rules! define_helpers_scoped {
                         code,
                         mnemonic,
                         pc: pc.0,
-                        prefix: $prefix,
+                        prefix: $maybe_prefix,
                         args
                     });
                 }
@@ -76,21 +75,21 @@ macro_rules! define_helpers_scoped {
             };
             (@arg n:$n:expr)      => { CpuDebugArg::Imm8($n) };
             (@arg b:$b:expr)      => { CpuDebugArg::Bit($b) };
-            (@arg m:$m:expr)      => { CpuDebugArg::IntMode(InterruptMode::try_from($m).unwrap()) };
+            (@arg m:$m:tt)        => { CpuDebugArg::IntMode(interrupt_mode!($m)) };
             (@arg nn:$nn:expr)    => { CpuDebugArg::Imm16($nn) };
             (@arg p:$nn:expr)     => { CpuDebugArg::Imm8($nn as u8) };
             (@arg nn_0:$nn:expr)  => { CpuDebugArg::Imm16($nn.0) };
-            (@arg r:A)            => { CpuDebugArg::Reg8(Prefix::None, Reg8::A) };
+            (@arg r:A)            => { CpuDebugArg::Reg8(None, Reg8::A) };
             (@arg r:I)            => { CpuDebugArg::I };
             (@arg r:R)            => { CpuDebugArg::R };
-            (@arg r:$reg:expr)    => { CpuDebugArg::Reg8(Prefix::None, $reg) };
-            (@arg q:$reg:expr)    => { CpuDebugArg::Reg8($prefix, $reg) };
-            (@arg rr:HL)          => { CpuDebugArg::Reg16(Prefix::None, Reg16::HL) };
-            (@arg rr:DE)          => { CpuDebugArg::Reg16(Prefix::None, Reg16::DE) };
-            (@arg rr:SP)          => { CpuDebugArg::Reg16(Prefix::None, Reg16::SP) };
-            (@arg rr:$reg:expr)   => { CpuDebugArg::Reg16(Prefix::None, $reg) };
-            (@arg qq:ii)          => { CpuDebugArg::Reg16($prefix, Reg16::HL) };
-            (@arg qq:$reg:expr)   => { CpuDebugArg::Reg16($prefix, $reg) };
+            (@arg r:$reg:expr)    => { CpuDebugArg::Reg8(None, $reg) };
+            (@arg q:$reg:expr)    => { CpuDebugArg::Reg8($maybe_prefix, $reg) };
+            (@arg rr:HL)          => { CpuDebugArg::Reg16(None, Reg16::HL) };
+            (@arg rr:DE)          => { CpuDebugArg::Reg16(None, Reg16::DE) };
+            (@arg rr:SP)          => { CpuDebugArg::Reg16(None, Reg16::SP) };
+            (@arg rr:$reg:expr)   => { CpuDebugArg::Reg16(None, $reg) };
+            (@arg qq:ii)          => { CpuDebugArg::Reg16($maybe_prefix, Reg16::HL) };
+            (@arg qq:$reg:expr)   => { CpuDebugArg::Reg16($maybe_prefix, $reg) };
             (@arg ss:AF)          => { CpuDebugArg::Stk16(StkReg16::AF) };
             (@arg ss:$reg:expr)   => { CpuDebugArg::Stk16($reg) };
             (@arg addr:HL)        => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::HL)) };
@@ -98,13 +97,13 @@ macro_rules! define_helpers_scoped {
             (@arg addr:de)        => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::DE)) };
             (@arg addr:SP)        => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::SP)) };
             (@arg addr:ii)        => { 
-                match $prefix {
-                    Prefix::None => CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::HL)),
-                    _ => CpuDebugArg::Addr(CpuDebugAddr::IndexAddr($prefix, None))
+                match $maybe_prefix {
+                    Some(prefix) => CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(prefix, None)),
+                    None         => panic!("addr:ii requires a prefix")
                 }
             };
             (@arg addr:$reg:expr) => { CpuDebugArg::Addr(CpuDebugAddr::RegAddr($reg)) };
-            (@arg ii:$d:expr)     => { CpuDebugArg::Addr(CpuDebugAddr::IndexAddr($prefix, Some($d as i8))) };
+            (@arg ii:$d:expr)     => { CpuDebugArg::Addr(CpuDebugAddr::IndexAddr($maybe_prefix.unwrap(), Some($d as i8))) };
             (@arg adnn:$nn:expr)  => { CpuDebugArg::Addr(CpuDebugAddr::ImmAddr($nn)) };
             (@arg port:C)         => { CpuDebugArg::Port(CpuDebugPort::RegPort) };
             (@arg port:$n:expr)   => { CpuDebugArg::Port(CpuDebugPort::ImmPort($n)) };
@@ -112,12 +111,21 @@ macro_rules! define_helpers_scoped {
             (@arg rel:$e:expr)    => { CpuDebugArg::Imm16(relative_jump_address!($e).0) };
             (@arg r_addr:$res:expr) => {
                 match $res {
-                    Ok(reg) => CpuDebugArg::Reg8(Prefix::None, reg),
+                    Ok(reg) => CpuDebugArg::Reg8(None, reg),
                     Err(_) => CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::HL))
                 }
             };
         }
+    };
+}
 
+/// Defines scoped macros used by opcodes::execute_instruction!.
+macro_rules! define_helpers_scoped {
+    ([$dol:tt] $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident) => {
+
+        macro_rules! fetch_next_opcode {
+            () => { fetch_next_opcode_ext!($cpu, $control, $pc, $tsc) };
+        }
         /// Reads 1 byte from memory via PC register ($pc). Increases $pc afterwards.
         /// Used only to read the immediate 8-bit instruction argument.
         /// For reading an op-code see fetch_next_opcode!.
@@ -171,16 +179,6 @@ macro_rules! define_helpers_scoped {
                     $opfn($b, $control.read_mem(hl, $tsc.add_mreq(hl)))
                 }
             };
-            ($opfn:ident [ii+$index8:ident] memptr=ii+d) => {
-                { // ii+d:3, ii+d:1, ii+d(write):3
-                    let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
-                    let val: u8 = $opfn($control.read_mem(ii_d, $tsc.add_mreq(ii_d)), &mut $flags);
-                    $tsc.add_no_mreq(ii_d, NO_MREQ_X1);
-                    // Any instruction with (INDEX+d): MEMPTR = INDEX+d
-                    $cpu.memptr.set16(ii_d);
-                    $control.write_mem(ii_d, val, $tsc.add_mreq(ii_d));
-                }
-            };
         }
 
         /// Reads 1 byte from memory via one of the 16-bit registers: BC, DE, HL, IX or IY.
@@ -198,7 +196,7 @@ macro_rules! define_helpers_scoped {
                     val
                 }
             };
-            (<- [ii+$index8:ident] memptr=ii+d) => {
+            (<- [$prefix:ident+$index8:ident] memptr=ii+d) => {
                 { // ii+d: 3
                     let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
                     // Any instruction with (INDEX+d): MEMPTR = INDEX+d
@@ -220,7 +218,7 @@ macro_rules! define_helpers_scoped {
                     $control.write_mem($reg16, $val, $tsc.add_mreq($reg16));
                 }
             };
-            ([ii+$index8:ident] <- $val:expr; memptr=ii+d) => {
+            ([$prefix:ident+$index8:ident] <- $val:expr; memptr=ii+d) => {
                 { // ii+d: 3
                     let ii_d = indexed_address!($cpu.get_index16($prefix), $index8);
                     // Any instruction with (INDEX+d): MEMPTR = INDEX+d
@@ -246,13 +244,14 @@ macro_rules! define_helpers_scoped {
 
         /// Writes 2 bytes into memory at immediate address $addr ($vlo) and $addr + 1 ($vhi).
         macro_rules! write_mem16_addr16 {
-            ([$addr:expr] <- ($vhi:expr, $vlo:expr); memptr=addr+1) => {
+            ([$addr:expr] <- $val2:expr; memptr=addr+1) => {
                 { // nn:3, nn+1:3
-                    $control.write_mem($addr, $vlo, $tsc.add_mreq($addr));
+                    let (vhi, vlo): (u8, u8) = $val2;
+                    $control.write_mem($addr, vlo, $tsc.add_mreq($addr));
                     let addr_1 = $addr.wrapping_add(1);
                     // LD (addr), rp; MEMPTR = addr + 1
                     $cpu.memptr.set16(addr_1);
-                    $control.write_mem(addr_1, $vhi, $tsc.add_mreq(addr_1));
+                    $control.write_mem(addr_1, vhi, $tsc.add_mreq(addr_1));
                 }
             };
         }
@@ -280,17 +279,36 @@ macro_rules! define_helpers_scoped {
 
         /// Used by EX (SP), ii
         macro_rules! ex_sp_nn {
-            ($vhi:expr, $vlo:expr) => {
+            ($val2:expr) => {
                 { // sp:3,sp+1:3,sp+1:1,sp+1(write):3,sp(write):3,sp(write):1 x 2
                     let sp = $cpu.sp.get16();
                     let val = $control.read_mem16(sp, $tsc.add_mreq(sp));
                     let sp_1 = sp.wrapping_add(1);
                     $tsc.add_mreq(sp_1);
                     $tsc.add_no_mreq(sp_1, NO_MREQ_X1);
-                    $control.write_mem(sp_1, $vhi, $tsc.add_mreq(sp_1));
-                    $control.write_mem(sp, $vlo, $tsc.add_mreq(sp));
+                    let (vhi, vlo): (u8, u8) = $val2;
+                    $control.write_mem(sp_1, vhi, $tsc.add_mreq(sp_1));
+                    $control.write_mem(sp, vlo, $tsc.add_mreq(sp));
                     $tsc.add_no_mreq(sp, NO_MREQ_X2);
+                    // MEMPTR = rp value after the operation
+                    $cpu.memptr.set16(val);
                     val
+                }
+            };
+        }
+
+        /// ADD|ADC|SBC ii,dd
+        macro_rules! op16_reg16 {
+            ($op16:ident: $reg16:expr, $nn:expr) => {
+                { // ir:1 x 7
+                    $tsc.add_no_mreq($cpu.get_ir(), NO_MREQ_X7);
+                    let nn: u16 = $nn;
+                    let memptr = &mut $cpu.memptr;
+                    $reg16.op16(|v| {
+                        // ADD/ADC/SBC rp1,rp2 MEMPTR = rp1_before_operation + 1
+                        memptr.set16(v.wrapping_add(1));
+                        ops::$op16(v, nn, &mut $flags)
+                    });
                 }
             };
         }
@@ -320,16 +338,38 @@ macro_rules! define_helpers_scoped {
                 $pc + Wrapping($e as i8 as i16 as u16)
             };
         }
+
+        /// Calculates a wrapping 16-bit $ii + $d where $ii is a 16 bit unsigned address and
+        /// $d can be a signed or unsigned integer representing a twos compliment 8-bit offset.
+        macro_rules! indexed_address {
+            ($ii:expr, $d:expr) => {
+                $ii.wrapping_add($d as i8 as i16 as u16)
+            };
+        }
+
+        macro_rules! acc_op_str {
+            (daa)  => { "DAA" };
+            (cpl)  => { "CPL" };
+            (neg)  => { "NEG" };
+            (rlca) => { "RLCA" };
+            (rrca) => { "RRCA" };
+            (rla)  => { "RLA" };
+            (rra)  => { "RRA" };
+        }
+
+        macro_rules! incdec_str {
+            (inc) => { "INC" };
+            (dec) => { "DEC" };
+        }
+
+        macro_rules! interrupt_mode {
+            (0) => { InterruptMode::Mode0 };
+            (1) => { InterruptMode::Mode1 };
+            (2) => { InterruptMode::Mode2 };
+        }
+
     };
 } // define_helpers_scoped
-
-/// Calculates a wrapping 16-bit $ii + $d where $ii is a 16 bit unsigned address and
-/// $d can be a signed or unsigned integer representing a twos compliment 8-bit offset.
-macro_rules! indexed_address {
-    ($ii:expr, $d:expr) => {
-        $ii.wrapping_add($d as i8 as i16 as u16)
-    };
-}
 
 /// Depending on the environment delegates to unreachable! macro on debug or
 /// core::hint::unreachable_unchecked on release.

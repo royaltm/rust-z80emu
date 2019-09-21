@@ -66,12 +66,12 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// The `reg` argument specifies the register. If the `prefix` argument is 
     /// one of [Prefix::Xdd] or [Prefix::Yfd] and the `reg` is [Reg8::H] or [Reg8::L]
     /// the content of the `IXh`, `IXl` or `IYh`, `IYl` will be returned instead.
-    fn get_reg(&self, reg: Reg8, prefix: Prefix) -> u8;
+    fn get_reg(&self, reg: Reg8, prefix: Option<Prefix>) -> u8;
     /// Sets the content of the selected 8-bit register.
     /// The `reg` argument specifies the register. If the `prefix` argument is 
     /// one of [Prefix::Xdd] or [Prefix::Yfd] and the `reg` is [Reg8::H] or [Reg8::L]
     /// the content of the `IXh`, `IXl` or `IYh`, `IYl` will be set instead.
-    fn set_reg(&mut self, dst: Reg8, prefix: Prefix, val: u8);
+    fn set_reg(&mut self, dst: Reg8, prefix: Option<Prefix>, val: u8);
     /// Returns the content of the selected pair of registers as a tuple of 8-bit unsigned integers.
     /// E.g. for [Reg16::BC] the content of `(B, C)` will be returned.
     fn get_reg2(&self, src: Reg16) -> (u8, u8);
@@ -81,19 +81,16 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     fn set_reg16(&mut self, src: Reg16, val: u16);
     /// Returns the content of one of the index registers as a tuple of 8-bit unsigned integers.
     /// Depending on `prefix` this will be:
-    /// * [Prefix::None] - `(H, L)`
     /// * [Prefix::Xdd] - `(IXh, IXl)`
     /// * [Prefix::Yfd] - `(IYh, IYl)`
     fn get_index2(&self, prefix: Prefix) -> (u8, u8);
     /// Returns the content of one of the index registers as a 16-bit unsigned integer.
     /// Depending on `prefix` this will be:
-    /// * [Prefix::None] - `HL`
     /// * [Prefix::Xdd] - `IX`
     /// * [Prefix::Yfd] - `IY`
     fn get_index16(&self, prefix: Prefix) -> u16;
     /// Sets the content of one of the index registers.
     /// Depending on `prefix` this will be:
-    /// * [Prefix::None] - `HL`
     /// * [Prefix::Xdd] - `IX`
     /// * [Prefix::Yfd] - `IY`
     fn set_index16(&mut self, prefix: Prefix, val: u16);
@@ -117,7 +114,7 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// See [Cpu::execute_instruction] for more information.
     fn is_after_prefix(&self) -> bool;
     /// Returns the prefix value after executing the last command. See [Cpu::execute_instruction] for more information.
-    fn get_prefix(&self) -> Prefix;
+    fn get_prefix(&self) -> Option<Prefix>;
     /// Requests a maskable interrupt.
     /// This is the alternative method to invoke the maskable interrupt. Usually while instructions
     /// are being executed the [Cpu] checks via [Io::is_irq] method if the interrrupt is being requested.

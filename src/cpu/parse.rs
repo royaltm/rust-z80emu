@@ -1,43 +1,35 @@
-//! This module contains various bit op-code parsing methods, their enum representations and
-//! their core::fmt::Display implementations for a debugger.
+//! This module contains various op-code bits parsing methods and their enum representations.
 use core::convert::TryFrom;
 use core::fmt;
 #[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 use super::flags::CpuFlags;
 
 /// A prefix enum that modifies behaviour of the next op-code.
-/// It's also instrumental in preventing interrupts prematurely.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Prefix {
-    None = 0x00,
     Xdd  = 0xDD,
     Yfd  = 0xFD
 }
 
-impl Default for Prefix {
-    fn default() -> Self {
-        Prefix::None
-    }
-}
+impl core::convert::TryFrom<u8> for Prefix {
+    type Error = ();
 
-impl core::convert::From<u8> for Prefix {
     #[inline(always)]
-    fn from(code: u8) -> Self {
+    fn try_from(code: u8) -> Result<Self, Self::Error> {
         match code {
-            0xDD => Prefix::Xdd,
-            0xFD => Prefix::Yfd,
-            _ => Prefix::None
+            0xDD => Ok(Prefix::Xdd),
+            0xFD => Ok(Prefix::Yfd),
+            _ => Err(())
         }
     }
 }
 
-/// Displays prefix as a corresponding address register pair. Used by the debugger.
+/// Displays prefix as a corresponding register pair.
 impl fmt::Display for Prefix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", match self {
-            Prefix::None => "HL",
             Prefix::Xdd  => "IX",
             Prefix::Yfd  => "IY",
         })
@@ -253,12 +245,12 @@ impl Reg8 {
 
     /// Formats `Reg8` as a string with the given formatter with `prefix` modification.
     /// E.g. for [Reg8::H] writes "IXH" if prefix is [Prefix::Xdd].
-    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
+    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
         match (self, prefix) {
-            (Reg8::H, Prefix::Xdd) => f.write_str("IXH"),
-            (Reg8::H, Prefix::Yfd) => f.write_str("IYH"),
-            (Reg8::L, Prefix::Xdd) => f.write_str("IXL"),
-            (Reg8::L, Prefix::Yfd) => f.write_str("IYL"),
+            (Reg8::H, Some(Prefix::Xdd)) => f.write_str("IXH"),
+            (Reg8::H, Some(Prefix::Yfd)) => f.write_str("IYH"),
+            (Reg8::L, Some(Prefix::Xdd)) => f.write_str("IXL"),
+            (Reg8::L, Some(Prefix::Yfd)) => f.write_str("IYL"),
             _ => fmt::Display::fmt(self, f)
         }
     }
@@ -267,10 +259,10 @@ impl Reg8 {
 impl Reg16 {
     /// Formats `Reg16` as a string with the given formatter with `prefix` modification.
     /// E.g. for [Reg16::HL] writes "IX" if prefix is [Prefix::Xdd].
-    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Prefix) -> fmt::Result {
+    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
         match (self, prefix) {
-            (Reg16::HL, Prefix::Xdd) => f.write_str("IX"),
-            (Reg16::HL, Prefix::Yfd) => f.write_str("IY"),
+            (Reg16::HL, Some(Prefix::Xdd)) => f.write_str("IX"),
+            (Reg16::HL, Some(Prefix::Yfd)) => f.write_str("IY"),
             _ => fmt::Display::fmt(self, f),
         }
     }

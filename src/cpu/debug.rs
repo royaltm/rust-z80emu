@@ -55,7 +55,7 @@ pub struct CpuDebug {
     /// A program counter addressing the executed command in the memory.
     pub pc: u16,
     /// A prefix of the executed command.
-    pub prefix: Prefix,
+    pub prefix: Option<Prefix>,
     /// Arguments of the command.
     pub args: CpuDebugArgs
 }
@@ -69,7 +69,6 @@ pub enum CpuDebugAddr {
     RegAddr(Reg16),
     /// An indirect addressing via an indexing register indicated by the [Prefix] and with an optional 8-bit signed index offset.
     /// `Option<i8>` is `None` only in arguments to `JP (IX)`, `JP (IY)`.
-    /// This variant is never constructed with the [Prefix::None] by the debugger.
     IndexAddr(Prefix, Option<i8>)
 }
 
@@ -93,11 +92,11 @@ pub enum CpuDebugArg {
     IntMode(InterruptMode),
     /// An 8-bit register. Prefix changes the meaning of [H][Reg8::H] and [L][Reg8::L] registers into
     /// `IXh` and `IXl` or `IYh` and `IYl` accordingly.
-    Reg8(Prefix, Reg8),
+    Reg8(Option<Prefix>, Reg8),
     /// An immediate 16-bit integer.
     Imm16(u16),
     /// A 16-bit register. Prefix changes the meaning of [HL][Reg16::HL] register into `IX` or `IY`.
-    Reg16(Prefix, Reg16),
+    Reg16(Option<Prefix>, Reg16),
     /// A 16-bit register used with the machine stack commands `POP` and `PUSH`.
     Stk16(StkReg16),
     /// An indirect value via memory address.

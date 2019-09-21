@@ -35,7 +35,7 @@ enum ParseResult {
     Debug(CpuDebug)
 }
 
-fn parse_arg(prefix: Prefix, pc: u16, mnemonic: &'static str, arg: &'static str, code: &mut CpuDebugCode) -> CpuDebugArg {
+fn parse_arg(prefix: Option<Prefix>, pc: u16, mnemonic: &'static str, arg: &'static str, code: &mut CpuDebugCode) -> CpuDebugArg {
     match (mnemonic, arg) {
         (_, "nn")   => {
             let n = random(); code.push(n);
@@ -70,11 +70,11 @@ fn parse_arg(prefix: Prefix, pc: u16, mnemonic: &'static str, arg: &'static str,
         (_, "(DE)") => CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::DE)),
         (_, "(HL)") => CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::HL)),
         (_, "(SP)") => CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::SP)),
-        (_, "(I?)") => CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(prefix, None)),
+        (_, "(I?)") => CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(prefix.unwrap(), None)),
         (_, "(I?+dd)") => {
             let d = random();
             code.insert(2, d);
-            CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(prefix, Some(d as i8)))
+            CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(prefix.unwrap(), Some(d as i8)))
         }
         ("RST", nn) => CpuDebugArg::Imm8(u8::from_str_radix(nn, 16).expect("a restart address")),
         ("PUSH", "BC")|("POP", "BC") => CpuDebugArg::Stk16(StkReg16::BC),
@@ -83,19 +83,19 @@ fn parse_arg(prefix: Prefix, pc: u16, mnemonic: &'static str, arg: &'static str,
         (_, "AF")|(_, "AF'") => CpuDebugArg::Stk16(StkReg16::AF),
         (_, "BC") => CpuDebugArg::Reg16(prefix, Reg16::BC),
         (_, "DE") => CpuDebugArg::Reg16(prefix, Reg16::DE),
-        (_, "HL") => CpuDebugArg::Reg16(Prefix::None, Reg16::HL),
+        (_, "HL") => CpuDebugArg::Reg16(None, Reg16::HL),
         (_, "I?") => CpuDebugArg::Reg16(prefix, Reg16::HL),
-        ("LD", "SP") => CpuDebugArg::Reg16(Prefix::None, Reg16::SP),
+        ("LD", "SP") => CpuDebugArg::Reg16(None, Reg16::SP),
         (_, "SP") => CpuDebugArg::Reg16(prefix, Reg16::SP),
         (_, "I?H") => CpuDebugArg::Reg8(prefix, Reg8::H),
         (_, "I?L") => CpuDebugArg::Reg8(prefix, Reg8::L),
-        (_, "A") => CpuDebugArg::Reg8(Prefix::None, Reg8::A),
-        (_, "B") => CpuDebugArg::Reg8(Prefix::None, Reg8::B),
-        (_, "C") => CpuDebugArg::Reg8(Prefix::None, Reg8::C),
-        (_, "D") => CpuDebugArg::Reg8(Prefix::None, Reg8::D),
-        (_, "E") => CpuDebugArg::Reg8(Prefix::None, Reg8::E),
-        (_, "H") => CpuDebugArg::Reg8(Prefix::None, Reg8::H),
-        (_, "L") => CpuDebugArg::Reg8(Prefix::None, Reg8::L),
+        (_, "A") => CpuDebugArg::Reg8(None, Reg8::A),
+        (_, "B") => CpuDebugArg::Reg8(None, Reg8::B),
+        (_, "C") => CpuDebugArg::Reg8(None, Reg8::C),
+        (_, "D") => CpuDebugArg::Reg8(None, Reg8::D),
+        (_, "E") => CpuDebugArg::Reg8(None, Reg8::E),
+        (_, "H") => CpuDebugArg::Reg8(None, Reg8::H),
+        (_, "L") => CpuDebugArg::Reg8(None, Reg8::L),
         (_, "I") => CpuDebugArg::I,
         (_, "R") => CpuDebugArg::R,
         ("IM", mode) => CpuDebugArg::IntMode(
@@ -109,7 +109,7 @@ fn parse_arg(prefix: Prefix, pc: u16, mnemonic: &'static str, arg: &'static str,
     }
 }
 
-fn parse_mnemonic(prefix: Prefix, pc: u16, code: &CpuDebugCode, mnemonic_with_args: &'static str) -> ParseResult {
+fn parse_mnemonic(prefix: Option<Prefix>, pc: u16, code: &CpuDebugCode, mnemonic_with_args: &'static str) -> ParseResult {
     let (mnemonic, textargs) =
     match mnemonic_with_args.split_ascii_whitespace().collect::<ArrayVec<[_;2]>>()[..] {
         ["prefix", "IX"] => return ParseResult::Prefix(Prefix::Xdd),
@@ -120,15 +120,15 @@ fn parse_mnemonic(prefix: Prefix, pc: u16, code: &CpuDebugCode, mnemonic_with_ar
     };
 
     let mut code = code.clone();
-    if prefix != Prefix::None {
-        code.insert(0, prefix as u8);
+    if let Some(pfx) = prefix {
+        code.insert(0, pfx as u8);
     }
 
     let args = match textargs {
         Some(args) => {
             match args.split(",").map(|arg| parse_arg(prefix, pc, mnemonic, arg, &mut code))
                                  .collect::<ArrayVec<[_;3]>>()[..] {
-                [CpuDebugArg::Bit(bit), arg, CpuDebugArg::Reg8(Prefix::None, reg)] => {
+                [CpuDebugArg::Bit(bit), arg, CpuDebugArg::Reg8(None, reg)] => {
                     CpuDebugArgs::BitOpExt(bit, arg, reg)
                 }
                 [CpuDebugArg::Reg8(_, dst), CpuDebugArg::Reg8(_, src)] if mnemonic == "LD" => {
@@ -157,7 +157,7 @@ fn parse_code(textcode: &str) -> CpuDebugCode {
             .collect()
 }
 
-fn test_debug<C: Cpu>(counter: &mut usize, prefix: Prefix, code: &[u8], debug_expect: &CpuDebug, cpu: &mut C) {
+fn test_debug<C: Cpu>(counter: &mut usize, prefix: Option<Prefix>, code: &[u8], debug_expect: &CpuDebug, cpu: &mut C) {
     *counter += 1;
     let mut tsc = host::TsCounter::default();
     let mut mem = Mem(code);
@@ -165,7 +165,7 @@ fn test_debug<C: Cpu>(counter: &mut usize, prefix: Prefix, code: &[u8], debug_ex
 
     println!("{:X}", debug_expect);
 
-    if prefix != Prefix::None {
+    if prefix.is_some() {
         match cpu.execute_next(&mut mem, &mut tsc, Some(|_| {
             panic!("prefix must not call debug closure");
         })) {
@@ -237,13 +237,13 @@ fn test_mnemonics() {
         }.unwrap_or_else(||
             panic!("mnemonic not found for: {}", textcode));
 
-        match parse_mnemonic(Prefix::None, 0, &code, mnem) {
+        match parse_mnemonic(None, 0, &code, mnem) {
             ParseResult::Prefix(pf) => {
                 counter += 1;
                 assert_eq!(code[0], pf as u8);
             }
             ParseResult::Debug(debug) => {
-                test_debug(&mut counter, Prefix::None, &debug.code, &debug, &mut cpu);
+                test_debug(&mut counter, None, &debug.code, &debug, &mut cpu);
 
                 let pmnem = match prefixed_lines.peek() {
                     Some(s) if s.starts_with(&textcode) => prefixed_lines.next(),
@@ -252,18 +252,18 @@ fn test_mnemonics() {
 
                 for &prefix in &[Prefix::Xdd, Prefix::Yfd] {
                     match pmnem {
-                        Some(mnem) => match parse_mnemonic(prefix, 0, &code, mnem) {
+                        Some(mnem) => match parse_mnemonic(Some(prefix), 0, &code, mnem) {
                             ParseResult::Debug(debug) => {
-                                test_debug(&mut counter, prefix, &debug.code, &debug, &mut cpu);
+                                test_debug(&mut counter, Some(prefix), &debug.code, &debug, &mut cpu);
                             }
                             ParseResult::Prefix(_) => panic!("prefix after prefix"),
                         }
-                        None => match parse_mnemonic(Prefix::None, 1, &code, mnem) {
+                        None => match parse_mnemonic(None, 1, &code, mnem) {
                             ParseResult::Debug(debug) => {
                                 let mut code = ArrayVec::<[u8;5]>::new();
                                 code.push(prefix as u8);
                                 code.extend(debug.code.iter().cloned());
-                                test_debug(&mut counter, prefix, &code, &debug, &mut cpu);
+                                test_debug(&mut counter, Some(prefix), &code, &debug, &mut cpu);
                             }
                             ParseResult::Prefix(_) => unreachable!()
                         }
