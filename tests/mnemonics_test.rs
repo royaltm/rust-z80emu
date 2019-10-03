@@ -110,6 +110,7 @@ fn parse_arg(prefix: Option<Prefix>, pc: u16, mnemonic: &'static str, arg: &'sta
 }
 
 fn parse_mnemonic(prefix: Option<Prefix>, pc: u16, code: &CpuDebugCode, mnemonic_with_args: &'static str) -> ParseResult {
+    println!("{}", mnemonic_with_args);
     let (mnemonic, textargs) =
     match mnemonic_with_args.split_ascii_whitespace().collect::<ArrayVec<[_;2]>>()[..] {
         ["prefix", "IX"] => return ParseResult::Prefix(Prefix::Xdd),
@@ -221,7 +222,7 @@ impl Iterator for CodeIterator {
 
 #[test]
 fn test_mnemonics() {
-    let mut cpu = Z80::new();
+    let mut cpu = Z80NMOS::new();
     let mut lines = MNEMONICS.lines().peekable();
     let mut prefixed_lines = MNEMONICS_PREFIX.lines().peekable();
     let code_iter = CodeIterator([0, 0]);

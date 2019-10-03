@@ -18,6 +18,31 @@ pub (super) mod cycles {
 }
 use cycles::*;
 
+/// Determines the direction for the block instruction group.
+#[derive(Clone, Copy, Debug)]
+#[repr(i8)]
+pub(super) enum BlockDelta {
+    Increase = 1,
+    Decrease = -1
+}
+
+pub(super) trait WordBytes {
+    fn msb(self) -> u8;
+    fn lsb(self) -> u8;
+}
+
+impl WordBytes for u16 {
+    #[inline(always)]
+    fn msb(self) -> u8 {
+        (self >> 8) as u8
+    }
+
+    #[inline(always)]
+    fn lsb(self) -> u8 {
+        self as u8
+    }
+}
+
 /// Converts Rot enum into one of the appriopriate ops function.
 impl From<Rot> for fn(u8, &mut CpuFlags) -> u8 {
     #[inline]
@@ -35,7 +60,7 @@ impl From<Rot> for fn(u8, &mut CpuFlags) -> u8 {
     }
 }
 
-impl Z80 {
+impl<Q: Flavour> Z80<Q> {
     #[inline]
     pub(super) fn ex_de_hl(&mut self) {
         swap(&mut self.regs.de, &mut self.regs.hl);
@@ -107,6 +132,7 @@ impl Z80 {
         tsc.add_m1(pc); // pc:4
         tsc.add_no_mreq(self.get_ir(), NO_MREQ_X1); // ir:1
         self.push16(pc, control, tsc); // sp-1:3, sp-2:3
+        self.flavour.begin_instruction();
         self.pc.set16(NMI_RESTART);
     }
 
@@ -182,7 +208,27 @@ impl Z80 {
     }
 
     #[inline]
-    pub(super) fn get_reg_prefix16(&self, src: Reg16, prefix: Prefix) -> u16 {
+    pub(super) fn stkreg16_ref(&self, src: StkReg16) -> &RegisterPair {
+        match src {
+            StkReg16::BC => &self.regs.bc,
+            StkReg16::DE => &self.regs.de,
+            StkReg16::HL => &self.regs.hl,
+            StkReg16::AF => &self.af
+        }
+    }
+
+    #[inline]
+    pub(super) fn stkreg16_alt_ref(&self, src: StkReg16) -> &RegisterPair {
+        match src {
+            StkReg16::BC => &self.regs_alt.bc,
+            StkReg16::DE => &self.regs_alt.de,
+            StkReg16::HL => &self.regs_alt.hl,
+            StkReg16::AF => &self.af_alt
+        }
+    }
+
+    #[inline]
+    pub(super) fn get_prefix_reg16(&self, src: Reg16, prefix: Prefix) -> u16 {
         match src {
             Reg16::BC => self.regs.bc.get16(),
             Reg16::DE => self.regs.de.get16(),
@@ -206,6 +252,16 @@ impl Z80 {
             Reg16::DE => &mut self.regs.de,
             Reg16::HL => &mut self.regs.hl,
             Reg16::SP => &mut self.sp
+        }        
+    }
+
+    #[inline]
+    pub(super) fn stkreg16_mut(&mut self, src: StkReg16) -> &mut RegisterPair {
+        match src {
+            StkReg16::BC => &mut self.regs.bc,
+            StkReg16::DE => &mut self.regs.de,
+            StkReg16::HL => &mut self.regs.hl,
+            StkReg16::AF => &mut self.af
         }        
     }
 

@@ -66,11 +66,6 @@ macro_rules! reg_enum_mask_try_from {
     };
 }
 
-// macro_rules! item_mask_validate {
-//     ($val:expr & $mask:expr) => { const_assert_eq!($val & $mask, $val); },
-//     ($mask:expr; ($val:expr),+) => 
-// }
-
 /// # Safety
 ///
 /// 1. The item values & $mask in parantheses must match all item values
@@ -172,7 +167,8 @@ pub(crate)
     }
 }
 
-reg_enum_mask_from!{ pub Condition
+reg_enum_mask_from!{
+pub Condition
            & (0b00_111_000) {
         NZ  = 0b00_000_000;
         Z   = 0b00_001_000;
@@ -306,12 +302,4 @@ impl From<u8> for BitOps {
 #[inline(always)]
 pub(crate) fn parse_restart_address(code: u8) -> u16 {
     (code & 0b00_111_000) as u16
-}
-
-/// Determines the direction for the block instruction group.
-#[derive(Clone, Copy, Debug)]
-#[repr(i8)]
-pub(crate) enum BlockDelta {
-    Increase = 1,
-    Decrease = -1
 }

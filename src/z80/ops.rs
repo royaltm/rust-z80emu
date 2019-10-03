@@ -172,16 +172,16 @@ pub fn cpl(acc: u8, flags: &mut CpuFlags) -> u8 {
 }
 
 #[inline]
-pub fn ccf(acc: u8, flags: &mut CpuFlags) {
+pub fn ccf(q: u8, flags: &mut CpuFlags) {
     let cf = flags.cf();
     flags.remove(CpuFlags::XY|CpuFlags::H|CpuFlags::N|CpuFlags::C);
-    flags.insert(CpuFlags::mask_xy(acc)|CpuFlags::mask_hf(cf)|CpuFlags::mask_carry(!cf));
+    flags.insert(CpuFlags::mask_xy(q)|CpuFlags::mask_hf(cf)|CpuFlags::mask_carry(!cf));
 }
 
 #[inline]
-pub fn scf(acc: u8, flags: &mut CpuFlags) {
+pub fn scf(q: u8, flags: &mut CpuFlags) {
     flags.remove(CpuFlags::XY|CpuFlags::H|CpuFlags::N);
-    flags.insert(CpuFlags::mask_xy(acc)|CpuFlags::C);
+    flags.insert(CpuFlags::mask_xy(q)|CpuFlags::C);
 }
 
 #[inline]

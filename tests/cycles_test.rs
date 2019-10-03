@@ -447,14 +447,14 @@ struct TestEnv<C: Cpu> {
 
 fn randomize_cpu_state<C: Cpu>(cpu: &mut C) {
     for _ in 0..2 {
-        cpu.set_af(random());
-        cpu.set_reg16(Reg16::BC, random());
-        cpu.set_reg16(Reg16::DE, random());
-        cpu.set_reg16(Reg16::HL, random());
-        cpu.set_reg16(Reg16::SP, random());
+        cpu.set_reg16(StkReg16::AF, random());
+        cpu.set_reg16(StkReg16::BC, random());
+        cpu.set_reg16(StkReg16::DE, random());
+        cpu.set_reg16(StkReg16::HL, random());
         cpu.ex_af_af();
         cpu.exx();
     }
+    cpu.set_sp(random());
     cpu.set_index16(Prefix::Xdd, random());
     cpu.set_index16(Prefix::Yfd, random());
     cpu.set_i(random());
@@ -470,9 +470,9 @@ impl BusVal {
                 let ir = cpu.get_ir();
                 ir & !mask | ir.wrapping_add(off as u16) & mask
             }
-            BusVal::Bc(off) => cpu.get_reg16(Reg16::BC).wrapping_add(off as u16),
-            BusVal::De(off) => cpu.get_reg16(Reg16::DE).wrapping_add(off as u16),
-            BusVal::Hl(off) => cpu.get_reg16(Reg16::HL).wrapping_add(off as u16),
+            BusVal::Bc(off) => cpu.get_reg16(StkReg16::BC).wrapping_add(off as u16),
+            BusVal::De(off) => cpu.get_reg16(StkReg16::DE).wrapping_add(off as u16),
+            BusVal::Hl(off) => cpu.get_reg16(StkReg16::HL).wrapping_add(off as u16),
             BusVal::Sp(off) => cpu.get_sp().wrapping_add(off as u16),
             BusVal::Nn(off) => {
                 let nn = [code[code.len()-2], code[code.len()-1]];
@@ -480,7 +480,7 @@ impl BusVal {
             }
             BusVal::An(off) => {
                 let n = code[code.len()-1];
-                (cpu.get_af()&0xFF00|n as u16).wrapping_add(off as u16)
+                u16::from_le_bytes([n, cpu.get_acc()]).wrapping_add(off as u16)
             }
             BusVal::Index => {
                 let prefix = Prefix::try_from(code[0]).expect("not a prefix code");
@@ -585,28 +585,28 @@ fn prepare_test_environment<C: Cpu>(code: &mut CpuDebugCode, instruction: &str, 
                 }
             }
             Prerequisite::BcEq1 => {
-                let mut bc = env.cpu.get_reg16(Reg16::BC);
+                let mut bc = env.cpu.get_reg16(StkReg16::BC);
                 if bc == 1 {
                     while bc == 1 { bc = random(); }
-                    env.cpu.set_reg16(Reg16::BC, bc);
+                    env.cpu.set_reg16(StkReg16::BC, bc);
                 }
                 else {
-                    env_tail.cpu.set_reg16(Reg16::BC, 1);
+                    env_tail.cpu.set_reg16(StkReg16::BC, 1);
                 }
             }
             Prerequisite::BcEq1OrAEqMemHl => {
                 let mut a = env.cpu.get_reg(Reg8::A, None);
-                let mut bc = env.cpu.get_reg16(Reg16::BC);
-                let hl = env.cpu.get_reg16(Reg16::HL);
+                let mut bc = env.cpu.get_reg16(StkReg16::BC);
+                let hl = env.cpu.get_reg16(StkReg16::HL);
                 let hl_mem = code.test_read_memory(hl);
                 if bc == 1 || a == hl_mem {
                     while bc == 1 { bc = random(); }
                     if a == hl_mem { a = a.wrapping_add(1); }
-                    env.cpu.set_reg16(Reg16::BC, bc);
+                    env.cpu.set_reg16(StkReg16::BC, bc);
                     env.cpu.set_reg(Reg8::A, None, a);
                 }
                 else {
-                    env_tail.cpu.set_reg16(Reg16::BC, 1);
+                    env_tail.cpu.set_reg16(StkReg16::BC, 1);
                     env_tail.cpu.set_reg(Reg8::A, None, hl_mem);
                 }                        
             }
@@ -681,7 +681,7 @@ fn test_cycles() -> Result<(), String> {
                             format!("unknown instruction: {:?}", instruction))?;
             cycles.visited = true;
             println!("{}", line);
-            let (env, tail) = prepare_test_environment::<Z80>(&mut code, instruction, cycles)?;
+            let (env, tail) = prepare_test_environment::<Z80NMOS>(&mut code, instruction, cycles)?;
 
             test_instruction(env, &code, instruction);
             if let Some(env) = tail {

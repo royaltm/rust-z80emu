@@ -20,7 +20,7 @@ macro_rules! dir {
 
 #[test]
 fn test_shuffle() {
-    let mut cpu = Z80::default();
+    let mut cpu = Z80NMOS::default();
     let mut shuffle = TestShuffle::default();
     let mut bin = File::open(dir!(r"shuffle.bin")).expect("missing shuffle.bin file");
     assert!(bin.read_to_end(&mut shuffle.mem).expect("couldn't read shuffle.bin") > 0);

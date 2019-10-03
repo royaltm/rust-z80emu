@@ -43,35 +43,31 @@ macro_rules! define_cpu_debug_scoped {
             };
             ([$dol($code:expr),+] str($mnemonic:expr) $dol($id:ident:$e:tt),*) => {
                 if let Some(debugger) = $deb {
-                    let mnemonic: &'static str = $mnemonic.into();
-                    let args: CpuDebugArgs = cpu_debug!(@args $dol($id:$e),*);
-                    let mut code = CpuDebugCode::new();
-                    if let Some(prefix) = $maybe_prefix {
-                        code.push(prefix as u8);
-                    }
-                    code.extend([$dol($code),+].iter().cloned());
-                    let pc = $pc - Wrapping(code.len() as u16);
-                    debugger(CpuDebug {
-                        code,
-                        mnemonic,
-                        pc: pc.0,
-                        prefix: $maybe_prefix,
-                        args
-                    });
+                    CpuDebug::debug_instruction(
+                        $mnemonic.into(),
+                        cpu_debug!(@args $dol($id:$e),*),
+                        $maybe_prefix,
+                        &[$dol($code),+],
+                        $pc,
+                        debugger);
                 }
             };
-            (@args)                   => { CpuDebugArgs::None };
+            (@args) => { CpuDebugArgs::None };
+            (@args ii:$d:expr, maybe_r:$res:expr) => {
+                match $res {
+                    Ok(reg) => CpuDebugArgs::Double(cpu_debug!(@arg ii:$d), cpu_debug!(@arg r:reg)),
+                    Err(_)  => CpuDebugArgs::Single(cpu_debug!(@arg ii:$d))
+                }
+            };
+            (@args b:$b:expr, ii:$d:expr, maybe_r:$res:expr) => {
+                match $res {
+                    Ok(reg) => CpuDebugArgs::BitOpExt($b, cpu_debug!(@arg ii:$d), reg),
+                    Err(_)  => CpuDebugArgs::Double(cpu_debug!(@arg b:$b), cpu_debug!(@arg ii:$d)),
+                }
+            };
             (@args $id1:ident:$e1:tt) => { CpuDebugArgs::Single(cpu_debug!(@arg $id1:$e1)) };
             (@args $id1:ident:$e1:tt, $id2:ident:$e2:tt) => {
                 CpuDebugArgs::Double(cpu_debug!(@arg $id1:$e1), cpu_debug!(@arg $id2:$e2))
-            };
-            (@args maybe_b:$b:expr, ii:$d:expr, maybe_r:$res:expr) => {
-                match ($b, $res) {
-                    (Some(b), Ok(reg)) => CpuDebugArgs::BitOpExt(b, cpu_debug!(@arg ii:$d), reg),
-                    (Some(b), Err(_))  => CpuDebugArgs::Double(cpu_debug!(@arg b:b), cpu_debug!(@arg ii:$d)),
-                    (None,    Ok(reg)) => CpuDebugArgs::Double(cpu_debug!(@arg ii:$d), cpu_debug!(@arg r:reg)),
-                    (None,    Err(_))  => CpuDebugArgs::Single(cpu_debug!(@arg ii:$d))
-                }
             };
             (@arg n:$n:expr)      => { CpuDebugArg::Imm8($n) };
             (@arg b:$b:expr)      => { CpuDebugArg::Bit($b) };
@@ -209,11 +205,12 @@ macro_rules! define_helpers_scoped {
         /// Writes 1 byte into memory via one of the address registers: HL, IX or IY.
         /// Returns the u16 content of the address register for optional memptr updating.
         macro_rules! write_mem8_reg16 {
-            ([$reg16:ident] <- $val:expr $dol(;memptr=($mhi:expr, $mlo:expr))?) => {
+            ([$reg16:ident] <- $val:expr $dol(;memptr=$memptr:expr)?) => {
                 { // ss: 3
                     let $reg16 = $cpu.regs.$reg16.get16();
                     $dol(
-                        $cpu.memptr.set($mhi, $mlo);
+                        let (hi, lo): (u8, u8) = $memptr;
+                        $cpu.memptr.set(hi, lo);
                     )?
                     $control.write_mem($reg16, $val, $tsc.add_mreq($reg16));
                 }
@@ -309,6 +306,7 @@ macro_rules! define_helpers_scoped {
                         memptr.set16(v.wrapping_add(1));
                         ops::$op16(v, nn, &mut $flags)
                     });
+                    flags_op!();
                 }
             };
         }
@@ -327,8 +325,15 @@ macro_rules! define_helpers_scoped {
                         $control.write_mem(hl, res, $tsc.add_mreq(hl));
                         a
                     });
+                    flags_op!();
                 }
             };
+        }
+
+        macro_rules! flags_op {
+            () => {
+                $cpu.flavour.flags_modified();
+            }
         }
 
         /// Calculates a relative branch address from $pc as a Wrapping 16 bit integer

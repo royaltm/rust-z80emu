@@ -22,10 +22,10 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     fn get_sp(&self) -> u16;
     /// Sets the current value of the stack pointer.
     fn set_sp(&mut self, sp: u16);
-    /// Returns the `AF` register pair as an unsigned 16-bit integer.
-    fn get_af(&self) -> u16;
-    /// Sets the `AF` register pair from an unsigned 16-bit integer.
-    fn set_af(&mut self, af: u16);
+    /// Returns the Accumulator register as an unsigned 8-bit integer.
+    fn get_acc(&self) -> u8;
+    /// Sets the Accumulator register from an unsigned 8-bit integer.
+    fn set_acc(&mut self, val: u8);
     /// Returns the current flags register state.
     fn get_flags(&self) -> CpuFlags;
     /// Sets the current flags register state.
@@ -35,13 +35,13 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Adds the arbitrary value to the memory refresh counter.
     /// This can be used to emulate the Cpu in the HALT state without executing the busy loop.
     fn add_r(&mut self, delta: i32);
-    /// Returns the current value of the memory refresh register.
+    /// Returns the current value of the memory refresh register `R`.
     fn get_r(&self) -> u8;
-    /// Sets the memory refresh register value.
+    /// Sets the memory refresh register `R` value.
     fn set_r(&mut self, r: u8);
-    /// Returns the current value of the interrupt page register.
+    /// Returns the current value of the interrupt page `I` register.
     fn get_i(&self) -> u8;
-    /// Sets the current value of the interrupt page register.
+    /// Sets the current value of the interrupt page `I` register.
     fn set_i(&mut self, i: u8);
     /// Returns the current memory refresh address.
     fn get_ir(&self) -> u16;
@@ -58,9 +58,9 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     fn get_im(&self) -> InterruptMode;
     /// Sets the interrupt mode.
     fn set_im(&mut self, im: InterruptMode);
-    /// Swaps the `AF` register with its shadow counterpart `AF'`.
+    /// Swaps the `AF` register with its alternative counterpart `AF'`.
     fn ex_af_af(&mut self);
-    /// Swaps the `BC`, `DE` and `HL` registers with their shadow counterparts `BC'`, `DE'` and `HL'`.
+    /// Swaps the `BC`, `DE` and `HL` registers with their alternative counterparts `BC'`, `DE'` and `HL'`.
     fn exx(&mut self);
     /// Returns the content of the selected 8-bit register.
     /// The `reg` argument specifies the register. If the `prefix` argument is 
@@ -73,12 +73,17 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// the content of the `IXh`, `IXl` or `IYh`, `IYl` will be set instead.
     fn set_reg(&mut self, dst: Reg8, prefix: Option<Prefix>, val: u8);
     /// Returns the content of the selected pair of registers as a tuple of 8-bit unsigned integers.
-    /// E.g. for [Reg16::BC] the content of `(B, C)` will be returned.
-    fn get_reg2(&self, src: Reg16) -> (u8, u8);
+    /// E.g. for [StkReg16::BC] the content of `(B, C)` will be returned.
+    fn get_reg2(&self, src: StkReg16) -> (u8, u8);
+    /// Returns the content of the selected pair of alternative registers as a tuple of 8-bit unsigned integers.
+    /// E.g. for [StkReg16::AF] the content of `(A', F')` will be returned.
+    fn get_alt_reg2(&self, src: StkReg16) -> (u8, u8);
     /// Returns the content of the selected pair of registers as an unsigned 16-bit integer.
-    fn get_reg16(&self, src: Reg16) -> u16;
+    fn get_reg16(&self, src: StkReg16) -> u16;
+    /// Returns the content of the selected pair of alternative registers as an unsigned 16-bit integer.
+    fn get_alt_reg16(&self, src: StkReg16) -> u16;
     /// Sets the content of the selected pair of registers.
-    fn set_reg16(&mut self, src: Reg16, val: u16);
+    fn set_reg16(&mut self, src: StkReg16, val: u16);
     /// Returns the content of one of the index registers as a tuple of 8-bit unsigned integers.
     /// Depending on `prefix` this will be:
     /// * [Prefix::Xdd] - `(IXh, IXl)`

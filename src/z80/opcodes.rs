@@ -163,6 +163,8 @@ macro_rules! execute_instruction {
         define_cpu_debug_scoped!([$] $deb; $maybe_prefix, $flags, $pc, $cpu, $control, $tsc);
         define_helpers_scoped!([$] $flags, $pc, $cpu, $control, $tsc);
 
+        $cpu.flavour.begin_instruction();
+
         'repeat: loop {
             match $maybe_prefix {
                 None => {

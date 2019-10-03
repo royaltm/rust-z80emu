@@ -48,9 +48,9 @@
  
  Currently there is one implementation of the Cpu trait with some selectable "flavours".
  
- * Z80 - A Zilog's NMOS Z80.
- * Z80CMOS - A CMOS version of Z80.
- * Z80BM - A clone of Z80.
+ * [Z80NMOS] - A Zilog's NMOS Z80.
+ * [Z80CMOS] - A CMOS version of Z80.
+ * [z80::Z80BM] - A clone of Z80.
  
  The difference is very subtle and only affects the undocumented behaviour.
  
@@ -81,7 +81,7 @@ pub mod z80;
 
 pub use cpu::*;
 pub use host::{Clock, Io, Memory, BreakCause};
-pub use z80::Z80;
+pub use z80::{Z80, Z80NMOS, Z80CMOS};
 
 /// An address of the NMI routine.
 pub const NMI_RESTART: u16 = 0x66;

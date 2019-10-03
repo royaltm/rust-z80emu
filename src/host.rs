@@ -4,7 +4,7 @@
 //! It is up to the implementors to decide when on the emulated time axis the interaction with the peripherals or memory
 //! takes place.
 //!
-//! Please see [cycles] module for the description of each emulated cycle.
+//! Please see [crate::host::cycles] module for the description of each emulated cycle.
 #[cfg(feature = "std")] use std::error;
 use core::fmt;
 use core::num::{NonZeroU8, NonZeroU16, Wrapping};

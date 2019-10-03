@@ -4,6 +4,7 @@ mod ops;
 mod instructions;
 mod opcodes;
 mod internal;
+mod flavours;
 mod debug;
 
 use core::num::Wrapping;
@@ -15,7 +16,16 @@ use serde::{Serialize, Deserialize};
 use crate::cpu::*;
 use crate::host::*;
 use crate::opconsts;
+use internal::*;
 use internal::cycles::*;
+
+pub use flavours::*;
+/// Emulates a Zilog's `NMOS Z80 CPU` via the [Cpu] trait.
+pub type Z80NMOS = Z80<NMOS>;
+/// Emulates a Zilog's `CMOS Z80 CPU` via the [Cpu] trait.
+pub type Z80CMOS = Z80<CMOS>;
+/// Emulates one of the clones (presumably the `KP1858BM1` or `T34BM1`) of the `Z80 CPU` via the [Cpu] trait.
+pub type Z80BM = Z80<BM1>;
 
 enum LoopExitReason<O, R> {
     LimitReached,
@@ -25,9 +35,11 @@ enum LoopExitReason<O, R> {
     EnableInt,
     Irq
 }
+
+/// Emulates a Zilog's `Z80 CPU` in various flavours via the [Cpu] trait.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, PartialEq, Eq)] // TODO: implement PartialEq and Eq with regard of R
-pub struct Z80 {
+pub struct Z80<Q: Flavour> {
     af: RegisterPair,
     af_alt: RegisterPair,
     regs: GeneralRegisters,
@@ -43,7 +55,9 @@ pub struct Z80 {
     iff2: bool,
     halt: bool,
     prefix: Option<Prefix>,
-    r: Wrapping<u8>
+    r: Wrapping<u8>,
+    /// Exposes an instance of the [Flavour] implementation.
+    pub flavour: Q
 }
 
 /// Returns `true` if the interrupt should be accepted based on `prefix` and `last EI` state.
@@ -53,7 +67,7 @@ fn is_int_allowed(prefix: Option<Prefix>, last_ei: bool) -> bool {
     prefix.is_none() && !last_ei
 }
 
-impl Z80 {
+impl<Q: Flavour> Z80<Q> {
     /// Creates a new instance of Z80 with the state just after `RESET`.
     pub fn new() -> Self {
         let mut cpu = Self::default();
@@ -61,25 +75,30 @@ impl Z80 {
         cpu
     }
 
+    /// Retrieves the internal state of the MEMPTR register.
     #[inline]
     pub fn get_memptr(&self) -> u16 {
         self.memptr.get16()
     }
 
+    /// Changes the internal state of the MEMPTR register.
     #[inline]
     pub fn set_memptr(&mut self, memptr: u16) {
         self.memptr.set16(memptr)
     }
 
+    /// The content of the `R` register is lazy evaluated when its value is being set or retrieved.
+    /// This method normalizes the internal state of the `R` register, so e.g. two instances of
+    /// [Z80] can be compared if they represent the same `CPU` state.
     pub fn normalize_r(&mut self) {
         self.set_r(self.get_r());
     }
 }
 
-impl Cpu for Z80 {
+impl<Q: Flavour> Cpu for Z80<Q> {
     fn reset(&mut self) {
-        self.af.set16(0xFFFF);
-        self.af_alt.set16(0xFFFF);
+        self.af.set16(u16::max_value());
+        self.af_alt.set16(u16::max_value());
         self.regs.bc.set16(0);
         self.regs.de.set16(0);
         self.regs.hl.set16(0);
@@ -89,7 +108,7 @@ impl Cpu for Z80 {
         self.index.ix.set16(0);
         self.index.iy.set16(0);
         self.pc.set16(0);
-        self.sp.set16(0xFFFF);
+        self.sp.set16(u16::max_value());
         self.memptr.set16(0);
         self.last_ei = false;
         self.ir.set16(0);
@@ -99,6 +118,7 @@ impl Cpu for Z80 {
         self.halt = false;
         self.prefix = None;
         self.r = Wrapping(0);
+        self.flavour.reset();
     }
 
     #[inline]
@@ -122,13 +142,13 @@ impl Cpu for Z80 {
     }
 
     #[inline]
-    fn get_af(&self) -> u16 {
-        self.af.get16()
+    fn get_acc(&self) -> u8 {
+        self.af.get8hi()
     }
 
     #[inline]
-    fn set_af(&mut self, af: u16) {
-        self.af.set16(af)
+    fn set_acc(&mut self, val: u8) {
+        self.af.set8hi(val)
     }
 
     #[inline(always)]
@@ -249,18 +269,28 @@ impl Cpu for Z80 {
     }
 
     #[inline]
-    fn get_reg2(&self, src: Reg16) -> (u8, u8) {
-        self.reg16_ref(src).get()
+    fn get_reg2(&self, src: StkReg16) -> (u8, u8) {
+        self.stkreg16_ref(src).get()
     }
 
     #[inline]
-    fn get_reg16(&self, src: Reg16) -> u16 {
-        self.reg16_ref(src).get16()
+    fn get_alt_reg2(&self, src: StkReg16) -> (u8, u8) {
+        self.stkreg16_alt_ref(src).get()
     }
 
     #[inline]
-    fn set_reg16(&mut self, src: Reg16, val: u16) {
-        self.reg16_mut(src).set16(val)
+    fn get_reg16(&self, src: StkReg16) -> u16 {
+        self.stkreg16_ref(src).get16()
+    }
+
+    #[inline]
+    fn get_alt_reg16(&self, src: StkReg16) -> u16 {
+        self.stkreg16_alt_ref(src).get16()
+    }
+
+    #[inline]
+    fn set_reg16(&mut self, src: StkReg16, val: u16) {
+        self.stkreg16_mut(src).set16(val)
     }
 
     #[inline]
