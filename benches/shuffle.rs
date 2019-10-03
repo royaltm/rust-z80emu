@@ -4,22 +4,72 @@ extern crate test;
 use core::num::NonZeroI64;
 use test::{black_box, Bencher, stats::Summary};
 use serde_json::Value;
-use rand::prelude::*;
+// use rand::prelude::*;
 
 #[path = "../tests/shuffle/mod.rs"]
 mod shuffle;
 
-use z80emu::*;
+use z80emu::{*, z80::Z80BM};
 use shuffle::*;
 
+trait CpuExec {
+    fn cpu_exec<C: Cpu>(cpu: &mut C, shuffle: &mut TestShuffle, tsc: &mut TsClock, limit: i32) -> host::Result<(), ()>;
+}
+
+const NO_DEBUG: Option<CpuDebugFn> = None;
+const SEED_ZERO: u16 = u16::max_value();
 const KERNEL: &[u8] = include_bytes!("../tests/shuffle/shuffle.bin");
 const META: &str = include_str!("../tests/shuffle/shuffle.meta");
 
 type TsClock = host::TsCounter<i32>;
 
 #[bench]
-fn bench_shuffle(ben: &mut Bencher) {
-    let mut cpu = Z80::default();
+fn bench_shuffle_nmos_debug(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80NMOS, CpuExecDebug>(ben);
+}
+
+#[bench]
+fn bench_shuffle_nmos_steps(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80NMOS, CpuExecSteps>(ben);
+}
+
+#[bench]
+fn bench_shuffle_nmos_limit(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80NMOS, CpuExecWithLimit>(ben);
+}
+
+#[bench]
+fn bench_shuffle_cmos_debug(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80CMOS, CpuExecDebug>(ben);
+}
+
+#[bench]
+fn bench_shuffle_cmos_steps(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80CMOS, CpuExecSteps>(ben);
+}
+
+#[bench]
+fn bench_shuffle_cmos_limit(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80CMOS, CpuExecWithLimit>(ben);
+}
+
+#[bench]
+fn bench_shuffle_bm_debug(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80BM, CpuExecDebug>(ben);
+}
+
+#[bench]
+fn bench_shuffle_bm_steps(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80BM, CpuExecSteps>(ben);
+}
+
+#[bench]
+fn bench_shuffle_bm_limit(ben: &mut Bencher) {
+    bench_shuffle_cpu::<Z80BM, CpuExecWithLimit>(ben);
+}
+
+fn bench_shuffle_cpu<C: Cpu, E: CpuExec>(ben: &mut Bencher) {
+    let mut cpu = C::default();
     let mut shuffle = TestShuffle::default();
     shuffle.mem.extend_from_slice(KERNEL);
 
@@ -31,20 +81,20 @@ fn bench_shuffle(ben: &mut Bencher) {
         Err(e) => panic!("error reading shuffle.meta file: {:?}", e)
     };
 
-    let seed_zero: u16 = random();
+    let seed_zero: u16 = SEED_ZERO;
 
     eprintln!("seed: {}", seed_zero);
     let mut tstates_total = NonZeroI64::new(0);
     let Summary { median, .. } = ben.bench(|ben| {
         ben.iter(|| {
             let mut sum = 0i64;
-            for i in 0..1000 {
+            for i in 0..300 {
                 let seed: u16 = seed_zero.wrapping_add(i);
                 shuffle.mem[seed_offs..=seed_offs+1].copy_from_slice(&seed.to_le_bytes());
                 cpu.reset();
                 assert!(!cpu.is_halt());
                 let mut tsc = TsClock::default();
-                match cpu.execute_with_limit(&mut shuffle, &mut tsc, 500_000) {
+                match E::cpu_exec(&mut cpu, &mut shuffle, &mut tsc, 500_000) {
                     Ok(()) => panic!("the shuffle took too long: {:?}", tsc),
                     Err(BreakCause::Halt) => {}
                     Err(cause) => panic!("an unexpected break cause: {:?}", cause),
@@ -63,4 +113,44 @@ fn bench_shuffle(ben: &mut Bencher) {
     }).unwrap();
     let time = median / 1.0e9;
     eprintln!("Median time: {} s CPU MHz: {}", time, tstates_total.unwrap().get() as f64/time/1.0e6);
+}
+
+struct CpuExecWithLimit;
+impl CpuExec for CpuExecWithLimit {
+    #[inline(always)]
+    fn cpu_exec<C: Cpu>(cpu: &mut C, shuffle: &mut TestShuffle, tsc: &mut TsClock, limit: i32) -> host::Result<(), ()> {
+        cpu.execute_with_limit(shuffle, tsc, limit)
+    }
+}
+
+struct CpuExecSteps;
+impl CpuExec for CpuExecSteps {
+    #[inline(always)]
+    fn cpu_exec<C: Cpu>(cpu: &mut C, shuffle: &mut TestShuffle, tsc: &mut TsClock, limit: i32) -> host::Result<(), ()> {
+        loop {
+            if tsc.is_past_limit(limit) {
+                return Ok(());
+            }
+            if let Err(err) = cpu.execute_next(shuffle, tsc, NO_DEBUG) {
+                return Err(err);
+            }
+        }
+    }
+}
+
+struct CpuExecDebug;
+impl CpuExec for CpuExecDebug {
+    #[inline(always)]
+    fn cpu_exec<C: Cpu>(cpu: &mut C, shuffle: &mut TestShuffle, tsc: &mut TsClock, limit: i32) -> host::Result<(), ()> {
+        loop {
+            if tsc.is_past_limit(limit) {
+                return Ok(());
+            }
+            if let Err(err) = cpu.execute_next(shuffle, tsc, Some(|deb| {
+                black_box(deb);
+            })) {
+                return Err(err);
+            }
+        }
+    }
 }
