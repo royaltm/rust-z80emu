@@ -3,17 +3,13 @@
 # This Ruby program requires https://github.com/royaltm/z80-rb.
 #
 # Generates files:
-# - shuffle.bin
-# - shuffle.meta
-# - shuffle.tap
-#
-# The last one is a TAP file and can be loaded into any ZX Spectrum emulator to generate shuffled_*.bin files.
+# - shuffle.bin  : a minikernel for shuffle_test.rs
+# - shuffle.meta : a minikernel symbol table for shuffle_test.rs
+# - shuffle.tap  : a ZX Spectrum program in a TAP format for generating the shuffled_*.bin templates.
 #
 require 'z80'
 require 'z80/math_i'
-# require 'z80/stdlib'
 require 'z80/utils/shuffle'
-# require 'z80/utils/sincos'
 
 class Shuffle
   include Z80
@@ -23,9 +19,7 @@ class Shuffle
   export target
 
   macro_import MathInt
-  # macro_import Stdlib
   macro_import Utils::Shuffle
-  # macro_import Utils::SinCos
 
   ns :start do
                         shuffle_bytes_source_max256(random, target:target, length: 256)

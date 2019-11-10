@@ -8,7 +8,8 @@ mod shuffle;
 use z80emu::*;
 use shuffle::*;
 
-const TEST_SEEDS: [(u16,u16);3] = [(0, 25076), (0xBACA, 58893), (0xFFFF, 11751)];
+const TEST_SEEDS: [(u16,u16);6] = [(0, 25076), (0x0368, 31469), (0x8000, 24574),
+                                   (0xBACA, 58893), (0xD9AB, 12786), (0xFFFF, 11751)];
 
 type TsClock = host::TsCounter<i32>;
 
@@ -42,7 +43,6 @@ fn test_shuffle() {
         let mut tsc1 = TsClock::default();
         let debug = |deb:CpuDebug| {
             println!("{:04x} : {:6} {:#20x} {:02X?}", deb.pc, deb.mnemonic, deb.args, deb.code.as_slice());
-            // println!("{:x}", deb);
         };
         while !cpu.is_halt() {
             match cpu.execute_next(&mut shuffle1, &mut tsc1, Some(debug)) {
