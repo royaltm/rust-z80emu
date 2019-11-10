@@ -89,7 +89,7 @@ fn bench_shuffle_cpu<C: Cpu, E: CpuExec>(ben: &mut Bencher) {
         ben.iter(|| {
             let mut sum = 0i64;
             for i in 0..300 {
-                let seed: u16 = seed_zero.wrapping_add(i);
+                let seed: u16 = seed_zero.wrapping_add(i * 217);
                 shuffle.mem[seed_offs..=seed_offs+1].copy_from_slice(&seed.to_le_bytes());
                 cpu.reset();
                 assert!(!cpu.is_halt());
