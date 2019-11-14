@@ -1,0 +1,26 @@
+# frozen_string_literal: true
+
+desc "Install required gems"
+task :install do
+  sh "bundle install"
+end
+
+desc "Compile RAL1243 ROM and EXROMS"
+task :all => [:rom, :exroms]
+
+desc "Compile RAL1243 ROM"
+task :rom do
+  sh "bundle exec ruby #{File.join("rom", "ral1243_rom.rb")}"
+end
+
+desc "Compile RAL1243 EXROMS"
+task :exroms do
+  Dir[File.join("exroms", "ral1243_exrom*.rb")].each do |exrom|
+    sh "bundle exec ruby #{exrom}"
+  end
+end
+
+desc "Run RAL1243 terminal"
+task :run do
+  sh "cargo run --example terminal --release -- \"#{File.join(__dir__, "exroms")}\" -m 48 -c 4000"
+end

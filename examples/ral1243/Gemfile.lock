@@ -1,0 +1,19 @@
+GIT
+  remote: https://github.com/royaltm/z80-rb.git
+  revision: 652f463224978c8352f8d4c2f5d86cd5a28b2e02
+  tag: v1.0.0
+  specs:
+    z80 (1.0.0)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+
+PLATFORMS
+  x64-mingw32
+
+DEPENDENCIES
+  z80!
+
+BUNDLED WITH
+   2.0.2
