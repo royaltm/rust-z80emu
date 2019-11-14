@@ -3,6 +3,7 @@ Z80 emu
 
 [![Crate][Crate img]][Crate Link]
 [![Docs][Docs img]][Docs Link]
+[![Build Status][Build img]][Build Link]
 [![Minimum rustc version][rustc version img]][rustc version link]
 [![License][License img]][License Link]
 
@@ -44,13 +45,17 @@ This repository also contains an [example implementation](examples/ral1243) of a
 Rust Version Requirements
 -------------------------
 
-Z80emu requires Rustc version 1.36 or greater due to the usage of some macro features that was introduced in this version.
+Z80emu requires Rustc version 1.36 or greater due to the usage of some macro features and api that was introduced
+or stabilized in this version.
 
 
 [Crate Link]: https://crates.io/crates/z80emu
 [Crate img]: https://img.shields.io/crates/v/z80emu.svg
 [Docs Link]: https://docs.rs/z80emu
 [Docs img]: https://docs.rs/z80emu/badge.svg
+[Build img]: https://travis-ci.org/royaltm/rust-z80emu.svg?branch=master
+[Build Link]: https://travis-ci.org/royaltm/rust-z80emu
 [rustc version img]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
 [rustc version link]: https://github.com/royaltm/rust-z80emu#rust-version-requirements
+[License img]: https://img.shields.io/crates/l/z80emu
 [License Link]: LICENSE.md
