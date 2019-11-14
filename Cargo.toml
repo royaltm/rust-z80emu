@@ -1,3 +1,6 @@
+[badges]
+travis-ci = { repository = "royaltm/rust-z80emu" }
+
 [dependencies]
   arrayvec = "0.4.11"
   bitflags = "1.2.1"
