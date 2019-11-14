@@ -1,7 +1,7 @@
 RAL 1243
 ========
 
-RAL 1243 is a fictional computer brought into its virtual existence for the purpose of providing an example on how to implement emulators based on z80emu Z80 CPU emulator.
+RAL 1243 is a fictional computer brought into its virtual existence for the purpose of providing an example on how to implement emulators based on [z80emu][z80emu repo] Z80 CPU emulator.
 
 Usage
 -----
@@ -12,7 +12,7 @@ To run the emulator with the built-in ex-roms and default 16kb of user RAM and w
 cargo run --example terminal --release
 ```
 
-To run the emulator with the externally loaded exroms, 48kb RAM and CPU at 8MHz:
+To run the emulator with externally loaded exroms, 48kb RAM and CPU at 8MHz:
 
 ```
 cargo run --example terminal --release -- examples/ral1243/exroms -m 48 -c 8000
@@ -150,3 +150,5 @@ Change cursor appearance: 21 followed by a cursor shape number:
 * 1 - underscore
 * 2 - block
 depending on the terminal capability more shapes may be available.
+
+[z80emu repo]: https://github.com/royaltm/rust-z80emu
