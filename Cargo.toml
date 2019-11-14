@@ -23,7 +23,7 @@
 [package]
   authors = ["Rafał Michalski <royaltm75@gmail.com>"]
   categories = ["emulators", "no-std"]
-  description = "A minimalistic Z80 Cpu emulator library"
+  description = "A minimalistic Z80 Cpu emulation library"
   edition = "2018"
   exclude = ["/.travis.yml", "/appveyor.yml", ".gitignore"]
   keywords = ["Z80", "retro"]
