@@ -1,7 +1,7 @@
 /*! # Z80 emu
  
- The `z80emu` crate provides building blocks for emulators based on Zilog's Z80 CPU family.
- 
+ `z80emu` crate provides building blocks for emulators based on Zilog's Z80 CPU family.
+
  To build the crate with `no_std` support make sure to set `default-features` to `false` and select
  the required features only.
  

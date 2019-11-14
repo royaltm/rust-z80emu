@@ -7,7 +7,7 @@ Z80 emu
 [![Minimum rustc version][rustc version img]][rustc version link]
 [![License][License img]][License Link]
 
-The `z80emu` is a [Rust](https://www.rust-lang.org) library which provides building blocks for emulators based on
+`z80emu` is a [Rust](https://www.rust-lang.org) library which provides building blocks for emulators based on
 Zilog's [Z80 CPU](https://en.wikipedia.org/wiki/Zilog_Z80).
 
 
