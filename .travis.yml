@@ -1,0 +1,15 @@
+language: rust
+sudo: false
+rust:
+  - 1.35.0
+  - 1.36.0
+  - 1.37.0
+  - stable
+  - beta
+  - nightly
+cache: cargo
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo build --verbose --no-default-features
+  - cargo test --verbose --no-default-features
