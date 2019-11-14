@@ -1,34 +1,50 @@
-[package]
-name = "z80emu"
-description = "A minimalistic Z80 Cpu emulator library"
-version = "0.0.1"
-authors = ["Rafał Michalski <royaltm75@gmail.com>"]
-edition = "2018"
-repository = "https://github.com/royaltm/rust-z80emu"
-exclude = ["/.travis.yml", "/appveyor.yml", ".gitignore"]
-readme = "README.md"
-keywords = ["Z80", "retro"]
-categories = ["emulators", "no-std"]
-license-file = "LICENSE.md"
-
-[features]
-default = ["std", "serde"]
-std = ["serde/std"]
-
 [dependencies]
-bitflags = "1.2.1"
-log = "0.4.8"
-arrayvec = "0.4.11"
-
+  arrayvec = "0.4.11"
+  bitflags = "1.2.1"
+  log = "0.4.8"
 [dependencies.serde]
-version = "1.0"
-optional = true
-default-features = false
-features = ["derive"]
+  default-features = false
+  features = ["derive"]
+  optional = true
+  version = "1.0"
 
 [dev-dependencies]
-clap = "2.33"
-serde_json = "1.0"
-simplelog = "0.7.3"
-rand = "0.7"
-pancurses = {version = "0.16"}
+  clap = "2.33"
+  rand = "0.7"
+  serde_json = "1.0"
+  simplelog = "0.7.3"
+[dev-dependencies.pancurses]
+  version = "0.16"
+
+[features]
+  default = ["std", "serde"]
+  std = ["serde/std"]
+
+[package]
+  authors = ["Rafał Michalski <royaltm75@gmail.com>"]
+  categories = ["emulators", "no-std"]
+  description = "A minimalistic Z80 Cpu emulator library"
+  edition = "2018"
+  exclude = ["/.travis.yml", "/appveyor.yml", ".gitignore"]
+  keywords = ["Z80", "retro"]
+  license-file = "LICENSE.md"
+  name = "z80emu"
+  readme = "README.md"
+  repository = "https://github.com/royaltm/rust-z80emu"
+  version = "0.0.1"
+
+[package.metadata]
+[package.metadata.licensezero]
+  version = "2.0.0"
+
+[[package.metadata.licensezero.ids]]
+  agentSignature = "c58ed8506f2524a28017db81d7d507d7b6dd68bf8eb7f81f4b1040e2c0ce60e847df0720c1c4174d1c184d9ac9ad61c608b6e49d97049a9cbefdcfba5fa4bb08"
+  licensorSignature = "03104aee75f437b796e811789ffa7e49fd0bb8b1db28bfc339fa021f16206f990b708067719bdaa8388b2633078ca73af887a474a73c792abf7c33f27d305708"
+[package.metadata.licensezero.ids.license]
+  homepage = "https://github.com/royaltm/rust-z80emu"
+  jurisdiction = "PL-MZ"
+  name = "Rafał Michalski"
+  projectID = "46abb51c-7f1b-4972-9f70-ed1b76d191d1"
+  publicKey = "48442afb9404371b20e14777207d52045712b3eedaaf12e479e5cf448f903f57"
+  terms = "prosperity"
+  version = "2.0.0"

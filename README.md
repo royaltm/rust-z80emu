@@ -49,6 +49,15 @@ Rust Version Requirements
 or stabilized in this version.
 
 
+Licensing
+---------
+
+This package is free to use for commercial purposes for a trial period under the terms of the [Prosperity Public License](./LICENSE.md).
+
+Licenses for long-term commercial use are available via [licensezero.com](https://licensezero.com).
+
+[![licensezero.com pricing](https://licensezero.com/projects/46abb51c-7f1b-4972-9f70-ed1b76d191d1/badge.svg)](https://licensezero.com/projects/46abb51c-7f1b-4972-9f70-ed1b76d191d1)
+
 [Crate Link]: https://crates.io/crates/z80emu
 [Crate img]: https://img.shields.io/crates/v/z80emu.svg
 [Docs Link]: https://docs.rs/z80emu
