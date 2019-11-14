@@ -31,7 +31,7 @@
   name = "z80emu"
   readme = "README.md"
   repository = "https://github.com/royaltm/rust-z80emu"
-  version = "0.0.1"
+  version = "0.1.0"
 
 [package.metadata]
 [package.metadata.licensezero]
