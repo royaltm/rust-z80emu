@@ -2,16 +2,19 @@ use core::fmt::{self, Write};
 use arrayvec::ArrayString;
 use super::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};
 
-/// A type that stores the copy of the instruction's full byte code.
+/// The type that stores a copy of the instruction's full byte code.
 pub type CpuDebugCode = arrayvec::ArrayVec::<[u8;4]>;
 
-/// A type that can be passed to methods of the [Cpu][crate::Cpu] that require a `debug` argument. E.g.:
+/// The type that can be passed to methods of the [Cpu][crate::Cpu] that require a `debug` argument.
+///
+/// E.g.:
 /// ```ignore
 /// cpu.execute_instruction::<_,_,CpuDebugFn>(control, clock, None, code)
 /// ```
 pub type CpuDebugFn = fn(CpuDebug);
 
 /// This struct is being passed to the user debugger function when the command is being executed.
+///
 /// The [Display][core::fmt::Display], [LowerHex][core::fmt::LowerHex] and [UpperHex][core::fmt::UpperHex]
 /// traits are implemented for this type and all its components so it's just easy to use:
 /// ```ignore
@@ -54,7 +57,7 @@ pub struct CpuDebug {
     pub mnemonic: &'static str,
     /// A program counter addressing the executed command in the memory.
     pub pc: u16,
-    /// A prefix of the executed command.
+    /// An optional prefix of the executed command.
     pub prefix: Option<Prefix>,
     /// Arguments of the command.
     pub args: CpuDebugArgs

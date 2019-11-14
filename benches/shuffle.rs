@@ -1,10 +1,10 @@
+// To see the estimated CPU MHZ run with:
 // cargo +nightly bench --bench shuffle -- --nocapture
 #![feature(test)]
 extern crate test;
 use core::num::NonZeroI64;
 use test::{black_box, Bencher, stats::Summary};
 use serde_json::Value;
-// use rand::prelude::*;
 
 #[path = "../tests/shuffle/mod.rs"]
 mod shuffle;

@@ -1,8 +1,8 @@
 //! This module contains traits that should be implemented by the user.
 //!
-//! The [Cpu] emulation is only hinting on what kind of cycle is currently being performed by the current instruction.
-//! It is up to the implementors to decide when on the emulated time axis the interaction with the peripherals or memory
-//! takes place.
+//! The [Cpu][crate::cpu::Cpu] emulation is only hinting on what kind of cycle is currently being performed by the
+//! current instruction. It is up to the implementors to decide when on the emulated time axis the interaction with
+//! the peripherals or memory takes place.
 //!
 //! Please see [crate::host::cycles] module for the description of each emulated cycle.
 #[cfg(feature = "std")] use std::error;

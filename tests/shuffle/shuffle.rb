@@ -7,6 +7,10 @@
 # - shuffle.meta : a minikernel symbol table for shuffle_test.rs
 # - shuffle.tap  : a ZX Spectrum program in a TAP format for generating the shuffled_*.bin templates.
 #
+# Author: Rafał Michalski <royaltm75@gmail.com>
+#
+# This program is free to use under the terms of the Blue Oak Model License 1.0.0.
+# https://blueoakcouncil.org/license/1.0.0
 require 'z80'
 require 'z80/math_i'
 require 'z80/utils/shuffle'

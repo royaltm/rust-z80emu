@@ -1,17 +1,22 @@
 [package]
 name = "z80emu"
-version = "0.1.0"
-authors = ["Rafal Michalski <royal@yeondir.com>"]
+description = "A minimalistic Z80 Cpu emulator library"
+version = "0.0.1"
+authors = ["Rafał Michalski <royaltm75@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/royaltm/rust-z80emu"
+
+readme = "README.md"
+keywords = ["Z80", "retro"]
+categories = ["emulators", "no-std"]
+license-file = "LICENSE.md"
 
 [features]
 default = ["std", "serde"]
 std = ["serde/std"]
 
 [dependencies]
-# derive_more = "^0.15"
-# static_assertions = "0.3.4"
-bitflags = "1.1.0"
+bitflags = "1.2.1"
 log = "0.4.8"
 arrayvec = "0.4.11"
 
@@ -22,6 +27,8 @@ default-features = false
 features = ["derive"]
 
 [dev-dependencies]
+clap = "2.33"
 serde_json = "1.0"
-simple_logger = "1.3.0"
-rand = "^0.7"
+simplelog = "0.7.3"
+rand = "0.7"
+pancurses = {version = "0.16"}

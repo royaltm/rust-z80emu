@@ -31,7 +31,7 @@ bitflags! {
 }
 
 impl CpuFlags {
-    /// Resets all Flags to `false`.
+    /// Resets all [CpuFlags] to `false`.
     #[inline]
     pub fn reset(&mut self) {
         self.bits = 0;
