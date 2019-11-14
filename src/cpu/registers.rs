@@ -12,8 +12,8 @@ pub enum InterruptMode {
     Mode2 = 2,
 }
 
-/// A struct that represent a register pair, that can be treated as a single 16-bit
-/// register or a separate 8-bit (hi/lo) registers.
+/// A struct that represents a register pair, that can be treated as a single 16-bit
+/// register or a separate 8-bit (MSB/LSB) registers.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone,Copy,PartialEq,Eq,Default,Hash,Debug)]
 pub struct RegisterPair([u8;2]);

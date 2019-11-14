@@ -45,7 +45,7 @@ This repository also contains an [example implementation](examples/ral1243) of a
 Rust Version Requirements
 -------------------------
 
-Z80emu requires Rustc version 1.36 or greater due to the usage of some macro features and api that was introduced
+`z80emu` requires Rustc version 1.36 or greater due to the usage of some macro features and api that was introduced
 or stabilized in this version.
 
 

@@ -1,5 +1,14 @@
 // To see the estimated CPU MHZ run with:
+//
 // cargo +nightly bench --bench shuffle -- --nocapture
+//
+// on my windows box the results are:
+// bench_shuffle_cmos_debug: ~ 530 CPU MHz
+// bench_shuffle_cmos_steps: ~ 800 CPU MHz
+// bench_shuffle_cmos_limit: ~1100 CPU MHz
+// bench_shuffle_nmos_debug: ~ 520 CPU MHz
+// bench_shuffle_nmos_steps: ~ 760 CPU MHz
+// bench_shuffle_nmos_limit: ~1070 CPU MHz
 #![feature(test)]
 extern crate test;
 use core::num::NonZeroI64;

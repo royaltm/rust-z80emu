@@ -6,9 +6,11 @@ use super::CpuFlags;
 
 /// A trait for implementing exceptions to the undocumented Z80 behaviour.
 ///
-/// It's been reported that depending on the CPU technology (NMOS, CMOS) and the manufacturer (Zilog, NEC, other clones)
+/// It's been [reported] that depending on the CPU technology (NMOS, CMOS) and the manufacturer (Zilog, NEC, other clones)
 /// there are certain differences of undocumented behaviour and mainly affects the way the Flags' undocumented
 /// bits 3 and 5 are being modified.
+///
+/// [reported]: https://faqwiki.zxnet.co.uk/wiki/Z80#Differences_between_NMOS_and_CMOS_Z80s
 pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
     /// The value being actually put on the data bus while executing the undocumented instruction `OUT (C),(HL)`.
     const CONSTANT_OUT_DATA: u8;

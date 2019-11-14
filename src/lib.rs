@@ -54,7 +54,7 @@
  
  Please see each trait's documentation on how to implement them.
 
- In this crate one implementation of the Cpu trait is provided with some selectable "flavours":
+ In this crate one implementation of the Cpu trait is provided with some selectable ["flavours"][z80]:
  
  * [Z80NMOS] - A Zilog's NMOS Z80.
  * [Z80CMOS] - A CMOS version of Z80.
@@ -70,10 +70,11 @@
  to e.g. display human readable text of the disassembled instructions or gather statistics.
  
  In `z80emu` the command execution code and the debugger code is implemented together in a single unit.
- This way there is only a single machine code dispatcher. This minimizes the probability of a debugger suffering
+ This way there is only a single machine code [dispatcher]. This minimizes the probability of a debugger suffering
  from "schizophrenic effects" showing results not compatible with the execution unit.
- Thanks to Rust and LLVM, the compilator is able to optimize out the debugger parts when they are not needed.
- 
+ Thanks to Rust and LLVM, the compilator is able to optimize out the debugger parts when they are not
+ [needed](https://github.com/royaltm/rust-z80emu/blob/master/benches/shuffle.rs).
+
  The debugger provides information as a [CpuDebug] struct. It implements [Display][core::fmt::Display],
  [LowerHex][core::fmt::LowerHex] and [UpperHex][core::fmt::UpperHex] traits so it's easy to print it OOB
  as well as provide complete customized debugging solution.
@@ -83,7 +84,7 @@
  Start by inspecting the [tests](https://github.com/royaltm/rust-z80emu/tree/master/tests) and [benches](https://github.com/royaltm/rust-z80emu/tree/master/benches) directory.
  All of the test cases run a minimalistic Z80 virtual computers and can be usefull in learning about the essentials.
 
- For a bigger picture see the crate's [repository](https://github.com/royaltm/rust-z80emu) [example](https://github.com/royaltm/rust-z80emu/tree/master/examples/ral1243)
+ For a bigger picture see the crate's [repository example](https://github.com/royaltm/rust-z80emu/tree/master/examples/ral1243)
  implementation of the imaginary Z80 based computer, to see how a system bus could be implemented with custom PIO and CTC
  peripheral chips. This is of course not the only way one can implement that, but perhaps it can give some ideas.
 
@@ -144,6 +145,8 @@
    assert_eq!(tsc.as_timestamp(), 10+10+(FIB_N as i32)*(4+11+13)-5+4);
  }
  ```
+
+ [dispatcher]: https://github.com/royaltm/rust-z80emu/blob/master/src/z80/opcodes.rs
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 

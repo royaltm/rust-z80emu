@@ -22,13 +22,13 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     fn get_sp(&self) -> u16;
     /// Sets the current value of the stack pointer.
     fn set_sp(&mut self, sp: u16);
-    /// Returns the Accumulator register as an unsigned 8-bit integer.
+    /// Returns the Accumulator value as an unsigned 8-bit integer.
     fn get_acc(&self) -> u8;
-    /// Sets the Accumulator register from an unsigned 8-bit integer.
+    /// Sets the Accumulator value from an unsigned 8-bit integer.
     fn set_acc(&mut self, val: u8);
-    /// Returns the current flags register state.
+    /// Returns the current state of the Flags register.
     fn get_flags(&self) -> CpuFlags;
-    /// Sets the current flags register state.
+    /// Sets the current state of the Flags register.
     fn set_flags(&mut self, flags: CpuFlags);
     /// Increases the memory refresh counter.
     fn inc_r(&mut self);
@@ -208,7 +208,7 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     ///
     /// See also [BreakCause].
     ///
-    /// Before fetching each next instruction checks if the interrupt has been requested via [Io::is_irq]
+    /// Before fetching each next instruction this method checks if the interrupt has been requested via [Io::is_irq]
     /// and executes the interrupt routines without breaking the execution.
     ///
     /// When called while in the `HALT` state, increases the memory refresh register and advances the [Clock]

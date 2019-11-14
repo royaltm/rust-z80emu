@@ -55,7 +55,7 @@ pub struct CpuDebug {
     pub code: CpuDebugCode,
     /// An assmebler mnemonic symbol of the executed command.
     pub mnemonic: &'static str,
-    /// A program counter addressing the executed command in the memory.
+    /// A program counter addressing the executed command in memory.
     pub pc: u16,
     /// An optional prefix of the executed command.
     pub prefix: Option<Prefix>,
