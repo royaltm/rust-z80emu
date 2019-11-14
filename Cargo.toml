@@ -5,7 +5,7 @@ version = "0.0.1"
 authors = ["Rafał Michalski <royaltm75@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/royaltm/rust-z80emu"
-
+exclude = ["/.travis.yml", "/appveyor.yml", ".gitignore"]
 readme = "README.md"
 keywords = ["Z80", "retro"]
 categories = ["emulators", "no-std"]
