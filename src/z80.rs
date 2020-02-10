@@ -1,4 +1,5 @@
 //! A home of the Cpu implementations.
+#![allow(clippy::let_and_return)]
 mod macros;
 mod ops;
 mod instructions;
@@ -377,6 +378,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
+    #[allow(clippy::cognitive_complexity,clippy::never_loop)]
     fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>, code: u8) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -424,6 +426,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
+    #[allow(clippy::cognitive_complexity)]
     fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: &mut T, vc_limit: T::Limit) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock
@@ -479,14 +482,11 @@ impl<Q: Flavour> Cpu for Z80<Q> {
                 }
             };
 
-            match reason {
-                LoopExitReason::EnableInt => {
-                    if !tsc.is_past_limit(vc_limit)  {
-                        self.last_ei = false;
-                        continue // this way skipping irq check immediately after EI
-                    }
+            if let LoopExitReason::EnableInt = reason {
+                if !tsc.is_past_limit(vc_limit)  {
+                    self.last_ei = false;
+                    continue // this way skipping irq check immediately after EI
                 }
-                _ => {}
             }
 
             self.set_flags(flags);

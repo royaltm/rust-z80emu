@@ -57,17 +57,17 @@ impl core::convert::TryFrom<u8> for InterruptMode {
 
 impl RegisterPair {
     #[inline]
-    pub unsafe fn ptr8hi(&mut self) -> *mut u8 {
-        self.0.as_mut_ptr().offset(1)
+    pub fn ptr8hi(&mut self) -> *mut u8 {
+        unsafe { self.0.as_mut_ptr().offset(1) }
     }
 
     #[inline]
-    pub unsafe fn ptr8lo(&mut self) -> *mut u8 {
-        self.0.as_mut_ptr().offset(0)
+    pub fn ptr8lo(&mut self) -> *mut u8 {
+        unsafe { self.0.as_mut_ptr().offset(0) }
     }
 
     #[inline]
-    pub fn get16(&self) -> u16 {
+    pub fn get16(self) -> u16 {
         u16::from_le_bytes(self.0)
     }
 
@@ -77,13 +77,13 @@ impl RegisterPair {
     }
 
     #[inline]
-    pub fn get8hi(&self) -> u8 {
+    pub fn get8hi(self) -> u8 {
         let [_, hi] = self.0;
         hi
     }
 
     #[inline]
-    pub fn get8lo(&self) -> u8 {
+    pub fn get8lo(self) -> u8 {
         let [lo, _] = self.0;
         lo
     }
@@ -99,7 +99,7 @@ impl RegisterPair {
     }
 
     #[inline]
-    pub fn get(&self) -> (u8, u8) {
+    pub fn get(self) -> (u8, u8) {
         let [lo, hi] = self.0;
         (hi, lo)
     }

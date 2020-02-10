@@ -4,21 +4,21 @@ bitflags! {
     #[derive(Default)]
     pub struct CpuFlags: u8 {
         /// Sign Flag.
-        const S  = 0b10000000;
+        const S  = 0b1000_0000;
         /// Zero Flag.
-        const Z  = 0b01000000;
+        const Z  = 0b0100_0000;
         /// Undocumented bit 5 of the Flag.
-        const Y  = 0b00100000;
+        const Y  = 0b0010_0000;
         /// Half Carry Flag.
-        const H  = 0b00010000;
+        const H  = 0b0001_0000;
         /// Undocumented bit 3 of the Flag.
-        const X  = 0b00001000;
+        const X  = 0b0000_1000;
         /// Parity/Overflow Flag.
-        const PV = 0b00000100;
+        const PV = 0b0000_0100;
         /// Add/Subtract Flag.
-        const N  = 0b00000010;
+        const N  = 0b0000_0010;
         /// Carry Flag.
-        const C  = 0b00000001;
+        const C  = 0b0000_0001;
         /// An alias of [CpuFlags::PV].
         const P  = Self::PV.bits;
         /// An alias of [CpuFlags::PV].
@@ -39,37 +39,37 @@ impl CpuFlags {
 
     /// Returns a value of the Sign Flag.
     #[inline]
-    pub fn sf(&self) -> bool {
+    pub fn sf(self) -> bool {
         self.contains(CpuFlags::S)
     }
 
     /// Returns a value of the Zero Flag.
     #[inline]
-    pub fn zf(&self) -> bool {
+    pub fn zf(self) -> bool {
         self.contains(CpuFlags::Z)
     }
 
     /// Returns a value of the Half Carry Flag.
     #[inline]
-    pub fn hf(&self) -> bool {
+    pub fn hf(self) -> bool {
         self.contains(CpuFlags::H)
     }
 
     /// Returns a value of the Parity/Overflow Flag.
     #[inline]
-    pub fn pvf(&self) -> bool {
+    pub fn pvf(self) -> bool {
         self.contains(CpuFlags::PV)
     }
 
     /// Returns a value of the Add/Subtract Flag.
     #[inline]
-    pub fn nf(&self) -> bool {
+    pub fn nf(self) -> bool {
         self.contains(CpuFlags::N)
     }
 
     /// Returns a value of the Carry Flag.
     #[inline]
-    pub fn cf(&self) -> bool {
+    pub fn cf(self) -> bool {
         self.contains(CpuFlags::C)
     }
 

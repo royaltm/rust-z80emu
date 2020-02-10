@@ -1,6 +1,5 @@
-#![macro_use]
 //! This module contains various macros used by instructions module.
-
+#![macro_use]
 // macro_rules! replace_expr {
 //     ($_t:tt $sub:expr) => {$sub};
 // }

@@ -1,4 +1,5 @@
 //! This module contains various op-code bits parsing methods and their enum representations.
+#![allow(clippy::inconsistent_digit_grouping)]
 use core::convert::TryFrom;
 use core::fmt;
 #[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
@@ -241,13 +242,13 @@ impl Reg8 {
 
     /// Formats `Reg8` as a string with the given formatter with `prefix` modification.
     /// E.g. for [Reg8::H] writes "IXH" if prefix is [Prefix::Xdd].
-    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
+    pub fn format_with_prefix(self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
         match (self, prefix) {
             (Reg8::H, Some(Prefix::Xdd)) => f.write_str("IXH"),
             (Reg8::H, Some(Prefix::Yfd)) => f.write_str("IYH"),
             (Reg8::L, Some(Prefix::Xdd)) => f.write_str("IXL"),
             (Reg8::L, Some(Prefix::Yfd)) => f.write_str("IYL"),
-            _ => fmt::Display::fmt(self, f)
+            _ => fmt::Display::fmt(&self, f)
         }
     }
 }
@@ -255,11 +256,11 @@ impl Reg8 {
 impl Reg16 {
     /// Formats `Reg16` as a string with the given formatter with `prefix` modification.
     /// E.g. for [Reg16::HL] writes "IX" if prefix is [Prefix::Xdd].
-    pub fn format_with_prefix(&self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
+    pub fn format_with_prefix(self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
         match (self, prefix) {
             (Reg16::HL, Some(Prefix::Xdd)) => f.write_str("IX"),
             (Reg16::HL, Some(Prefix::Yfd)) => f.write_str("IY"),
-            _ => fmt::Display::fmt(self, f),
+            _ => fmt::Display::fmt(&self, f),
         }
     }
 }
