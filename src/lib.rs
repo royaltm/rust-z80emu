@@ -154,6 +154,7 @@ extern crate bitflags;
 pub mod host;
 mod cpu;
 pub mod z80;
+pub mod disasm;
 
 pub use cpu::*;
 pub use host::{Clock, Io, Memory, BreakCause};
