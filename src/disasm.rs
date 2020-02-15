@@ -84,6 +84,7 @@ pub fn disasm_memory_write_text<C: Cpu, W: fmt::Write>(
 }
 
 /// Prints disassembled instructions to stdout as lines of text.
+#[cfg(feature = "std")]
 pub fn disasm_memory_print_text<C: Cpu>(pc: u16, mem: &[u8]) {
     let _ = disasm_memory::<C,_,()>(pc, mem, |deb| {
         println!("{:x}", deb);
@@ -94,20 +95,23 @@ pub fn disasm_memory_print_text<C: Cpu>(pc: u16, mem: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrayvec::ArrayString;
 
     #[test]
     fn disasm_works() {
         let mem = [0x09, 0xdd, 0xfd, 0xdd, 0x09, 0x76, 0, 0xcb];
-        let mut s = String::new();
+        let mut s = ArrayString::<[_;128]>::new();
         disasm_memory_write_text::<Z80NMOS,_>(0xfffe, &mem, &mut s).unwrap();
-        assert_eq!(&s, &concat!("fffeh ADD  HL, BC         [09]\n",
-                                "0001h ADD  IX, BC         [dd, 09]\n",
-                                "0003h HALT                [76]\n",
-                                "0004h NOP                 [00]\n"));
+        assert_eq!(&s.as_ref(), &concat!(
+            "fffeh ADD  HL, BC         [09]\n",
+            "0001h ADD  IX, BC         [dd, 09]\n",
+            "0003h HALT                [76]\n",
+            "0004h NOP                 [00]\n"));
         let mem = [0xdd, 0xcb, 0x00, 0x00, 0xfd, 0x00];
-        let mut s = String::new();
+        let mut s = ArrayString::<[_;128]>::new();
         disasm_memory_write_text::<Z80NMOS,_>(0xffff, &mem, &mut s).unwrap();
-        assert_eq!(&s, &concat!("ffffh RLC  (IX+00h), B    [dd, cb, 00, 00]\n",
-                                "0004h NOP                 [00]\n"));
+        assert_eq!(&s.as_ref(), &concat!(
+            "ffffh RLC  (IX+00h), B    [dd, cb, 00, 00]\n",
+            "0004h NOP                 [00]\n"));
     }
 }
