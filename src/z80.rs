@@ -94,6 +94,43 @@ impl<Q: Flavour> Z80<Q> {
     pub fn normalize_r(&mut self) {
         self.set_r(self.get_r());
     }
+
+    /// Converts between instances of [Z80] with different flavours.
+    ///
+    /// **NOTE**: Some [Flavour] related information may be lost during conversion.
+    pub fn into_flavour<F: Flavour>(self) -> Z80<F>
+        where F: From<Q>
+    {
+        Z80 {
+            af: self.af,
+            af_alt: self.af_alt,
+            regs: self.regs,
+            regs_alt: self.regs_alt,
+            index: self.index,
+            pc: self.pc,
+            sp: self.sp,
+            memptr: self.memptr,
+            last_ei: self.last_ei,
+            ir: self.ir,
+            im: self.im,
+            iff1: self.iff1,
+            iff2: self.iff2,
+            halt: self.halt,
+            prefix: self.prefix,
+            r: self.r,
+            flavour: self.flavour.into()
+        }
+    }
+
+    /// Converts between instances of [Z80] with different flavours.
+    ///
+    /// **NOTE**: Some [Flavour] related information may be lost during conversion.
+    #[inline]
+    pub fn from_flavour<F: Flavour>(cpu: Z80<F>) -> Self
+        where Q: From<F>
+    {
+        cpu.into_flavour::<Q>()
+    }
 }
 
 impl<Q: Flavour> Cpu for Z80<Q> {

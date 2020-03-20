@@ -39,6 +39,7 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
 
 /// The struct implements a [Flavour] that emulates the Zilog Z80 NMOS version.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct NMOS {
     flags_modified: bool,
@@ -47,6 +48,7 @@ pub struct NMOS {
 
 /// The struct implements a [Flavour] that emulates the Zilog Z80 CMOS version.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(into = "NMOS", from = "NMOS"))]
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct CMOS;
 
@@ -56,6 +58,7 @@ pub struct CMOS;
 /// In this implementation the returned MSB is always 0.
 /// The [Flavour::ACCEPTING_INT_RESETS_IFF2_EARLY] value is `false`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct BM1 {
     flags_modified: bool,
@@ -128,5 +131,79 @@ impl Flavour for BM1 {
         else {
             acc | flags.bits()
         }
+    }
+}
+
+/// This conversion is lossy. When CMOS [Flavour] is converted back information is lost.
+impl From<NMOS> for CMOS {
+    fn from(_: NMOS) -> Self {
+        CMOS
+    }
+}
+
+impl From<CMOS> for NMOS {
+    fn from(_: CMOS) -> Self {
+        NMOS::default()
+    }
+}
+
+/// This conversion is lossy. When CMOS [Flavour] is converted back information is lost.
+impl From<BM1> for CMOS {
+    fn from(_: BM1) -> Self {
+        CMOS
+    }
+}
+
+impl From<CMOS> for BM1 {
+    fn from(_: CMOS) -> Self {
+        BM1::default()
+    }
+}
+
+impl From<NMOS> for BM1 {
+    fn from(NMOS{flags_modified, last_flags_modified}: NMOS) -> Self {
+        BM1 {flags_modified, last_flags_modified}
+    }
+}
+
+impl From<BM1> for NMOS {
+    fn from(BM1{flags_modified, last_flags_modified}: BM1) -> Self {
+        NMOS {flags_modified, last_flags_modified}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::z80::Z80;
+    #[cfg(feature = "serde")]
+    use serde_json;
+
+    #[test]
+    fn flavour_conversion() {
+        let cmos: Z80<CMOS> = Z80::<BM1>::default().into_flavour();
+        let nmos = Z80::<NMOS>::from_flavour(cmos);
+        let bm1 = nmos.into_flavour::<BM1>();
+        assert_eq!(bm1, Z80::<BM1>::default());
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn flavour_serde() {
+        assert_eq!(serde_json::to_string(&NMOS::default()).unwrap(), r#"{"flags_modified":false,"last_flags_modified":false}"#);
+        assert_eq!(serde_json::to_string(&CMOS::default()).unwrap(), r#"{"flags_modified":false,"last_flags_modified":false}"#);
+        assert_eq!(serde_json::to_string(&BM1::default()).unwrap(), r#"{"flags_modified":false,"last_flags_modified":false}"#);
+        let flav: NMOS = serde_json::from_str(r#"{"flags_modified":false,"last_flags_modified":false}"#).unwrap();
+        assert!(flav == NMOS::default());
+        let flav: NMOS = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(flav == NMOS::default());
+        let flav: CMOS = serde_json::from_str(r#"{"flags_modified":false,"last_flags_modified":false}"#).unwrap();
+        assert!(flav == CMOS::default());
+        let flav: CMOS = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(flav == CMOS::default());
+        let flav: BM1 = serde_json::from_str(r#"{"flags_modified":false,"last_flags_modified":false}"#).unwrap();
+        assert!(flav == BM1::default());
+        let flav: BM1 = serde_json::from_str(r#"{}"#).unwrap();
+        assert!(flav == BM1::default());
     }
 }
