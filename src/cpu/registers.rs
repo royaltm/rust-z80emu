@@ -257,15 +257,18 @@ impl<'de> Deserialize<'de> for RegisterPair {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_any(RegisterPairVisitor)
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_any(RegisterPairVisitor)
+        }
+        else {
+            deserializer.deserialize_u16(RegisterPairVisitor)
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "serde")]
-    use serde_json;
 
     #[cfg(feature = "serde")]
     #[test]
@@ -285,6 +288,10 @@ mod tests {
         let regs_de: GeneralRegisters = serde_json::from_str(r#"{"bc":[8,3],"de":-1,"hl":[42,0]}"#).unwrap();
         assert_eq!(regs, regs_de);
         let regs_de: GeneralRegisters = serde_json::from_str(r#"{"bc":"308","de":"$ffff","hl":"0x2A"}"#).unwrap();
+        assert_eq!(regs, regs_de);
+
+        let encoded: Vec<u8> = bincode::serialize(&regs).unwrap();
+        let regs_de: GeneralRegisters = bincode::deserialize(&encoded).unwrap();
         assert_eq!(regs, regs_de);
     }
 

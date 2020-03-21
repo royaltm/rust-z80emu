@@ -176,8 +176,6 @@ impl From<BM1> for NMOS {
 mod tests {
     use super::*;
     use crate::z80::Z80;
-    #[cfg(feature = "serde")]
-    use serde_json;
 
     #[test]
     fn flavour_conversion() {
