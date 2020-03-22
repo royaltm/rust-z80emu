@@ -6,6 +6,7 @@
 //!
 //! Please see [crate::host::cycles] module for the description of each emulated cycle.
 #[cfg(feature = "std")] use std::error;
+#[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 use core::fmt;
 use core::num::{NonZeroU8, NonZeroU16, Wrapping};
 use core::ops::{Add, AddAssign, Deref, DerefMut};
@@ -349,6 +350,7 @@ impl<O, R> error::Error for BreakCause<O, R> where O: fmt::Debug, R: fmt::Debug 
 
 /// A simple T-states counter wrapping at 2^bitsize of T.
 /// Please refer to it as a template for implementing Clock trait methods.
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TsCounter<T: Copy>(pub Wrapping<T>);
 
@@ -436,5 +438,23 @@ impl<T: Copy> Deref for TsCounter<T> {
 impl<T: Copy> DerefMut for TsCounter<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn tscounter_serde() {
+        let tsc: TsCounter<i32> = serde_json::from_str("0").unwrap();
+        assert_eq!(tsc, TsCounter::default());
+        let tsc = TsCounter::from(-32);
+        let sertsc = serde_json::to_string(&tsc).unwrap();
+        assert_eq!(sertsc, "-32");
+        let tsc_de: TsCounter<i32> = serde_json::from_str(&sertsc).unwrap();
+        assert_eq!(tsc, tsc_de);
     }
 }
