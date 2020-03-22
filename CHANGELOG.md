@@ -4,6 +4,7 @@ v0.3.0
 * transitional serialization and deserialization of Flavours
 * conversion between Flavours (lossy)
 * conversion between instances of Z80 with different flavours
+* serde implementation for TsCounter
 
 v0.2.0
 * some functions have self passed by value instead of reference as suggested by clippy
