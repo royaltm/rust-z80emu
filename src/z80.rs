@@ -39,16 +39,20 @@ enum LoopExitReason<O, R> {
 
 /// Emulates a Zilog's `Z80 CPU` in various flavours via the [Cpu] trait.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all(serialize = "camelCase")))]
 #[derive(Clone, Default, PartialEq, Eq)] // TODO: implement PartialEq and Eq with regard of R
 pub struct Z80<Q: Flavour> {
     af: RegisterPair,
+    #[cfg_attr(feature = "serde", serde(alias = "afAlt"))]
     af_alt: RegisterPair,
     regs: GeneralRegisters,
+    #[cfg_attr(feature = "serde", serde(alias = "regsAlt"))]
     regs_alt: GeneralRegisters,
     index: IndexRegisters,
     pc: RegisterPair,
     sp: RegisterPair,
     memptr: RegisterPair,
+    #[cfg_attr(feature = "serde", serde(alias = "lastEi"))]
     last_ei: bool,
     ir: RegisterPair,
     im: InterruptMode,
@@ -550,5 +554,28 @@ impl<Q: Flavour> Cpu for Z80<Q> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn z80_serde() {
+        let cpu: Z80<CMOS> = Z80::<CMOS>::default();
+        println!("{}", serde_json::to_string(&cpu).unwrap());
+        let sercpu = serde_json::to_string(&cpu).unwrap();
+        assert_eq!(sercpu,
+            r#"{"af":0,"afAlt":0,"regs":{"bc":0,"de":0,"hl":0},"regsAlt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"lastEi":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flagsModified":false,"lastFlagsModified":false}}"#);
+        let cpu_de: Z80<NMOS> = serde_json::from_str(&sercpu).unwrap();
+        let cpu = cpu.into_flavour::<NMOS>();
+        assert_eq!(cpu, cpu_de);
+        let sercpu = r#"{"af":0,"af_alt":0,"regs":{"bc":0,"de":0,"hl":0},"regs_alt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"last_ei":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flags_modified":false,"last_flags_modified":false}}"#;
+        let cpu_de: Z80<BM1> = serde_json::from_str(sercpu).unwrap();
+        let cpu = cpu.into_flavour::<BM1>();
+        assert_eq!(cpu, cpu_de);
     }
 }

@@ -39,10 +39,12 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
 
 /// The struct implements a [Flavour] that emulates the Zilog Z80 NMOS version.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(default))]
+#[cfg_attr(feature = "serde", serde(default, rename_all(serialize = "camelCase")))]
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct NMOS {
+    #[cfg_attr(feature = "serde", serde(alias = "flagsModified"))]
     flags_modified: bool,
+    #[cfg_attr(feature = "serde", serde(alias = "lastFlagsModified"))]
     last_flags_modified: bool
 }
 
@@ -58,10 +60,12 @@ pub struct CMOS;
 /// In this implementation the returned MSB is always 0.
 /// The [Flavour::ACCEPTING_INT_RESETS_IFF2_EARLY] value is `false`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(default))]
+#[cfg_attr(feature = "serde", serde(default, rename_all(serialize = "camelCase")))]
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct BM1 {
+    #[cfg_attr(feature = "serde", serde(alias = "flagsModified"))]
     flags_modified: bool,
+    #[cfg_attr(feature = "serde", serde(alias = "lastFlagsModified"))]
     last_flags_modified: bool
 }
 
@@ -188,20 +192,26 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn flavour_serde() {
-        assert_eq!(serde_json::to_string(&NMOS::default()).unwrap(), r#"{"flags_modified":false,"last_flags_modified":false}"#);
-        assert_eq!(serde_json::to_string(&CMOS::default()).unwrap(), r#"{"flags_modified":false,"last_flags_modified":false}"#);
-        assert_eq!(serde_json::to_string(&BM1::default()).unwrap(), r#"{"flags_modified":false,"last_flags_modified":false}"#);
+        assert_eq!(serde_json::to_string(&NMOS::default()).unwrap(), r#"{"flagsModified":false,"lastFlagsModified":false}"#);
+        assert_eq!(serde_json::to_string(&CMOS::default()).unwrap(), r#"{"flagsModified":false,"lastFlagsModified":false}"#);
+        assert_eq!(serde_json::to_string(&BM1::default()).unwrap(), r#"{"flagsModified":false,"lastFlagsModified":false}"#);
         let flav: NMOS = serde_json::from_str(r#"{"flags_modified":false,"last_flags_modified":false}"#).unwrap();
         assert!(flav == NMOS::default());
         let flav: NMOS = serde_json::from_str(r#"{}"#).unwrap();
         assert!(flav == NMOS::default());
+        let flav: NMOS = serde_json::from_str(r#"{"flagsModified":true,"lastFlagsModified":true}"#).unwrap();
+        assert!(flav == NMOS { flags_modified: true, last_flags_modified: true});
         let flav: CMOS = serde_json::from_str(r#"{"flags_modified":false,"last_flags_modified":false}"#).unwrap();
         assert!(flav == CMOS::default());
         let flav: CMOS = serde_json::from_str(r#"{}"#).unwrap();
         assert!(flav == CMOS::default());
+        let flav: CMOS = serde_json::from_str(r#"{"flagsModified":true,"lastFlagsModified":true}"#).unwrap();
+        assert!(flav == CMOS);
         let flav: BM1 = serde_json::from_str(r#"{"flags_modified":false,"last_flags_modified":false}"#).unwrap();
         assert!(flav == BM1::default());
         let flav: BM1 = serde_json::from_str(r#"{}"#).unwrap();
         assert!(flav == BM1::default());
+        let flav: BM1 = serde_json::from_str(r#"{"flagsModified":true,"lastFlagsModified":true}"#).unwrap();
+        assert!(flav == BM1 { flags_modified: true, last_flags_modified: true});
     }
 }
