@@ -566,7 +566,6 @@ mod tests {
     #[test]
     fn z80_serde() {
         let cpu: Z80<CMOS> = Z80::<CMOS>::default();
-        println!("{}", serde_json::to_string(&cpu).unwrap());
         let sercpu = serde_json::to_string(&cpu).unwrap();
         assert_eq!(sercpu,
             r#"{"af":0,"afAlt":0,"regs":{"bc":0,"de":0,"hl":0},"regsAlt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"lastEi":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flagsModified":false,"lastFlagsModified":false}}"#);
