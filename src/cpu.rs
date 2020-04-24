@@ -63,19 +63,23 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Swaps the `BC`, `DE` and `HL` registers with their alternative counterparts `BC'`, `DE'` and `HL'`.
     fn exx(&mut self);
     /// Returns the content of the selected 8-bit register.
+    ///
     /// The `reg` argument specifies the register. If the `prefix` argument is 
     /// one of [Prefix::Xdd] or [Prefix::Yfd] and the `reg` is [Reg8::H] or [Reg8::L]
     /// the content of the `IXh`, `IXl` or `IYh`, `IYl` will be returned instead.
     fn get_reg(&self, reg: Reg8, prefix: Option<Prefix>) -> u8;
     /// Sets the content of the selected 8-bit register.
+    ///
     /// The `reg` argument specifies the register. If the `prefix` argument is 
     /// one of [Prefix::Xdd] or [Prefix::Yfd] and the `reg` is [Reg8::H] or [Reg8::L]
     /// the content of the `IXh`, `IXl` or `IYh`, `IYl` will be set instead.
     fn set_reg(&mut self, dst: Reg8, prefix: Option<Prefix>, val: u8);
     /// Returns the content of the selected pair of registers as a tuple of 8-bit unsigned integers.
+    ///
     /// E.g. for [StkReg16::BC] the content of `(B, C)` will be returned.
     fn get_reg2(&self, src: StkReg16) -> (u8, u8);
     /// Returns the content of the selected pair of alternative registers as a tuple of 8-bit unsigned integers.
+    ///
     /// E.g. for [StkReg16::AF] the content of `(A', F')` will be returned.
     fn get_alt_reg2(&self, src: StkReg16) -> (u8, u8);
     /// Returns the content of the selected pair of registers as an unsigned 16-bit integer.
@@ -85,16 +89,19 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Sets the content of the selected pair of registers.
     fn set_reg16(&mut self, src: StkReg16, val: u16);
     /// Returns the content of one of the index registers as a tuple of 8-bit unsigned integers.
+    ///
     /// Depending on `prefix` this will be:
     /// * [Prefix::Xdd] - `(IXh, IXl)`
     /// * [Prefix::Yfd] - `(IYh, IYl)`
     fn get_index2(&self, prefix: Prefix) -> (u8, u8);
     /// Returns the content of one of the index registers as a 16-bit unsigned integer.
+    ///
     /// Depending on `prefix` this will be:
     /// * [Prefix::Xdd] - `IX`
     /// * [Prefix::Yfd] - `IY`
     fn get_index16(&self, prefix: Prefix) -> u16;
     /// Sets the content of one of the index registers.
+    ///
     /// Depending on `prefix` this will be:
     /// * [Prefix::Xdd] - `IX`
     /// * [Prefix::Yfd] - `IY`
@@ -107,24 +114,32 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// This is what `RETN` instruction usually does.
     fn restore_iff1(&mut self);
     /// Disables the maskable interrupts by resetting both `interrupt flip-flops` to Off.
+    ///
     /// This is what `DI` instruction usually does.
     fn disable_interrupts(&mut self);
     /// Enabes the maskable interrupts by setting both `interrupt flip-flops` to On.
+    ///
     /// Prevents the interrupts to be allowed before the next command.
     /// This is what `EI` instruction usually does.
     fn enable_interrupts(&mut self);
     /// Returns `true` if the last command executed was `EI`.
     fn is_after_ei(&self) -> bool;
     /// Returns `true` if the last command executed was a `0xDD` or a `0xFD` prefix.
+    ///
     /// See [Cpu::execute_instruction] for more information.
     fn is_after_prefix(&self) -> bool;
-    /// Returns the prefix value after executing the last command. See [Cpu::execute_instruction] for more information.
+    /// Returns the prefix value after executing the last command.
+    ///
+    /// See [Cpu::execute_instruction] for more information.
     fn get_prefix(&self) -> Option<Prefix>;
     /// Requests a maskable interrupt.
-    /// This is the alternative method to invoke the maskable interrupt. Usually while instructions
-    /// are being executed the [Cpu] checks via [Io::is_irq] method if the interrrupt is being requested.
     ///
-    /// Returns `None` If the interrupt could not be accepted at this time.
+    /// This is the alternative method to invoke the maskable interrupt. Usually while instructions
+    /// are being executed the [Cpu] checks via [Io::is_irq] method if the interrrupt from any device is being
+    /// requested.
+    ///
+    /// Returns `None` if the interrupt could not be accepted at this time. In this instance the method performs
+    /// no operation.
     ///
     /// Returns `Some(Ok(()))` if an interrupt was accepted and no break was requested by the executed instruction.
     /// In this instance at least one instruction will be executed. Depending on the interrupt mode this would be:
@@ -133,6 +148,9 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// * [InterruptMode::Mode2] a hypothetical `PUSH pc + JP <vector address>` instruction.
     ///   A debugger will see the `JP` command in this instance.
     ///   TODO: perhaps this should be some special case mnemonic instead.
+    ///
+    /// The [Clock] is advanced by the `IRQ:6` cycle + optional wait states + cycles specific to the executed
+    /// instruction (minus the `M1:4` cycle).
     ///
     /// `Some(Err(BreakCause))` indicates that an instruction requested a break. Currently this may be possible
     /// in the interrupt mode 0 when the `HALT`, `OUT` or `RETI` instruction was executed and the [Io::write_io]
@@ -143,18 +161,25 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// # Note
     ///
     /// If the interrupt is being accepted this method resets the `HALT` state before everything else.
-    fn irq<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Option<Result<M::WrIoBreak, M::RetiBreak>>
+    fn irq<M, T, F>(
+        &mut self,
+        control: &mut M,
+        tsc: &mut T,
+        debug: Option<F>
+    ) -> Option<Result<M::WrIoBreak, M::RetiBreak>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug);
     /// Attempts to trigger a non-maskable interrupt.
+    ///
     /// Returns `false` if the interrupt could not be accepted at this time. The non-maskable interrupt
     /// is not being accepted in some situations, e.g. right after executing the `EI` instruction or after
-    /// one of the `0xDD` and `0xFD` opcode prefixes.
-    /// Returns `true` on success.
-    /// No instruction will be executed but the program counter will be set to `0x0066` and the previous program
-    /// counter will be pushed on the machine stack.
-    /// The `interrupt flip-flop 1` is being set to false, preserving the `interrupt flip-flop 2`.
+    /// one of the `0xDD` and `0xFD` opcode prefixes. In this instance the method performs no operation.
+    ///
+    /// Returns `true` on success. In this instance no instruction will be executed but the program counter
+    /// will be set to `0x0066` and the previous program counter will be pushed on the machine stack.
+    /// The `interrupt flip-flop 1` is being set to `false`, while preserving the value of `iff 2` and the
+    /// [Clock] advances according to the Z80 NMI cycles: `M1:4 + IR:1 + SP-1:3 + SP-2:3`.
     ///
     /// # Note
     ///
@@ -170,8 +195,8 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// instruction was executed and the [Io::write_io] requested a break or the `RETI` instruction was
     /// executed and the [Io::reti] requested a break. See also [BreakCause].
     ///
-    /// If `debug` argument is `Some(F)`, a closure `F` may be called with [CpuDebug] argument during the instruction
-    /// execution. It won't be called if `code` is one of the `0xDD` or `0xFD` prefixes.
+    /// If `debug` argument is `Some(F)`, a closure `F` may be called with [CpuDebug] argument during the
+    /// instruction execution. It won't be called if `code` is one of the `0xDD` or `0xFD` prefixes.
     ///
     /// There is no limit of how many of these prefixes can be present before an actual instruction, so
     /// the execution is finished each time one of them is being encountered to prevent the overfeeding the [Clock]
@@ -182,11 +207,18 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// # Note
     ///
     /// This method resets the `HALT` state and `after EI` state before the instruction is being executed.
-    fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>, code: u8) -> Result<M::WrIoBreak, M::RetiBreak>
+    fn execute_instruction<M, T, F>(
+        &mut self,
+        control: &mut M,
+        tsc: &mut T,
+        debug: Option<F>,
+        code: u8
+    ) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug);
     /// Executes the next instruction present in the [Memory] at the program counter fetched via [Memory::read_opcode].
+    ///
     /// If interrupts are allowed, before fetching the instruction, checks if the interrupt request is present
     /// via [Io::is_irq] and enters the interrupted state instead of fetching and executing the next instruction.
     ///
@@ -194,7 +226,12 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// If `debug` closure is given, it will not be called in this instance.
     ///
     /// See [Cpu::execute_instruction] and [Cpu::irq] for the returned value and `debug` argument descriptions.
-    fn execute_next<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Result<M::WrIoBreak, M::RetiBreak>
+    fn execute_next<M, T, F>(
+        &mut self,
+        control: &mut M,
+        tsc: &mut T,
+        debug: Option<F>
+    ) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
           F: FnOnce(CpuDebug);
@@ -214,7 +251,12 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// When called while in the `HALT` state, increases the memory refresh register and advances the [Clock]
     /// until the `limit` has been reached. If interrupts were enabled and an interrupt was requested via
     /// [Io::is_irq] the `HALT` state is being reset and the regular execution of commands will be resumed.
-    fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: &mut T, limit: T::Limit) -> Result<M::WrIoBreak, M::RetiBreak>
+    fn execute_with_limit<M, T>(
+        &mut self,
+        control: &mut M,
+        tsc: &mut T,
+        limit: T::Limit
+    ) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock;
 }
