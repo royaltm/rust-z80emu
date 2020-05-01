@@ -236,7 +236,7 @@ impl<'de> Visitor<'de> for RegisterPairVisitor {
     }
 
     fn visit_str<E: de::Error>(self, s: &str) -> Result<Self::Value, E> {
-        let body = if s.starts_with("$") {
+        let body = if s.starts_with('$') {
             &s[1..]
         }
         else if s.starts_with("0x") {
