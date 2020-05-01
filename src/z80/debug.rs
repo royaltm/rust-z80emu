@@ -1,29 +1,46 @@
 use core::num::Wrapping;
-use crate::cpu::{Cpu, Prefix, CpuDebug, CpuDebugCode, CpuDebugArgs};
+use crate::cpu::{Prefix, CpuDebug, CpuDebugCode, CpuDebugArgs};
 use super::flavours::Flavour;
 use super::Z80;
 
 impl<Q: Flavour> core::fmt::Debug for Z80<Q> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { // TODO: alternate and hex
-        write!(f, "Z80A {{ pc: {:?}, sp: {:?}, \
-            af: {:?}, bc: {:?}, de: {:?}, hl: {:?}, \
-            af': {:?}, bc': {:?}, de': {:?}, hl': {:?}, \
-            ix: {:?}, iy: {:?}, ir: {:?}, r: {:02X}, im: {}, \
-            mp: {:?}, iff1: {}, iff2: {}, halt: {}, ei:{}, prefix: {:?} \
-            f: {:?} }}",
-             self.pc, self.sp, 
-             self.af, self.regs.bc, self.regs.de, self.regs.hl,
-             self.af_alt, self.regs_alt.bc, self.regs_alt.de, self.regs_alt.hl,
-             self.index.ix, self.index.iy, self.ir, self.r.0 & 0x7F, self.im as u8,
-             self.memptr, self.iff1 as u8, self.iff2 as u8, self.halt as u8,
-             self.last_ei, self.prefix, self.get_flags())
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Z80")
+            .field("pc", &self.pc.get16())
+            .field("sp", &self.sp.get16())
+            .field("af", &self.af.get16())
+            .field("bc", &self.regs.bc.get16())
+            .field("de", &self.regs.de.get16())
+            .field("hl", &self.regs.hl.get16())
+            .field("af'", &self.af_alt.get16())
+            .field("bc'", &self.regs_alt.bc.get16())
+            .field("de'", &self.regs_alt.de.get16())
+            .field("hl'", &self.regs_alt.hl.get16())
+            .field("ix", &self.index.ix.get16())
+            .field("iy", &self.index.iy.get16())
+            .field("ir", &self.ir.get16())
+            .field("r", &self.r.0)
+            .field("im", &self.im)
+            .field("iff1", &self.iff1)
+            .field("iff2", &self.iff2)
+            .field("halt", &self.halt)
+            .field("ei", &self.last_ei)
+            .field("mp", &self.memptr.get16())
+            .field("prefix", &self.prefix)
+            .finish()
     }
 }
 
 impl CpuDebug {
-    pub(super) fn debug_instruction<F>(mnemonic: &'static str, args: CpuDebugArgs, prefix: Option<Prefix>,
-                                                               bytes: &[u8], pc: Wrapping<u16>, debugger: F)
-    where F: FnOnce(CpuDebug)
+    pub(super) fn debug_instruction<F>(
+            mnemonic: &'static str,
+            args: CpuDebugArgs,
+            prefix: Option<Prefix>,
+            bytes: &[u8],
+            pc: Wrapping<u16>,
+            debugger: F
+        )
+        where F: FnOnce(CpuDebug)
     {
         let mut code = CpuDebugCode::new();
         if let Some(pfx) = prefix {

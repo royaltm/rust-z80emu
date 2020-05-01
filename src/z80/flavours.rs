@@ -40,7 +40,7 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
 /// The struct implements a [Flavour] that emulates the Zilog Z80 NMOS version.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default, rename_all(serialize = "camelCase")))]
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct NMOS {
     #[cfg_attr(feature = "serde", serde(alias = "flagsModified"))]
     flags_modified: bool,
@@ -51,7 +51,7 @@ pub struct NMOS {
 /// The struct implements a [Flavour] that emulates the Zilog Z80 CMOS version.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(into = "NMOS", from = "NMOS"))]
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct CMOS;
 
 /// The struct implements a [Flavour] that (supposedly) emulates the KP1858BM1 or T34BM1 clones of the Z80.
@@ -61,7 +61,7 @@ pub struct CMOS;
 /// The [Flavour::ACCEPTING_INT_RESETS_IFF2_EARLY] value is `false`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default, rename_all(serialize = "camelCase")))]
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BM1 {
     #[cfg_attr(feature = "serde", serde(alias = "flagsModified"))]
     flags_modified: bool,
