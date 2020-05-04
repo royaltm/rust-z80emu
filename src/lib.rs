@@ -35,58 +35,56 @@ for the retro emulators to be built upon, avoiding any assumptions about side ef
 
 The idea is to leverage the Rust's trait based OO model for this purpose.
 
-For an emulator to be complete, 4 traits need to be implemented.
+There are four important traits in this library - the essential components of an emulated computer:
 
-The traits:
+* [Cpu] - an interface to the finite state machine that can alter its state by executing the machine code
+          instructions as one of the Z80 family processors.
+* [Clock] - an interface to the CPU cycle (T-state) counter, which can be used to synchronize the emulation with the
+            emulator's side effects.
+* [Memory] - an interface to the host's memory that the [Cpu] is using to read from and write to it.
+* [Io] - an interface to the host's I/O devices that the [Cpu] is using to access them.
 
-* [Cpu] - An interface to the finite state machine that is able to "execute" the machine code instructions as one of
-         the Z80 family processors.
-         Interacting with the memory or I/O devices as well as synchronizing the execution via T-states counting is
-         realized via the following traits.
-* [Clock] - A Cpu T-state cycle counter which can be used to synchronize the Cpu emulation with the emulator's side effects.
-* [Memory] - The Cpu interacts with the memory via this trait.
-* [Io] - The Cpu uses this for I/O and maskable interrupts.
-
-`z80emu` crate provides [Cpu] trait [implementations](z80) and an example [implementation](host::TsCounter)
+`z80emu` crate provides the [Cpu] trait [implementations](z80) and an example [implementation](host::TsCounter)
 for the [Clock] trait.
-
 The rest of the traits need to be implemented by the emulator's developer.
+Please see the documentation of this [module][host] for more information on how to implement them.
 
-Please see each trait's documentation on how to implement them.
+The [Z80] struct implements the [Cpu] trait with a selectable [Flavour][z80::Flavour] as its generic parameter.
 
-In this crate one implementation of the Cpu trait is provided with some selectable ["flavours"][z80]:
+Currently, there are 3 ["flavour"][z80] implementations for which the following CPU types are available:
 
 * [Z80NMOS] - A Zilog's NMOS Z80.
 * [Z80CMOS] - A CMOS version of Z80.
 * [z80::Z80BM] - A clone of Z80.
 
-The difference is very subtle and only affects the undocumented behaviour.
+The difference between them is very [subtle][z80::Flavour] and only affects undocumented behavior.
 
 ## Debugger
 
-The Cpu trait provides an ability to debug the executed machine code.
-Some of the Cpu functions accept the optional callback argument: `debug`.
-This callback is being fed with the extended information about the command being executed and can be used
-to e.g. display human readable text of the disassembled instructions or gather statistics.
+The Cpu trait provides an ability to debug the executed machine code. Some of the Cpu functions accept
+the optional callback argument: `debug`. This callback is being fed with the extended information about
+the command being executed, and can be used to display the human-readable text of the disassembled
+instructions or gather statistics.
 
-In `z80emu` the command execution code and the debugger code is implemented together in a single unit.
-This way there is only a single machine code [dispatcher]. This minimizes the probability of a debugger suffering
-from "schizophrenic effects" showing results not compatible with the execution unit.
-Thanks to Rust and LLVM, the compilator is able to optimize out the debugger parts when they are not
+In `z80emu` the command execution code and the debugger code are implemented together in a single unit.
+This way there is only a single machine code [dispatcher]. This minimizes the probability of a debugger
+suffering from "schizophrenic effects" showing results not compatible with the execution unit.
+Thanks to Rust and LLVM, the compilator can optimize out the debugger parts when they are not
 [needed](https://github.com/royaltm/rust-z80emu/blob/master/benches/shuffle.rs).
 
 The debugger provides information as a [CpuDebug] struct. It implements [Display][core::fmt::Display],
-[LowerHex][core::fmt::LowerHex] and [UpperHex][core::fmt::UpperHex] traits so it's easy to print it OOB
-as well as provide complete customized debugging solution.
+[LowerHex][core::fmt::LowerHex], and [UpperHex][core::fmt::UpperHex] traits so it's easy to print it OOB
+as well as provide a complete customized debugging solution.
 
 ## How To
 
-Start by inspecting the [tests](https://github.com/royaltm/rust-z80emu/tree/master/tests) and [benches](https://github.com/royaltm/rust-z80emu/tree/master/benches) directory.
-All of the test cases run a minimalistic Z80 virtual computers and can be usefull in learning about the essentials.
+Start by inspecting the [tests](https://github.com/royaltm/rust-z80emu/tree/master/tests) and
+[benches](https://github.com/royaltm/rust-z80emu/tree/master/benches) directory.
+All of the test cases run minimalistic Z80 virtual computers and can be useful in learning the essentials.
 
 For a bigger picture see the crate's [repository example](https://github.com/royaltm/rust-z80emu/tree/master/examples/ral1243)
-implementation of the imaginary Z80 based computer, to see how a system bus could be implemented with custom PIO and CTC
-peripheral chips. This is of course not the only way one can implement that, but perhaps it can give some ideas.
+implementation of the imaginary Z80 based computer, to see how a system bus could be implemented with
+custom PIO and CTC peripheral chips.
 
 ## Example
 
@@ -132,7 +130,7 @@ cpu.set_reg(Reg8::B, None, FIB_N); // Cpu register B = FIB_N
 // Let's calculate a Fibbonacci number
 loop {
     match cpu.execute_next(&mut fibbo, &mut tsc,
-            Some(|deb| { println!("{:#X}", deb); })) {
+            Some(|deb| println!("{:#X}", deb) )) {
         Err(BreakCause::Halt) => { break }
         _ => {}
     }
@@ -163,7 +161,9 @@ pub use z80::{Z80, Z80NMOS, Z80CMOS};
 /// An address of the NMI routine.
 pub const NMI_RESTART: u16 = 0x66;
 
-/// Some of the selected Z80 op-codes for providing to the [Cpu::execute_instruction] or returning from [Io::irq_data].
+/// Selected Z80 opcodes.
+///
+/// May be used as a convenient argument to the [Cpu::execute_instruction] function or as a return value from [Io::irq_data].
 pub mod opconsts {
     pub const NOP_OPCODE    : u8 = 0x00;
     pub const HALT_OPCODE   : u8 = 0x76;

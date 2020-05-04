@@ -1,6 +1,6 @@
 //! Cpu flags register bits definitions and flag helper methods.
 bitflags! {
-    /// A type representing Z80 [Cpu](crate::Cpu) Flag register's content.
+    /// Z80 [Cpu](crate::Cpu) Flags.
     #[derive(Default)]
     pub struct CpuFlags: u8 {
         /// Sign Flag.

@@ -37,7 +37,7 @@ enum LoopExitReason<O, R> {
     Irq
 }
 
-/// Emulates a Zilog's `Z80 CPU` in various flavours via the [Cpu] trait.
+/// Emulates a Zilog's `Z80 CPU` in various ["flavours"][crate::z80] via the [Cpu] trait.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all(serialize = "camelCase")))]
 #[derive(Clone, Default, PartialEq, Eq)] // TODO: implement PartialEq and Eq with regard of R
@@ -484,7 +484,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
                 }
                 if self.iff1 && control.is_irq(tsc.as_timestamp()) {
                     break
-                } // else if !iff1 TODO: halt forever optimal
+                }
                 tsc.add_m1(pc);
                 self.inc_r();
             }

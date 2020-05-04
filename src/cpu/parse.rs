@@ -5,12 +5,14 @@ use core::fmt;
 #[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 use super::flags::CpuFlags;
 
-/// A prefix enum that modifies behaviour of the next op-code.
+/// An enum that indicates how the next executed op-code will be modified.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Prefix {
+    /// Modifies instructions to use `(IX+d)` indexed addressing.
     Xdd  = 0xDD,
+    /// Modifies instructions to use `(IY+d)` indexed addressing.
     Yfd  = 0xFD
 }
 

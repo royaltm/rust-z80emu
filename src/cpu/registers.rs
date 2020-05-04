@@ -4,13 +4,16 @@
                                             self, Deserializer, Visitor, SeqAccess}};
 #[cfg(feature = "serde")] use std::fmt;
 
-/// The interrupt mode enum.
+/// An enum representing the maskable interrupt modes.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
 #[repr(u8)]
 pub enum InterruptMode {
+    /// The data bus instruction mode: `IM 0`.
     Mode0 = 0,
+    /// The `RST 38` mode: `IM 1`.
     Mode1 = 1,
+    /// The vector jump table mode: `IM 2`.
     Mode2 = 2,
 }
 

@@ -5,7 +5,7 @@ use super::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};
 /// The type that stores a copy of the instruction's full byte code.
 pub type CpuDebugCode = arrayvec::ArrayVec::<[u8;4]>;
 
-/// The type that can be passed to methods of the [Cpu][crate::Cpu] that require a `debug` argument.
+/// This type can be passed to [Cpu][crate::Cpu] methods that require a `debug` argument.
 ///
 /// E.g.:
 /// ```ignore
@@ -84,7 +84,7 @@ pub enum CpuDebugPort {
     RegPort
 }
 
-/// An enum holding a single command argument.
+/// A command argument.
 #[derive(Clone, Copy, Debug, PartialEq, Hash)]
 pub enum CpuDebugArg {
     /// An immediate 8-bit integer.

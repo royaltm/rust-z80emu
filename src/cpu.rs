@@ -147,7 +147,6 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// * [InterruptMode::Mode1] a `RST 38h` instruction.
     /// * [InterruptMode::Mode2] a hypothetical `PUSH pc + JP <vector address>` instruction.
     ///   A debugger will see the `JP` command in this instance.
-    ///   TODO: perhaps this should be some special case mnemonic instead.
     ///
     /// The [Clock] is advanced by the `IRQ:6` cycle + optional wait states + cycles specific to the executed
     /// instruction (minus the `M1:4` cycle).
@@ -220,7 +219,7 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Executes the next instruction present in the [Memory] at the program counter fetched via [Memory::read_opcode].
     ///
     /// If interrupts are allowed, before fetching the instruction, checks if the interrupt request is present
-    /// via [Io::is_irq] and enters the interrupted state instead of fetching and executing the next instruction.
+    /// via [Io::is_irq] and enters the interrupted state, instead of fetching and executing the next instruction.
     ///
     /// If the Cpu is in the `HALT` state, increases the memory refresh register and advances the [Clock] only.
     /// If `debug` closure is given, it will not be called in this instance.
@@ -240,17 +239,18 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Returns `Ok(())` only when `limit` has been reached and the last executed instruction didn't request a break.
     ///
     /// Returns `Err(BreakCause)` when:
-    /// * A `HALT` instruction was encountered.
+    /// * The `HALT` instruction was encountered. This also implies that the Cpu has entered the `HALT` state.
     /// * An instruction requested a break via [Io::write_io] or [Io::reti].
     ///
     /// See also [BreakCause].
     ///
-    /// Before fetching each next instruction this method checks if the interrupt has been requested via [Io::is_irq]
-    /// and executes the interrupt routines without breaking the execution.
+    /// When interrupts are enabled, before fetching each next instruction, this method checks if the interrupt
+    /// has been requested via [Io::is_irq] and executes the interrupt routine without breaking the execution.
     ///
-    /// When called while in the `HALT` state, increases the memory refresh register and advances the [Clock]
-    /// until the `limit` has been reached. If interrupts were enabled and an interrupt was requested via
-    /// [Io::is_irq] the `HALT` state is being reset and the regular execution of commands will be resumed.
+    /// When called while the Cpu was already in the `HALT` state, increases the memory refresh register and
+    /// advances the [Clock] until the `limit` has been reached. If interrupts were enabled and an interrupt
+    /// was requested via [Io::is_irq], the `HALT` state is being reset and the regular execution of commands
+    /// will be resumed.
     fn execute_with_limit<M, T>(
         &mut self,
         control: &mut M,
