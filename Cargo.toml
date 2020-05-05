@@ -17,8 +17,7 @@ travis-ci = { repository = "royaltm/rust-z80emu" }
   serde_json = "1.0"
   bincode = "1.2"
   simplelog = "0.7.4"
-[dev-dependencies.pancurses]
-  version = "0.16"
+  pancurses = "0.16"
 
 [features]
   default = ["std", "serde"]
