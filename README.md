@@ -4,6 +4,7 @@ Z80 emu
 [![Crate][Crate img]][Crate Link]
 [![Docs][Docs img]][Docs Link]
 [![Build Status][Build img]][Build Link]
+[![Coverage Status][Coverage img]][Coverage Link]
 [![Minimum rustc version][rustc version img]][rustc version link]
 [![License][License img]][License Link]
 
@@ -62,9 +63,11 @@ Licenses for long-term commercial use are available via [licensezero.com](https:
 [Crate img]: https://img.shields.io/crates/v/z80emu.svg
 [Docs Link]: https://docs.rs/z80emu
 [Docs img]: https://docs.rs/z80emu/badge.svg
-[Build img]: https://travis-ci.org/royaltm/rust-z80emu.svg?branch=master
 [Build Link]: https://travis-ci.org/royaltm/rust-z80emu
-[rustc version img]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
+[Build img]: https://travis-ci.org/royaltm/rust-z80emu.svg?branch=master
 [rustc version link]: https://github.com/royaltm/rust-z80emu#rust-version-requirements
-[License img]: https://img.shields.io/crates/l/z80emu
+[rustc version img]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
 [License Link]: LICENSE.md
+[License img]: https://img.shields.io/crates/l/z80emu
+[Coverage Link]: https://coveralls.io/github/royaltm/rust-z80emu?branch=master
+[Coverage img]: https://coveralls.io/repos/github/royaltm/rust-z80emu/badge.svg?branch=master
