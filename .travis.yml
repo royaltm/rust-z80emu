@@ -17,10 +17,10 @@ before_script: |
     cargo install cargo-tarpaulin
   fi
 script:
-  - cargo build --verbose
-  - cargo test --verbose
   - cargo build --verbose --no-default-features
   - cargo test --verbose --no-default-features
+  - cargo build --verbose
+  - cargo test --verbose
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     cargo tarpaulin --verbose --exclude-files benches/*.rs --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
