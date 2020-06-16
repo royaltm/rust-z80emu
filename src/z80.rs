@@ -7,6 +7,7 @@ mod opcodes;
 mod internal;
 mod flavours;
 mod debug;
+pub mod any;
 
 use core::num::Wrapping;
 use core::mem::swap;
@@ -40,7 +41,7 @@ enum LoopExitReason<O, R> {
 /// Emulates a Zilog's `Z80 CPU` in various ["flavours"][crate::z80] via the [Cpu] trait.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all(serialize = "camelCase")))]
-#[derive(Clone, Default, PartialEq, Eq)] // TODO: implement PartialEq and Eq with regard of R
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Z80<Q: Flavour> {
     af: RegisterPair,
     #[cfg_attr(feature = "serde", serde(alias = "afAlt"))]

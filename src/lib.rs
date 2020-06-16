@@ -157,6 +157,7 @@ pub mod disasm;
 pub use cpu::*;
 pub use host::{Clock, Io, Memory, BreakCause};
 pub use z80::{Z80, Z80NMOS, Z80CMOS};
+pub use z80::any::Z80Any;
 
 /// An address of the NMI routine.
 pub const NMI_RESTART: u16 = 0x66;
