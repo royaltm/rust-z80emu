@@ -1,3 +1,6 @@
+v0.4.0
+* Z80Any enum
+
 v0.3.0
 * more compact serialization of RegisterPair
 * relaxed deserialization of RegisterPair including signed int and hex strings
