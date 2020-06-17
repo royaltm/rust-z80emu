@@ -18,7 +18,7 @@ use serde_json::Value;
 #[path = "../tests/shuffle/mod.rs"]
 mod shuffle;
 
-use z80emu::{*, z80::Z80BM};
+use z80emu::{*, z80::Z80BM1};
 use shuffle::*;
 
 trait CpuExec {
@@ -34,51 +34,95 @@ type TsClock = host::TsCounter<i32>;
 
 #[bench]
 fn bench_shuffle_nmos_debug(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80NMOS, CpuExecDebug>(ben);
+    bench_shuffle_cpu::<CpuExecDebug, _>(ben, Z80NMOS::new());
 }
 
 #[bench]
 fn bench_shuffle_nmos_steps(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80NMOS, CpuExecSteps>(ben);
+    bench_shuffle_cpu::<CpuExecSteps, _>(ben, Z80NMOS::new());
 }
 
 #[bench]
 fn bench_shuffle_nmos_limit(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80NMOS, CpuExecWithLimit>(ben);
+    bench_shuffle_cpu::<CpuExecWithLimit, _>(ben, Z80NMOS::new());
 }
 
 #[bench]
 fn bench_shuffle_cmos_debug(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80CMOS, CpuExecDebug>(ben);
+    bench_shuffle_cpu::<CpuExecDebug, _>(ben, Z80CMOS::new());
 }
 
 #[bench]
 fn bench_shuffle_cmos_steps(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80CMOS, CpuExecSteps>(ben);
+    bench_shuffle_cpu::<CpuExecSteps, _>(ben, Z80CMOS::new());
 }
 
 #[bench]
 fn bench_shuffle_cmos_limit(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80CMOS, CpuExecWithLimit>(ben);
+    bench_shuffle_cpu::<CpuExecWithLimit, _>(ben, Z80CMOS::new());
 }
 
 #[bench]
 fn bench_shuffle_bm_debug(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80BM, CpuExecDebug>(ben);
+    bench_shuffle_cpu::<CpuExecDebug, _>(ben, Z80BM1::new());
 }
 
 #[bench]
 fn bench_shuffle_bm_steps(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80BM, CpuExecSteps>(ben);
+    bench_shuffle_cpu::<CpuExecSteps, _>(ben, Z80BM1::new());
 }
 
 #[bench]
 fn bench_shuffle_bm_limit(ben: &mut Bencher) {
-    bench_shuffle_cpu::<Z80BM, CpuExecWithLimit>(ben);
+    bench_shuffle_cpu::<CpuExecWithLimit, _>(ben, Z80BM1::new());
 }
 
-fn bench_shuffle_cpu<C: Cpu, E: CpuExec>(ben: &mut Bencher) {
-    let mut cpu = C::default();
+#[bench]
+fn bench_shuffle_any_nmos_debug(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecDebug, _>(ben, Z80Any::new_nmos());
+}
+
+#[bench]
+fn bench_shuffle_any_nmos_steps(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecSteps, _>(ben, Z80Any::new_nmos());
+}
+
+#[bench]
+fn bench_shuffle_any_nmos_limit(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecWithLimit, _>(ben, Z80Any::new_nmos());
+}
+
+#[bench]
+fn bench_shuffle_any_cmos_debug(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecDebug, _>(ben, Z80Any::new_cmos());
+}
+
+#[bench]
+fn bench_shuffle_any_cmos_steps(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecSteps, _>(ben, Z80Any::new_cmos());
+}
+
+#[bench]
+fn bench_shuffle_any_cmos_limit(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecWithLimit, _>(ben, Z80Any::new_cmos());
+}
+
+#[bench]
+fn bench_shuffle_any_bm1_debug(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecDebug, _>(ben, Z80Any::new_bm1());
+}
+
+#[bench]
+fn bench_shuffle_any_bm1_steps(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecSteps, _>(ben, Z80Any::new_bm1());
+}
+
+#[bench]
+fn bench_shuffle_any_bm1_limit(ben: &mut Bencher) {
+    bench_shuffle_cpu::<CpuExecWithLimit, _>(ben, Z80Any::new_bm1());
+}
+
+fn bench_shuffle_cpu<E: CpuExec, C: Cpu>(ben: &mut Bencher, mut cpu: C) {
     let mut shuffle = TestShuffle::default();
     shuffle.mem.extend_from_slice(KERNEL);
 

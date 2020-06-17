@@ -11,7 +11,11 @@ use rand::prelude::*;
 mod and_then;
 use and_then::AndThen;
 
-use z80emu::{host::{TsCounter, cycles::*}, *};
+use z80emu::{
+    *,
+    host::{TsCounter, cycles::*},
+    z80::Z80BM1
+};
 //#################################################################################//
 //################################## Z80 API ######################################//
 //#################################################################################//
@@ -660,6 +664,12 @@ const MNEMONICS_PREFIX: &str = include_str!("mnemonics_prefix.txt");
 
 #[test]
 fn test_cycles() -> Result<(), String> {
+    test_cycles_cpu::<Z80NMOS>()?;
+    test_cycles_cpu::<Z80CMOS>()?;
+    test_cycles_cpu::<Z80BM1>()
+}
+
+fn test_cycles_cpu<C: Cpu>() -> Result<(), String> {
     let mut cycles_map = build_cycle_hash()?;
     for (mnemonics, prefix) in &[(MNEMONICS, None),
                                  (MNEMONICS_PREFIX, Some(Prefix::Xdd)),
@@ -681,7 +691,7 @@ fn test_cycles() -> Result<(), String> {
                             format!("unknown instruction: {:?}", instruction))?;
             cycles.visited = true;
             println!("{}", line);
-            let (env, tail) = prepare_test_environment::<Z80NMOS>(&mut code, instruction, cycles)?;
+            let (env, tail) = prepare_test_environment::<C>(&mut code, instruction, cycles)?;
 
             test_instruction(env, &code, instruction);
             if let Some(env) = tail {

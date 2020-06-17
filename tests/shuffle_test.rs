@@ -5,7 +5,7 @@ use serde_json::Value;
 
 mod shuffle;
 
-use z80emu::*;
+use z80emu::{*, z80::Z80BM1};
 use shuffle::*;
 
 const TEST_SEEDS: [(u16,u16);6] = [(0, 25076), (0x0368, 31469), (0x8000, 24574),
@@ -21,7 +21,15 @@ macro_rules! dir {
 
 #[test]
 fn test_shuffle() {
-    let mut cpu = Z80NMOS::default();
+    test_shuffle_cpu(Z80NMOS::new());
+    test_shuffle_cpu(Z80CMOS::new());
+    test_shuffle_cpu(Z80BM1::new());
+    test_shuffle_cpu(Z80Any::new_nmos());
+    test_shuffle_cpu(Z80Any::new_cmos());
+    test_shuffle_cpu(Z80Any::new_bm1());
+}
+
+fn test_shuffle_cpu<C: Cpu>(mut cpu: C) {
     let mut shuffle = TestShuffle::default();
     let mut bin = File::open(dir!(r"shuffle.bin")).expect("missing shuffle.bin file");
     assert!(bin.read_to_end(&mut shuffle.mem).expect("couldn't read shuffle.bin") > 0);
@@ -54,7 +62,8 @@ fn test_shuffle() {
             }
         }
         assert_eq!(&seed_out.to_le_bytes(), &shuffle1.mem[seed_offs..=seed_offs+1]);
-        let mut bin = File::open(format!(dir!("shuffled_{:04X}.bin"), seed_in)).expect("missing shuffle result file");
+        let mut bin = File::open(format!(dir!("shuffled_{:04X}.bin"), seed_in))
+                           .expect("missing shuffle result file");
         let mut templ = Vec::with_capacity(0x100);
         assert_eq!(0x100, bin.read_to_end(&mut templ).unwrap());
         assert_eq!(templ[..], shuffle1.mem[target..target + 0x100]);

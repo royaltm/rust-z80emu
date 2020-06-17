@@ -27,7 +27,7 @@ pub type Z80NMOS = Z80<NMOS>;
 /// Emulates a Zilog's `CMOS Z80 CPU` via the [Cpu] trait.
 pub type Z80CMOS = Z80<CMOS>;
 /// Emulates one of the clones (presumably the `KP1858BM1` or `T34BM1`) of the `Z80 CPU` via the [Cpu] trait.
-pub type Z80BM = Z80<BM1>;
+pub type Z80BM1 = Z80<BM1>;
 
 enum LoopExitReason<O, R> {
     LimitReached,
