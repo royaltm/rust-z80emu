@@ -43,13 +43,19 @@ pub enum Z80Any {
     BM1(Z80<BM1>),
 }
 
+impl<Q: Flavour> From<Z80<Q>> for Z80Any {
+    fn from(cpu: Z80<Q>) -> Z80Any {
+        Q::cpu_into_any(cpu)
+    }
+}
+
 impl Z80Any {
     /// Returns the tag of the current Z80 variant as string.
     pub fn tag(&self) -> &'static str {
         match self {
-            Z80Any::NMOS(..) => "NMOS",
-            Z80Any::CMOS(..) => "CMOS",
-            Z80Any::BM1(..) => "BM1",
+            Z80Any::NMOS(..) => NMOS::tag(),
+            Z80Any::CMOS(..) => CMOS::tag(),
+            Z80Any::BM1(..) => BM1::tag(),
         }
     }
 
@@ -359,5 +365,27 @@ impl Cpu for Z80Any {
           T: Clock
     {
         cpu_dispatch_any!(self(cpu) => cpu.execute_with_limit(control, tsc, vc_limit))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::z80::*;
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn z80any_serde() {
+        let z80any = Z80Any::new_nmos();
+        let json = serde_json::to_string(&z80any).unwrap();
+        println!("{}", json);
+        let z80: Z80NMOS = serde_json::from_str(&json).unwrap();
+        assert_eq!(Z80Any::NMOS(z80), z80any);
+
+        let z80: Z80CMOS = serde_json::from_str(&json).unwrap();
+        assert_eq!(Z80Any::CMOS(z80), z80any.clone().into_cmos());
+
+        let z80: Z80BM1 = serde_json::from_str(&json).unwrap();
+        assert_eq!(Z80Any::BM1(z80), z80any.clone().into_bm1());
     }
 }

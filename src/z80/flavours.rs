@@ -2,7 +2,7 @@
 #[cfg(feature = "serde")]
 use serde::{Serialize, Deserialize};
 
-use super::CpuFlags;
+use super::{Z80, any::Z80Any, CpuFlags};
 
 /// A trait for implementing exceptions to the undocumented Z80 behaviour.
 ///
@@ -17,6 +17,8 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
     /// Should be `true` if the IFF2 is being reset early when accepting an interrupt, while an instruction
     /// is being executed, so `LD A,I` or `LD A,R` may report modified IFF2 value.
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool;
+    /// Returns the string identifier of this flavour.
+    fn tag() -> &'static str;
     /// The way MEMPTR is being updated for: `LD (nnnn),A`, `LD (BC),A`, `LD (DE),A` and `OUT (nn),A`
     /// is being controlled by this function. The current Accumulator value is being passed as `msb` and
     /// the lower 8-bits of the current destination address is being provided as `lsb`.
@@ -30,7 +32,9 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
     fn flags_modified(&mut self);
     /// Bits 3 and 5 of the returned value will be copied to the Flags register.
     fn get_q(&self, acc:u8, flags: CpuFlags) -> u8;
-    /// Should reset the state. Called by [crate::Cpu::reset]. The default implementation resets state to the default.
+    /// Converts a [Z80] struct of this flavour into an [Z80Any] enum.
+    fn cpu_into_any(cpu: Z80<Self>) -> Z80Any;
+    /// Should reset the state. Called by [crate::Cpu::reset]. The default implementation resets the state to default.
     #[inline(always)]
     fn reset(&mut self) {
         *self = Default::default();
@@ -73,6 +77,10 @@ impl Flavour for NMOS {
     const CONSTANT_OUT_DATA: u8 = 0;
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool = true;
     #[inline(always)]
+    fn tag() -> &'static str {
+        "NMOS"
+    }
+    #[inline(always)]
     fn memptr_mix(msb: u8, lsb: u8) -> (u8, u8) {
         (msb, lsb.wrapping_add(1))
     }
@@ -94,11 +102,19 @@ impl Flavour for NMOS {
             acc | flags.bits()
         }
     }
+    #[inline]
+    fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
+        Z80Any::NMOS(cpu)
+    }
 }
 
 impl Flavour for CMOS {
     const CONSTANT_OUT_DATA: u8 = u8::max_value();
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool = false;
+    #[inline(always)]
+    fn tag() -> &'static str {
+        "CMOS"
+    }
     #[inline(always)]
     fn memptr_mix(msb: u8, lsb: u8) -> (u8, u8) {
         (msb, lsb.wrapping_add(1))
@@ -109,11 +125,19 @@ impl Flavour for CMOS {
     fn flags_modified(&mut self) {}
     #[inline(always)]
     fn get_q(&self, acc: u8, _flags: CpuFlags) -> u8 { acc }
+    #[inline]
+    fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
+        Z80Any::CMOS(cpu)
+    }
 }
 
 impl Flavour for BM1 {
     const CONSTANT_OUT_DATA: u8 = 0;
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool = false;
+    #[inline(always)]
+    fn tag() -> &'static str {
+        "BM1"
+    }
     #[inline(always)]
     fn memptr_mix(_msb: u8, lsb: u8) -> (u8, u8) {
         (0, lsb.wrapping_add(1))
@@ -135,6 +159,10 @@ impl Flavour for BM1 {
         else {
             acc | flags.bits()
         }
+    }
+    #[inline]
+    fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
+        Z80Any::BM1(cpu)
     }
 }
 
@@ -192,6 +220,9 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn flavour_serde() {
+        assert_eq!(NMOS::tag(), "NMOS");
+        assert_eq!(CMOS::tag(), "CMOS");
+        assert_eq!(BM1::tag(), "BM1");
         assert_eq!(serde_json::to_string(&NMOS::default()).unwrap(), r#"{"flagsModified":false,"lastFlagsModified":false}"#);
         assert_eq!(serde_json::to_string(&CMOS::default()).unwrap(), r#"{"flagsModified":false,"lastFlagsModified":false}"#);
         assert_eq!(serde_json::to_string(&BM1::default()).unwrap(), r#"{"flagsModified":false,"lastFlagsModified":false}"#);
