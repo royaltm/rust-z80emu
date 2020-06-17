@@ -7,7 +7,7 @@ use rand::prelude::*;
 mod and_then;
 use and_then::AndThen;
 
-use z80emu::*;
+use z80emu::{*, z80::Z80BM1};
 use opconsts::HALT_OPCODE;
 
 const MNEMONICS: &str        = include_str!("mnemonics.txt");
@@ -222,7 +222,15 @@ impl Iterator for CodeIterator {
 
 #[test]
 fn test_mnemonics() {
-    let mut cpu = Z80NMOS::new();
+    test_mnemonics_cpu(Z80NMOS::new());
+    test_mnemonics_cpu(Z80CMOS::new());
+    test_mnemonics_cpu(Z80BM1::new());
+    test_mnemonics_cpu(Z80Any::new_nmos());
+    test_mnemonics_cpu(Z80Any::new_cmos());
+    test_mnemonics_cpu(Z80Any::new_bm1());
+}
+
+fn test_mnemonics_cpu<C: Cpu>(mut cpu: C) {
     let mut lines = MNEMONICS.lines().peekable();
     let mut prefixed_lines = MNEMONICS_PREFIX.lines().peekable();
     let code_iter = CodeIterator([0, 0]);
