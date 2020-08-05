@@ -1,4 +1,4 @@
-//! Features an enum of available Z80 flavour variants.
+//! Features an [enum][Z80Any] of [Z80] with any [Flavour].
 use core::fmt;
 
 use crate::cpu::{
@@ -30,7 +30,9 @@ macro_rules! cpu_dispatch_any {
     };
 }
 
-/// Implements [Cpu] for each flavour available as variants of this enum.
+/// [Z80] with any [Flavour].
+///
+/// This enum can be used in place of [Z80] when changing of [Flavour] is required in run time.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Z80Any {
     NMOS(Z80<NMOS>),
@@ -62,7 +64,9 @@ impl Z80Any {
         }
     }
 
-    /// Creates a new instance of [Z80Any] with the given `tag` on success.
+    /// Creates a new instance of [Z80Any] with the given `tag` on success with the state just after `RESET`.
+    ///
+    /// Returns `None` if the provided `tag` is unknown.
     pub fn with_tag(tag: &str) -> Option<Self> {
         if tag.eq_ignore_ascii_case("NMOS") {
             Some(Self::new_nmos())
@@ -117,22 +121,22 @@ impl Z80Any {
         false
     }
 
-    /// Converts an instance of any variant of [Z80Any] to [Z80Any::NMOS] variant.
+    /// Converts an instance of any variant of [Z80Any] to a [Z80Any::NMOS] variant.
     pub fn into_nmos(self) -> Z80Any {
         cpu_dispatch_any!(self(cpu) => Z80Any::NMOS(cpu.into_flavour()))
     }
 
-    /// Converts an instance of any variant of [Z80Any] to [Z80Any::CMOS] variant.
+    /// Converts an instance of any variant of [Z80Any] to a [Z80Any::CMOS] variant.
     pub fn into_cmos(self) -> Z80Any {
         cpu_dispatch_any!(self(cpu) => Z80Any::CMOS(cpu.into_flavour()))
     }
 
-    /// Converts an instance of any variant of [Z80Any] to [Z80Any::BM1] variant.
+    /// Converts an instance of any variant of [Z80Any] to a [Z80Any::BM1] variant.
     pub fn into_bm1(self) -> Z80Any {
         cpu_dispatch_any!(self(cpu) => Z80Any::BM1(cpu.into_flavour()))
     }
 
-    /// Returns the contained [Z80<NMOS>] value, consuming the self value.
+    /// Returns the contained [`Z80<NMOS>`][Z80] value, consuming the self value.
     ///
     /// # Panics
     /// Panics if the self value is not a [Z80Any::NMOS] variant.
@@ -145,7 +149,7 @@ impl Z80Any {
         }
     }
 
-    /// Returns the contained [Z80<CMOS>] value, consuming the self value.
+    /// Returns the contained [`Z80<CMOS>`][Z80] value, consuming the self value.
     ///
     /// # Panics
     /// Panics if the self value is not a [Z80Any::CMOS] variant.
@@ -158,7 +162,7 @@ impl Z80Any {
         }
     }
 
-    /// Returns the contained [Z80<BM1>] value, consuming the self value.
+    /// Returns the contained [`Z80<BM1>`][Z80] value, consuming the self value.
     ///
     /// # Panics
     /// Panics if the self value is not a [Z80Any::BM1] variant.

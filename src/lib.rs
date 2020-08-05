@@ -57,7 +57,8 @@ Currently, there are 3 ["flavour"][z80] implementations for which the following 
 * [Z80CMOS] - A CMOS version of Z80.
 * [z80::Z80BM1] - A clone of Z80.
 
-The difference between them is very [subtle][z80::Flavour] and only affects undocumented behavior.
+The difference between each of them is very [subtle][z80::Flavour] and only affects undocumented behavior.
+Alternatively, a [Z80Any] enum can be used if changing of the [z80::Flavour] in run time is required.
 
 ## Debugger
 
