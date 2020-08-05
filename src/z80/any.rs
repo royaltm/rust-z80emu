@@ -13,7 +13,6 @@ use crate::cpu::{
 use crate::host::{Result, Clock, Memory, Io};
 use super::{Z80, flavours::*};
 
-#[macro_export]
 macro_rules! cpu_dispatch_any {
     ($cpuany:ident($cpu:ident) => $expr:expr) => {
         cpu_dispatch_any!(($cpuany)($cpu) => $expr)
