@@ -67,8 +67,8 @@ impl Z80Any {
         }
     }
 
-    /// Creates a new instance of [Z80Any] from the given `tag` on success.
-    pub fn from_tag(tag: &str) -> Option<Self> {
+    /// Creates a new instance of [Z80Any] with the given `tag` on success.
+    pub fn with_tag(tag: &str) -> Option<Self> {
         if tag.eq_ignore_ascii_case("NMOS") {
             Some(Self::new_nmos())
         }
