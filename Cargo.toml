@@ -15,8 +15,8 @@ travis-ci = { repository = "royaltm/rust-z80emu" }
   clap = "2.33"
   rand = "0.7"
   serde_json = "1.0"
-  bincode = "1.2"
-  simplelog = "0.7.4"
+  bincode = "1.3"
+  simplelog = "0.8"
   pancurses = "0.16"
 
 [features]
