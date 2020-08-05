@@ -7,13 +7,15 @@ mod opcodes;
 mod internal;
 mod flavours;
 mod debug;
+#[cfg(feature = "serde")]
+mod serde;
 pub mod any;
+
+#[cfg(test)]
+mod tests;
 
 use core::num::Wrapping;
 use core::mem::swap;
-
-#[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
 
 use crate::cpu::*;
 use crate::host::*;
@@ -39,21 +41,16 @@ enum LoopExitReason<O, R> {
 }
 
 /// Emulates a Zilog's `Z80 CPU` in various ["flavours"][crate::z80] via the [Cpu] trait.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all(serialize = "camelCase")))]
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct Z80<Q: Flavour> {
     af: RegisterPair,
-    #[cfg_attr(feature = "serde", serde(alias = "afAlt"))]
     af_alt: RegisterPair,
     regs: GeneralRegisters,
-    #[cfg_attr(feature = "serde", serde(alias = "regsAlt"))]
     regs_alt: GeneralRegisters,
     index: IndexRegisters,
     pc: RegisterPair,
     sp: RegisterPair,
     memptr: RegisterPair,
-    #[cfg_attr(feature = "serde", serde(alias = "lastEi"))]
     last_ei: bool,
     ir: RegisterPair,
     im: InterruptMode,
@@ -555,106 +552,5 @@ impl<Q: Flavour> Cpu for Z80<Q> {
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[allow(unused_imports)]
-    use super::*;
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn z80_debug() {
-        struct Dummy;
-
-        impl Io for Dummy {
-            type Timestamp = i32;
-            type WrIoBreak = ();
-            type RetiBreak = ();
-        }
-
-        impl Memory for Dummy {
-            type Timestamp = i32;
-        }
-
-        let mut tsc = TsCounter::<i32>::default();
-        let mut dummy = Dummy;
-        let mut cpu = Z80::<NMOS>::default();
-        let debug = format!("{:?}", cpu);
-        assert_eq!(debug,
-            "Z80 { pc: 0, sp: 0, af: 0, bc: 0, de: 0, hl: 0, af': 0, bc': 0, de': 0, hl': 0, ix: 0, iy: 0, \
-                   ir: 0, r: 0, im: Mode0, iff1: false, iff2: false, halt: false, ei: false, mp: 0, prefix: None }");
-        cpu.set_pc(0x1234);
-        cpu.set_sp(0xfedc);
-        cpu.set_acc(0x42);
-        cpu.set_flags(CpuFlags::C|CpuFlags::X);
-        cpu.ex_af_af();
-        cpu.set_acc(0xAF);
-        cpu.set_flags(CpuFlags::S|CpuFlags::Z);
-        cpu.set_reg16(StkReg16::BC, 0xABCD);
-        cpu.set_reg16(StkReg16::DE, 0xADEF);
-        cpu.set_reg16(StkReg16::HL, 0xF008);
-        cpu.exx();
-        cpu.set_reg16(StkReg16::BC, 0x1BC2);
-        cpu.set_reg16(StkReg16::DE, 0x3DE4);
-        cpu.set_reg16(StkReg16::HL, 0x5006);
-        cpu.set_index16(Prefix::Xdd, 0xA55A);
-        cpu.set_index16(Prefix::Yfd, 0x5AA5);
-        cpu.set_i(0x7F);
-        cpu.set_r(0xF1);
-        cpu.add_r(0x8E);
-        cpu.set_im(InterruptMode::Mode2);
-        cpu.set_memptr(0xBACA);
-        cpu.execute_instruction(&mut dummy, &mut tsc, Option::<CpuDebugFn>::None, 0xDD).unwrap();
-        cpu.enable_interrupts();
-        cpu.halt();
-        let debug = format!("{:#x?}\n{:#?}", cpu, cpu.flavour);
-        assert_eq!(debug,
-r#"Z80 {
-    pc: 0x1234,
-    sp: 0xfedc,
-    af: 0xafc0,
-    bc: 0x1bc2,
-    de: 0x3de4,
-    hl: 0x5006,
-    af': 0x4209,
-    bc': 0xabcd,
-    de': 0xadef,
-    hl': 0xf008,
-    ix: 0xa55a,
-    iy: 0x5aa5,
-    ir: 0x7ff1,
-    r: 0x7f,
-    im: Mode2,
-    iff1: true,
-    iff2: true,
-    halt: true,
-    ei: true,
-    mp: 0xbaca,
-    prefix: Some(
-        Xdd,
-    ),
-}
-NMOS {
-    flags_modified: false,
-    last_flags_modified: false,
-}"#);
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn z80_serde() {
-        let cpu: Z80<CMOS> = Z80::<CMOS>::default();
-        let sercpu = serde_json::to_string(&cpu).unwrap();
-        assert_eq!(sercpu,
-            r#"{"af":0,"afAlt":0,"regs":{"bc":0,"de":0,"hl":0},"regsAlt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"lastEi":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flagsModified":false,"lastFlagsModified":false}}"#);
-        let cpu_de: Z80<NMOS> = serde_json::from_str(&sercpu).unwrap();
-        let cpu = cpu.into_flavour::<NMOS>();
-        assert_eq!(cpu, cpu_de);
-        let sercpu = r#"{"af":0,"af_alt":0,"regs":{"bc":0,"de":0,"hl":0},"regs_alt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"last_ei":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flags_modified":false,"last_flags_modified":false}}"#;
-        let cpu_de: Z80<BM1> = serde_json::from_str(sercpu).unwrap();
-        let cpu = cpu.into_flavour::<BM1>();
-        assert_eq!(cpu, cpu_de);
     }
 }

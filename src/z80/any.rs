@@ -1,9 +1,6 @@
 //! Features an enum of available Z80 flavour variants.
 use core::fmt;
 
-#[cfg(feature = "serde")]
-use serde::{Serialize, Deserialize};
-
 use crate::cpu::{
     Cpu,
     CpuDebug,
@@ -34,8 +31,6 @@ macro_rules! cpu_dispatch_any {
 }
 
 /// Implements [Cpu] for each flavour available as variants of this enum.
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Z80Any {
     NMOS(Z80<NMOS>),
@@ -418,21 +413,40 @@ impl Cpu for Z80Any {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::z80::*;
 
-    #[cfg(feature = "serde")]
     #[test]
-    fn z80any_serde() {
-        let z80any = Z80Any::new_nmos();
-        let json = serde_json::to_string(&z80any).unwrap();
-        println!("{}", json);
-        let z80: Z80NMOS = serde_json::from_str(&json).unwrap();
-        assert_eq!(Z80Any::NMOS(z80), z80any);
+    fn z80any() {
+        let cpu_any = Z80Any::with_tag(NMOS::tag()).unwrap();
+        assert_eq!(cpu_any.tag(), "NMOS");
+        assert_eq!(cpu_any, Z80Any::new_nmos());
+        assert_eq!(cpu_any.is_nmos(), true);
+        assert_eq!(cpu_any.is_cmos(), false);
+        assert_eq!(cpu_any.is_bm1(), false);
+        let cpu = cpu_any.clone().unwrap_nmos();
+        assert_eq!(cpu_any, Z80Any::NMOS(cpu));
 
-        let z80: Z80CMOS = serde_json::from_str(&json).unwrap();
-        assert_eq!(Z80Any::CMOS(z80), z80any.clone().into_cmos());
+        let cpu_any = cpu_any.into_cmos();
+        assert_eq!(cpu_any.tag(), "CMOS");
+        assert_eq!(cpu_any, Z80Any::with_tag(CMOS::tag()).unwrap());
+        assert_eq!(cpu_any, Z80Any::new_cmos());
+        assert_eq!(cpu_any.is_nmos(), false);
+        assert_eq!(cpu_any.is_cmos(), true);
+        assert_eq!(cpu_any.is_bm1(), false);
+        let cpu = cpu_any.clone().unwrap_cmos();
+        assert_eq!(cpu_any, Z80Any::CMOS(cpu));
 
-        let z80: Z80BM1 = serde_json::from_str(&json).unwrap();
-        assert_eq!(Z80Any::BM1(z80), z80any.clone().into_bm1());
+        let cpu_any = cpu_any.into_bm1();
+        assert_eq!(cpu_any.tag(), "BM1");
+        assert_eq!(cpu_any, Z80Any::with_tag(BM1::tag()).unwrap());
+        assert_eq!(cpu_any, Z80Any::new_bm1());
+        assert_eq!(cpu_any.is_nmos(), false);
+        assert_eq!(cpu_any.is_cmos(), false);
+        assert_eq!(cpu_any.is_bm1(), true);
+        let cpu = cpu_any.clone().unwrap_bm1();
+        assert_eq!(cpu_any, Z80Any::BM1(cpu));
+
+        let cpu_any = cpu_any.into_nmos();
+        assert_eq!(cpu_any.tag(), "NMOS");
+        assert_eq!(cpu_any, Z80Any::new_nmos());
     }
 }
