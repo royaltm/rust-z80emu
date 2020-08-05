@@ -1,6 +1,7 @@
 v0.4.0
 * Z80Any enum
 * fixed typo in Z80BM1 type definition
+* flavour transitive (de)serialization
 
 v0.3.0
 * more compact serialization of RegisterPair
