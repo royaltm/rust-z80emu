@@ -55,7 +55,7 @@ Currently, there are 3 ["flavour"][z80] implementations for which the following 
 
 * [Z80NMOS] - A Zilog's NMOS Z80.
 * [Z80CMOS] - A CMOS version of Z80.
-* [z80::Z80BM] - A clone of Z80.
+* [z80::Z80BM1] - A clone of Z80.
 
 The difference between them is very [subtle][z80::Flavour] and only affects undocumented behavior.
 
