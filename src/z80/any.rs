@@ -49,6 +49,14 @@ impl<Q: Flavour> From<Z80<Q>> for Z80Any {
     }
 }
 
+impl<Q> From<Z80Any> for Z80<Q>
+    where Q: Flavour + From<NMOS> + From<CMOS> + From<BM1>
+{
+    fn from(cpu_any: Z80Any) -> Z80<Q> {
+        cpu_dispatch_any!(cpu_any(cpu) => cpu.into_flavour())
+    }
+}
+
 impl Z80Any {
     /// Returns the tag of the current Z80 variant as string.
     pub fn tag(&self) -> &'static str {
