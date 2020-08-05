@@ -213,3 +213,63 @@ fn z80any_methods() {
             r#"BM1 { flags_modified: false, last_flags_modified: false }"#);
     }
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn z80_debug() {
+    let cpu: Z80<NMOS> = Z80::new();
+    let debug_msg = format!("{:#?}", cpu);
+    assert_eq!(debug_msg,
+r#"Z80 {
+    pc: 0,
+    sp: 65535,
+    af: 65535,
+    bc: 0,
+    de: 0,
+    hl: 0,
+    af': 65535,
+    bc': 0,
+    de': 0,
+    hl': 0,
+    ix: 0,
+    iy: 0,
+    ir: 0,
+    r: 0,
+    im: Mode0,
+    iff1: false,
+    iff2: false,
+    halt: false,
+    ei: false,
+    mp: 0,
+    prefix: None,
+}"#);
+
+    let cpu = Z80Any::new_nmos();
+    let debug_msg = format!("{:#x?}", cpu);
+    assert_eq!(debug_msg,
+r#"NMOS(
+    Z80 {
+        pc: 0x0,
+        sp: 0xffff,
+        af: 0xffff,
+        bc: 0x0,
+        de: 0x0,
+        hl: 0x0,
+        af': 0xffff,
+        bc': 0x0,
+        de': 0x0,
+        hl': 0x0,
+        ix: 0x0,
+        iy: 0x0,
+        ir: 0x0,
+        r: 0x0,
+        im: Mode0,
+        iff1: false,
+        iff2: false,
+        halt: false,
+        ei: false,
+        mp: 0x0,
+        prefix: None,
+    },
+)"#);
+}

@@ -368,19 +368,35 @@ mod tests {
         assert_eq!(cpu, cpu_de1);
 
         let sercpu = r#"{"type":"NMOS","af":0,"af_alt":0,"regs":{"bc":0,"de":0,"hl":0},"regs_alt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"last_ei":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flags_modified":false,"last_flags_modified":false}}"#;
-        let sermincpu = r#"{"type":"NMOS","af":0,"af_alt":0,"regs":{"bc":0,"de":0,"hl":0},"regs_alt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"last_ei":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null}"#;
+        let serlegacy = r#"{"af":0,"afAlt":0,"regs":{"bc":0,"de":0,"hl":0},"regsAlt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"lastEi":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flagsModified":false,"lastFlagsModified":false}}"#;
+        let sermincpu = r#"{"af":0,"af_alt":0,"regs":{"bc":0,"de":0,"hl":0},"regs_alt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"last_ei":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null}"#;
         let cpu_de: Z80<BM1> = serde_json::from_str(sercpu).unwrap();
         let cpu = cpu.into_flavour::<BM1>();
         assert_eq!(cpu, cpu_de);
 
-        let cpu_de: Z80<CMOS> = serde_json::from_str(sermincpu).unwrap();
+        let cpu_de: Z80<CMOS> = serde_json::from_str(sercpu).unwrap();
         let cpu = cpu.into_flavour::<CMOS>();
         assert_eq!(cpu, cpu_de);
-        let cpu_de: Z80<BM1> = serde_json::from_str(sermincpu).unwrap();
+        let cpu_de: Z80<CMOS> = serde_json::from_str(sermincpu).unwrap();
+        assert_eq!(cpu, cpu_de);
+        let cpu_de: Z80<CMOS> = serde_json::from_str(serlegacy).unwrap();
+        assert_eq!(cpu, cpu_de);
+
+        let cpu_de: Z80<BM1> = serde_json::from_str(sercpu).unwrap();
         let cpu = cpu.into_flavour::<BM1>();
         assert_eq!(cpu, cpu_de);
-        let cpu_de: Z80<NMOS> = serde_json::from_str(sermincpu).unwrap();
+        let cpu_de: Z80<BM1> = serde_json::from_str(sermincpu).unwrap();
+        assert_eq!(cpu, cpu_de);
+        let cpu_de: Z80<BM1> = serde_json::from_str(serlegacy).unwrap();
+        assert_eq!(cpu, cpu_de);
+
+
+        let cpu_de: Z80<NMOS> = serde_json::from_str(sercpu).unwrap();
         let cpu = cpu.into_flavour::<NMOS>();
+        assert_eq!(cpu, cpu_de);
+        let cpu_de: Z80<NMOS> = serde_json::from_str(sermincpu).unwrap();
+        assert_eq!(cpu, cpu_de);
+        let cpu_de: Z80<NMOS> = serde_json::from_str(serlegacy).unwrap();
         assert_eq!(cpu, cpu_de);
 
         let cpu_de: Z80Any = serde_json::from_str(sercpu).unwrap();
@@ -390,8 +406,12 @@ mod tests {
         let cpu_de: Z80Any = serde_json::from_str(sermincpu).unwrap();
         assert_eq!(cpu, cpu_de);
 
+        let cpu_de: Z80Any = serde_json::from_str(serlegacy).unwrap();
+        assert_eq!(cpu, cpu_de);
+
         let cpu_de: Z80Any = bincode::deserialize(&bincpu).unwrap();
-        assert_eq!(cpu.into_cmos(), cpu_de);
+        let cpu = cpu.into_cmos();
+        assert_eq!(cpu, cpu_de);
 
         let z80any = Z80Any::new_nmos();
         let json = serde_json::to_string(&z80any).unwrap();
