@@ -34,6 +34,11 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
     fn get_q(&self, acc:u8, flags: CpuFlags) -> u8;
     /// Converts a [Z80] struct of this flavour into an [Z80Any] enum.
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any;
+    /// Returns the contained [`Z80<Self>`][Z80] value, consuming the `cpu` value.
+    ///
+    /// # Panics
+    /// Panics if the `cpu_any` value is not a variant corresponding to this `Flavour`.
+    fn unwrap_cpu_any(cpu_any: Z80Any) -> Z80<Self>;
     /// Should reset the state. Called by [crate::Cpu::reset]. The default implementation resets the state to default.
     #[inline(always)]
     fn reset(&mut self) {
@@ -106,6 +111,10 @@ impl Flavour for NMOS {
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
         Z80Any::NMOS(cpu)
     }
+
+    fn unwrap_cpu_any(cpu_any: Z80Any) -> Z80<Self> {
+        cpu_any.unwrap_nmos()
+    }
 }
 
 impl Flavour for CMOS {
@@ -128,6 +137,10 @@ impl Flavour for CMOS {
     #[inline]
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
         Z80Any::CMOS(cpu)
+    }
+
+    fn unwrap_cpu_any(cpu_any: Z80Any) -> Z80<Self> {
+        cpu_any.unwrap_cmos()
     }
 }
 
@@ -163,6 +176,10 @@ impl Flavour for BM1 {
     #[inline]
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
         Z80Any::BM1(cpu)
+    }
+
+    fn unwrap_cpu_any(cpu_any: Z80Any) -> Z80<Self> {
+        cpu_any.unwrap_bm1()
     }
 }
 

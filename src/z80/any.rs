@@ -129,6 +129,45 @@ impl Z80Any {
         cpu_dispatch_any!(self(cpu) => Z80Any::BM1(cpu.into_flavour()))
     }
 
+    /// Returns the contained [Z80<NMOS>] value, consuming the self value.
+    ///
+    /// # Panics
+    /// Panics if the self value is not a [Z80Any::NMOS] variant.
+    pub fn unwrap_nmos(self) -> Z80<NMOS> {
+        if let Z80Any::NMOS(cpu) = self {
+            cpu
+        }
+        else {
+            panic!("called `Z80Any::unwrap_nmos()` on a non `Z80Any::NMOS` variant")
+        }
+    }
+
+    /// Returns the contained [Z80<CMOS>] value, consuming the self value.
+    ///
+    /// # Panics
+    /// Panics if the self value is not a [Z80Any::CMOS] variant.
+    pub fn unwrap_cmos(self) -> Z80<CMOS> {
+        if let Z80Any::CMOS(cpu) = self {
+            cpu
+        }
+        else {
+            panic!("called `Z80Any::unwrap_cmos()` on a non `Z80Any::CMOS` variant")
+        }
+    }
+
+    /// Returns the contained [Z80<BM1>] value, consuming the self value.
+    ///
+    /// # Panics
+    /// Panics if the self value is not a [Z80Any::BM1] variant.
+    pub fn unwrap_bm1(self) -> Z80<BM1> {
+        if let Z80Any::BM1(cpu) = self {
+            cpu
+        }
+        else {
+            panic!("called `Z80Any::unwrap_bm1()` on a non `Z80Any::BM1` variant")
+        }
+    }
+
     /// Retrieves the internal state of the MEMPTR register.
     pub fn get_memptr(&self) -> u16 {
         cpu_dispatch_any!(self(cpu) => cpu.get_memptr())
