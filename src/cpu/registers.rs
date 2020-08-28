@@ -102,6 +102,7 @@ impl RegisterPair {
         unsafe { *self.ptr8lo() = val; }
     }
 
+    /// Returns values of this pair of registers as a tuple of `(MSB, LSB)`.
     #[inline]
     pub fn get(self) -> (u8, u8) {
         let [lo, hi] = self.0;

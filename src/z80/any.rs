@@ -326,6 +326,10 @@ impl Cpu for Z80Any {
         cpu_dispatch_any!(self(cpu) => cpu.get_alt_reg16(src))
     }
 
+    fn set_reg2(&mut self, src: StkReg16, hi: u8, lo: u8) {
+        cpu_dispatch_any!(self(cpu) => cpu.set_reg2(src, hi, lo))
+    }
+
     fn set_reg16(&mut self, src: StkReg16, val: u16) {
         cpu_dispatch_any!(self(cpu) => cpu.set_reg16(src, val))
     }
@@ -336,6 +340,10 @@ impl Cpu for Z80Any {
 
     fn get_index16(&self, prefix: Prefix) -> u16 {
         cpu_dispatch_any!(self(cpu) => cpu.get_index16(prefix))
+    }
+
+    fn set_index2(&mut self, prefix: Prefix, hi: u8, lo: u8) {
+        cpu_dispatch_any!(self(cpu) => cpu.set_index2(prefix, hi, lo))
     }
 
     fn set_index16(&mut self, prefix: Prefix, val: u16) {

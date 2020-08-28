@@ -329,6 +329,11 @@ impl<Q: Flavour> Cpu for Z80<Q> {
     }
 
     #[inline]
+    fn set_reg2(&mut self, src: StkReg16, hi: u8, lo: u8) {
+        self.stkreg16_mut(src).set(hi, lo)
+    }
+
+    #[inline]
     fn set_reg16(&mut self, src: StkReg16, val: u16) {
         self.stkreg16_mut(src).set16(val)
     }
@@ -341,6 +346,11 @@ impl<Q: Flavour> Cpu for Z80<Q> {
     #[inline]
     fn get_index16(&self, prefix: Prefix) -> u16 {
         self.index16_ref(prefix).get16()
+    }
+
+    #[inline]
+    fn set_index2(&mut self, prefix: Prefix, hi: u8, lo: u8) {
+        self.index16_mut(prefix).set(hi, lo)
     }
 
     #[inline]

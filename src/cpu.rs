@@ -87,6 +87,10 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// Returns the content of the selected pair of alternative registers as an unsigned 16-bit integer.
     fn get_alt_reg16(&self, src: StkReg16) -> u16;
     /// Sets the content of the selected pair of registers.
+    ///
+    /// E.g. for [StkReg16::BC] register `B` will be set to `hi` and `C` to `lo`.
+    fn set_reg2(&mut self, src: StkReg16, hi: u8, lo: u8);
+    /// Sets the content of the selected pair of registers as an unsigned 16-bit integer.
     fn set_reg16(&mut self, src: StkReg16, val: u16);
     /// Returns the content of one of the index registers as a tuple of 8-bit unsigned integers.
     ///
@@ -101,6 +105,12 @@ pub trait Cpu: Clone + Default + PartialEq + Eq {
     /// * [Prefix::Yfd] - `IY`
     fn get_index16(&self, prefix: Prefix) -> u16;
     /// Sets the content of one of the index registers.
+    ///
+    /// Depending on `prefix` this will be:
+    /// * [Prefix::Xdd] - `IXh=hi, IXl=lo`
+    /// * [Prefix::Yfd] - `IYh=hi, IYl=lo`
+    fn set_index2(&mut self, prefix: Prefix, hi: u8, lo: u8);
+    /// Sets the content of one of the index registers as a 16-bit unsigned integer.
     ///
     /// Depending on `prefix` this will be:
     /// * [Prefix::Xdd] - `IX`
