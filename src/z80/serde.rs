@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use core::marker::PhantomData;
 use core::fmt;
 use core::num::Wrapping;
@@ -112,11 +113,11 @@ impl<'de, Q> Deserialize<'de> for Z80<Q>
                     visit_seq(self, seq, 0)
                 }
                 else {
-                    let variant = seq.next_element()?
+                    let variant: Cow<str> = seq.next_element()?
                                      .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                    match variant {
+                    match &*variant {
                         "NMOS"|"CMOS"|"BM1" => visit_seq(self, seq, 1),
-                        _ => Err(de::Error::unknown_variant(variant, &["NMOS", "CMOS", "BM1"]))
+                        _ => Err(de::Error::unknown_variant(&*variant, &["NMOS", "CMOS", "BM1"]))
                     }
                 }
             }
@@ -147,13 +148,13 @@ impl<'de> Deserialize<'de> for Z80Any {
                     visit_seq(self, seq, 0).map(Z80Any::NMOS)
                 }
                 else {
-                    let variant = seq.next_element()?
+                    let variant: Cow<str> = seq.next_element()?
                                      .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                    match variant {
+                    match &*variant {
                         "NMOS" => visit_seq(self, seq, 1).map(Z80Any::NMOS),
                         "CMOS" => visit_seq(self, seq, 1).map(Z80Any::CMOS),
                         "BM1"  => visit_seq(self, seq, 1).map(Z80Any::BM1),
-                        _ => Err(de::Error::unknown_variant(variant, &["NMOS", "CMOS", "BM1"]))
+                        _ => Err(de::Error::unknown_variant(&*variant, &["NMOS", "CMOS", "BM1"]))
                     }
                 }
             }
@@ -222,12 +223,12 @@ macro_rules! check_dup_assign {
     };
 }
 
-const DEFAULT_VARIANT: &str = "NMOS";
+const DEFAULT_VARIANT: Cow<'_, str> = Cow::Borrowed("NMOS");
 
 fn visit_map<'de, A>(mut map: A, force_variant: Option<&str>) -> Result<Z80Any, A::Error>
     where A: MapAccess<'de>
 {
-    let mut variant: Option<&str> = None;
+    let mut variant: Option<Cow<str>> = None;
     let mut af       = None;
     let mut af_alt   = None;
     let mut regs     = None;
@@ -285,7 +286,7 @@ fn visit_map<'de, A>(mut map: A, force_variant: Option<&str>) -> Result<Z80Any, 
     let prefix   = prefix.ok_or_else(||     de::Error::missing_field("prefix"))?;
     let r        = r.unwrap_or_else(|| Wrapping(ir.get8lo()));
 
-    match force_variant.unwrap_or_else(|| variant.unwrap_or(DEFAULT_VARIANT)) {
+    match &*force_variant.map(Cow::Borrowed).unwrap_or_else(|| variant.unwrap_or(DEFAULT_VARIANT)) {
         "NMOS" => Ok(Z80Any::NMOS(Z80 {
             af,
             af_alt,
@@ -359,13 +360,17 @@ mod tests {
         assert_eq!(sercpu,
             r#"{"type":"CMOS","af":0,"afAlt":0,"regs":{"bc":0,"de":0,"hl":0},"regsAlt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"lastEi":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flagsModified":false,"lastFlagsModified":false}}"#);
         let cpu_de0: Z80<NMOS> = serde_json::from_str(&sercpu).unwrap();
+        let cpu_de1: Z80<NMOS> = serde_json::from_reader(&sercpu.into_bytes()[..]).unwrap();
 
         let bincpu: Vec<u8> = bincode::serialize(&cpu).unwrap();
-        let cpu_de1: Z80<NMOS> = bincode::deserialize(&bincpu).unwrap();
+        let cpu_de2: Z80<NMOS> = bincode::deserialize(&bincpu).unwrap();
+        let cpu_de3: Z80<NMOS> = bincode::deserialize_from(&bincpu[..]).unwrap();
 
         let cpu = cpu.into_flavour::<NMOS>();
         assert_eq!(cpu, cpu_de0);
         assert_eq!(cpu, cpu_de1);
+        assert_eq!(cpu, cpu_de2);
+        assert_eq!(cpu, cpu_de3);
 
         let sercpu = r#"{"type":"NMOS","af":0,"af_alt":0,"regs":{"bc":0,"de":0,"hl":0},"regs_alt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"last_ei":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flags_modified":false,"last_flags_modified":false}}"#;
         let serlegacy = r#"{"af":0,"afAlt":0,"regs":{"bc":0,"de":0,"hl":0},"regsAlt":{"bc":0,"de":0,"hl":0},"index":{"ix":0,"iy":0},"pc":0,"sp":0,"memptr":0,"lastEi":false,"ir":0,"im":"Mode0","iff1":false,"iff2":false,"halt":false,"prefix":null,"r":0,"flavour":{"flagsModified":false,"lastFlagsModified":false}}"#;
@@ -399,9 +404,11 @@ mod tests {
         let cpu_de: Z80<NMOS> = serde_json::from_str(serlegacy).unwrap();
         assert_eq!(cpu, cpu_de);
 
-        let cpu_de: Z80Any = serde_json::from_str(sercpu).unwrap();
+        let cpu_de0: Z80Any = serde_json::from_str(sercpu).unwrap();
+        let cpu_de1: Z80Any = serde_json::from_reader(sercpu.as_bytes()).unwrap();
         let cpu = Z80Any::NMOS(cpu);
-        assert_eq!(cpu, cpu_de);
+        assert_eq!(cpu, cpu_de0);
+        assert_eq!(cpu, cpu_de1);
 
         let cpu_de: Z80Any = serde_json::from_str(sermincpu).unwrap();
         assert_eq!(cpu, cpu_de);
@@ -409,9 +416,11 @@ mod tests {
         let cpu_de: Z80Any = serde_json::from_str(serlegacy).unwrap();
         assert_eq!(cpu, cpu_de);
 
-        let cpu_de: Z80Any = bincode::deserialize(&bincpu).unwrap();
+        let cpu_de0: Z80Any = bincode::deserialize(&bincpu).unwrap();
+        let cpu_de1: Z80Any = bincode::deserialize_from(&bincpu[..]).unwrap();
         let cpu = cpu.into_cmos();
-        assert_eq!(cpu, cpu_de);
+        assert_eq!(cpu, cpu_de0);
+        assert_eq!(cpu, cpu_de1);
 
         let z80any = Z80Any::new_nmos();
         let json = serde_json::to_string(&z80any).unwrap();
