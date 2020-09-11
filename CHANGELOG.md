@@ -1,3 +1,7 @@
+v0.5.0
+* Cpu methods for setting 16-bit registers from a pair of 8-bit values
+* fixed deserialization of Z80 and Z80Any from streams
+
 v0.4.0
 * Z80Any enum
 * fixed typo in Z80BM1 type definition
