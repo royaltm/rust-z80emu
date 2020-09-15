@@ -1,3 +1,9 @@
+/*
+    ral1243: Emulator program as an example implementation for the z80emu library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the mod.rs file.
+*/
 use std::collections::VecDeque;
 use std::cell::RefCell;
 use std::rc::Rc;

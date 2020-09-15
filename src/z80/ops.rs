@@ -1,3 +1,9 @@
+/*
+    z80emu: a minimalistic Z80 CPU emulation library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
 //! Arithmetic, logic, bit and block operations.
 //!
 //! All Flags involved instructions uses these methods to alter Flags state.

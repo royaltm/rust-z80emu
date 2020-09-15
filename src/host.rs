@@ -1,3 +1,9 @@
+/*
+    z80emu: a minimalistic Z80 CPU emulation library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
 /*! This module contains traits that should be implemented by the builder of the host computer.
 
 To complete the emulation of the Z80-based computer the following trait interfaces need to be implemented:

@@ -1,3 +1,9 @@
+/*
+    z80emu: a minimalistic Z80 CPU emulation library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
 use core::fmt::{self, Write};
 use arrayvec::ArrayString;
 use super::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};

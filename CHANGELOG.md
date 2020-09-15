@@ -1,3 +1,7 @@
+v0.6.0
+* z80emu is now released under the terms of the GNU LESSER GENERAL PUBLIC LICENSE 3.0 or later, starting from this version onward. The reason for this is the announcement of shutting down the License Zero project by Artless Devices.
+* Only essential files are now being included in the packages published on crates.io.
+
 v0.5.0
 * Cpu methods for setting 16-bit registers from a pair of 8-bit values
 * fixed deserialization of Z80 and Z80Any from streams

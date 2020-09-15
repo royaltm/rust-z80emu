@@ -1,3 +1,9 @@
+/*
+    ral1243: Emulator program as an example implementation for the z80emu library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the mod.rs file.
+*/
 use core::num::{NonZeroU8, NonZeroU16};
 use core::ops::{Deref, DerefMut};
 use core::num::Wrapping;

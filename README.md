@@ -46,18 +46,18 @@ This repository also contains an [example implementation](examples/ral1243) of a
 Rust Version Requirements
 -------------------------
 
-`z80emu` requires Rustc version 1.36 or greater due to the usage of some macro features and api that was introduced
+`z80emu` requires Rustc version 1.36 or greater due to the usage of some macro features and API that was introduced
 or stabilized in this version.
 
 
 Licensing
 ---------
 
-This package is free to use for commercial purposes for a trial period under the terms of the [Prosperity Public License](./LICENSE.md).
+Starting from version `0.6.0`, the `z80emu` library is released under the terms of the GNU Lesser General Public License (LGPL) version 3 or later.
 
-Licenses for long-term commercial use are available via [licensezero.com](https://licensezero.com).
+Non-essential programs in this repository, i.e.: tests, examples, and benchmarks, are covered under different terms.
 
-[![licensezero.com pricing](https://licensezero.com/projects/46abb51c-7f1b-4972-9f70-ed1b76d191d1/badge.svg)](https://licensezero.com/projects/46abb51c-7f1b-4972-9f70-ed1b76d191d1)
+Please mind that each source file contains a copyright notice indicating the details.
 
 [Crate Link]: https://crates.io/crates/z80emu
 [Crate img]: https://img.shields.io/crates/v/z80emu.svg
@@ -67,7 +67,7 @@ Licenses for long-term commercial use are available via [licensezero.com](https:
 [Build img]: https://travis-ci.org/royaltm/rust-z80emu.svg?branch=master
 [rustc version link]: https://github.com/royaltm/rust-z80emu#rust-version-requirements
 [rustc version img]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
-[License Link]: LICENSE.md
+[License Link]: https://www.gnu.org/licenses/#LGPL
 [License img]: https://img.shields.io/crates/l/z80emu
 [Coverage Link]: https://coveralls.io/github/royaltm/rust-z80emu?branch=master
 [Coverage img]: https://coveralls.io/repos/github/royaltm/rust-z80emu/badge.svg?branch=master

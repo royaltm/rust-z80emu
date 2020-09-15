@@ -1,3 +1,9 @@
+/*
+    z80emu: a minimalistic Z80 CPU emulation library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
 //! A home of the Cpu implementations.
 #![allow(clippy::let_and_return)]
 mod macros;

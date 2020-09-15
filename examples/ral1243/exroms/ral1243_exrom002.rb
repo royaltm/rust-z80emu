@@ -6,8 +6,9 @@
 #
 # Author: Rafał Michalski <royaltm75@gmail.com>
 #
+# SPDX-License-Identifier: BlueOak-1.0.0
 # This program is free to use under the terms of the Blue Oak Model License 1.0.0.
-# https://blueoakcouncil.org/license/1.0.0
+# See: https://blueoakcouncil.org/license/1.0.0
 require_relative '../rom/ral1243_rom'
 
 class ExRom002

@@ -1,3 +1,9 @@
+/*
+    z80emu: a minimalistic Z80 CPU emulation library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
 use std::borrow::Cow;
 use core::marker::PhantomData;
 use core::fmt;

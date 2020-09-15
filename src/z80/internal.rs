@@ -1,3 +1,9 @@
+/*
+    z80emu: a minimalistic Z80 CPU emulation library.
+    Copyright (C) 2019-2020  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
 //! Private methods with implementation of some of the more complicated instructions of Z80.
 use super::*;
 use crate::{NMI_RESTART, Rot};
