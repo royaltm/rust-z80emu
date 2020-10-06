@@ -118,7 +118,7 @@ press any key to start..."#);
                         0x12 => { window.mv(window.get_cur_y(), window.get_cur_x().saturating_sub(1)); }
                         0x0A|0x13 => { window.mv(window.get_cur_y()+1, window.get_cur_x()); }
                         0x14 => { window.mv(window.get_cur_y(), window.get_cur_x()+1); }
-                        ch => { window.addch(ch as u64); }
+                        ch => { window.addch(ch as char); }
                     }
                 }
             }
