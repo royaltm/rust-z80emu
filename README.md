@@ -36,12 +36,14 @@ Zilog's [Z80 CPU](https://en.wikipedia.org/wiki/Zilog_Z80).
 =|_______|=
 ```
 
-`z80emu` was developed as an attempt to create a minimalistic emulation library. It provides the necessary tools
-for the retro emulators to be built upon, avoiding any assumptions about side effects of those emulators.
+`z80emu` was developed as an attempt to create a minimalistic emulation library. It provides the necessary tools for the retro emulators to be built upon, avoiding any assumptions about the side effects of those emulators.
 
 Please see the [documentation][Docs Link] for a full introduction.
 
-This repository also contains an [example implementation](examples/ral1243) of a complete emulator program.
+The repository also contains an [example implementation](examples/ral1243) of a complete emulator program.
+
+Another example built on top of `z80emu` is the [SPECTRUSTY](https://royaltm.github.io/spectrusty) library that focuses on "ZX Spectrum" emulators.
+
 
 Rust Version Requirements
 -------------------------
