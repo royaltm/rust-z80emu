@@ -162,7 +162,7 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
         self.channel1.next_second(delta);
         self.channel2.next_second(delta);
         self.channel3.next_second(delta);        
-        &mut self.daisy_chained.next_second(delta);
+        self.daisy_chained.next_second(delta);
     }
 }
 

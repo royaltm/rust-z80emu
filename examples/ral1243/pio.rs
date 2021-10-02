@@ -131,7 +131,7 @@ where T: Copy,
     }
 
     fn next_second(&mut self, delta: T) {
-        &mut self.daisy_chained.next_second(delta);
+        self.daisy_chained.next_second(delta);
     }
 }
 

@@ -68,7 +68,7 @@ where D: BusDevice<Timestamp=T>
         &mut self.device
     }
     fn next_second(&mut self, delta: T) {
-        &mut self.device.next_second(delta);
+        self.device.next_second(delta);
     }
 }
 
