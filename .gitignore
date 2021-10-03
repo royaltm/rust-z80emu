@@ -13,3 +13,5 @@ Thumbs.db
 *.sublime-workspace
 sftp-config.json
 cobertura.xml
+.cargo
+.travis.yml
