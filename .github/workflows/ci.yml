@@ -1,0 +1,42 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+    
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      matrix:
+        include:
+          - rust: 1.51.0
+            experimental: false
+          - rust: stable
+            experimental: false
+          - rust: beta
+            experimental: false
+          - rust: nightly
+            experimental: false
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install ${{ matrix.rust }} toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain:  ${{ matrix.rust }}
+          override: true
+      - name: Tests
+        run: |
+          cargo build --verbose --no-default-features
+          cargo test --verbose --no-default-features
+          cargo build --verbose
+          cargo test --verbose
