@@ -1,3 +1,10 @@
+v0.7.0
+* added Justfile to demonstrate Profiled-Guided Optimizations for benchmarks
+* CI: migration to Github Actions
+* minimum supported rust version changed to Rust 1.51 (const generics)
+* remove trailing semicolons in expression macro bodies and clippy suggested changes
+* deps: arrayvec updated to 0.7 and bitflags to 1.3, dev-deps updated
+
 v0.6.0
 * z80emu is now released under the terms of the GNU LESSER GENERAL PUBLIC LICENSE 3.0 or later, starting from this version onward. The reason for this is the announcement of shutting down the License Zero project by Artless Devices.
 * Only essential files are now being included in the packages published on crates.io.
