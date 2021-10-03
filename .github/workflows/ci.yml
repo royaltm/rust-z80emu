@@ -40,3 +40,8 @@ jobs:
           cargo test --verbose --no-default-features
           cargo build --verbose
           cargo test --verbose
+      - name: Coverage
+        if: matrix.rust == 'stable'
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --verbose --exclude-files benches/*.rs --coveralls ${{secret.COVERALLS_KEY}}
