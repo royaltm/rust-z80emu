@@ -131,11 +131,12 @@ fn parse_arg(prefix: Option<Prefix>, pc: u16, mnemonic: &'static str, arg: &'sta
 fn parse_mnemonic(prefix: Option<Prefix>, pc: u16, code: &CpuDebugCode, mnemonic_with_args: &'static str) -> ParseResult {
     println!("{}", mnemonic_with_args);
     let (mnemonic, textargs) =
-    match mnemonic_with_args.split_ascii_whitespace().collect::<ArrayVec<[_;2]>>()[..] {
+    match mnemonic_with_args.split_ascii_whitespace().collect::<ArrayVec<_,3>>()[..] {
         ["prefix", "IX"] => return ParseResult::Prefix(Prefix::Xdd),
         ["prefix", "IY"] => return ParseResult::Prefix(Prefix::Yfd),
         [mnemonic]       => (mnemonic, None),
-        [mnemonic, args] => (mnemonic, Some(args)),
+        [mnemonic, args]|
+        [mnemonic, args, _] => (mnemonic, Some(args)),
                        _ => panic!("error parsing mnemonic: {:?}", mnemonic_with_args)
     };
 
@@ -147,7 +148,7 @@ fn parse_mnemonic(prefix: Option<Prefix>, pc: u16, code: &CpuDebugCode, mnemonic
     let args = match textargs {
         Some(args) => {
             match args.split(",").map(|arg| parse_arg(prefix, pc, mnemonic, arg, &mut code))
-                                 .collect::<ArrayVec<[_;3]>>()[..] {
+                                 .collect::<ArrayVec<_,3>>()[..] {
                 [CpuDebugArg::Bit(bit), arg, CpuDebugArg::Reg8(None, reg)] => {
                     CpuDebugArgs::BitOpExt(bit, arg, reg)
                 }
@@ -288,7 +289,7 @@ fn test_mnemonics_cpu<C: Cpu>(mut cpu: C) {
                         }
                         None => match parse_mnemonic(None, 1, &code, mnem) {
                             ParseResult::Debug(debug) => {
-                                let mut code = ArrayVec::<[u8;5]>::new();
+                                let mut code = ArrayVec::<u8,5>::new();
                                 code.push(prefix as u8);
                                 code.extend(debug.code.iter().cloned());
                                 test_debug(&mut counter, Some(prefix), &code, &debug, &mut cpu);

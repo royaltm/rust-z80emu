@@ -330,7 +330,7 @@ impl FromStr for Cycle {
         if s == "|" {
             return Ok(Cycle::Split)
         }
-        let ary = s.splitn(2, ":").collect::<ArrayVec<[_;2]>>().into_inner()
+        let ary = s.splitn(2, ":").collect::<ArrayVec<_,2>>().into_inner()
                 .map_err(|_| format!("expected cycle type and bus value: {:?}", s))?;
         Ok(match ary {
             ["m1", bus] => Cycle::MOne(u16::from_str(bus).map_err(|e| e.to_string())?),
@@ -406,7 +406,7 @@ where I: Iterator<Item=&'a str> + Clone, F: FnMut(String)
 }
 
 fn parse_instruction_and_expand<F: FnMut(String)>(line: &str, mut consume: F) -> bool {
-    let (mnemonic, textargs, asterisk) = match line.split_ascii_whitespace().collect::<ArrayVec<[_;3]>>()[..] {
+    let (mnemonic, textargs, asterisk) = match line.split_ascii_whitespace().collect::<ArrayVec<_,3>>()[..] {
         []                    => return false,
         [mnemonic]            => (mnemonic, "", ""),
         [mnemonic, args]      => (mnemonic, args, ""),
@@ -694,7 +694,7 @@ fn test_cycles_cpu<C: Cpu>() -> Result<(), String> {
                                  (MNEMONICS_PREFIX, Some(Prefix::Xdd)),
                                  (MNEMONICS_PREFIX, Some(Prefix::Yfd))] {
         for line in mnemonics.lines() {
-            let [code, instruction] = line.splitn(2, " ").collect::<ArrayVec<[_;2]>>().into_inner()
+            let [code, instruction] = line.splitn(2, " ").collect::<ArrayVec<_,2>>().into_inner()
                     .map_err(|_| format!("expected instruction: {:?}", line))?;
             let mut code = code.splitn(2, ",").map(|c| u8::from_str_radix(c, 16))
                             .collect::<Result<CpuDebugCode,_>>()

@@ -88,7 +88,7 @@ press any key to start..."#);
     let runner_handle = Ral1243::<Z80NMOS>::start_thread(ramsizekb, clock_hz, exroms, runner_rx, pio_in_rx, pio_out_tx);
 
     let mut control_multichar: Option<u8> = None;
-    let mut collected: ArrayVec<[u8;2]> = ArrayVec::new();
+    let mut collected: ArrayVec<u8,2> = ArrayVec::new();
     loop {
         match pio_out_rx.recv_timeout(Duration::from_micros(100)) {
             Ok(msg) => {

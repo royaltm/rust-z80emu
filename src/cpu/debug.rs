@@ -9,7 +9,7 @@ use arrayvec::ArrayString;
 use super::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};
 
 /// The type that stores a copy of the instruction's full byte code.
-pub type CpuDebugCode = arrayvec::ArrayVec::<[u8;4]>;
+pub type CpuDebugCode = arrayvec::ArrayVec::<u8,4>;
 
 /// This type can be passed to [Cpu][crate::Cpu] methods that require a `debug` argument.
 ///
@@ -300,14 +300,14 @@ impl fmt::UpperHex for CpuDebugArg {
 macro_rules! pad {
     ([$size:expr] $f:ident, $templ:literal, $($args:expr),*) => {
         {
-            let mut temp = ArrayString::<[_;$size]>::new();
+            let mut temp = ArrayString::<$size>::new();
             write!(temp, $templ, $($args),*)?;
             $f.pad(temp.as_str())
         }
     };
     ([$size:expr] $f:ident, (#$alt:literal, $templ:literal), $($args:expr),*) => {
         {
-            let mut temp = ArrayString::<[_;$size]>::new();
+            let mut temp = ArrayString::<$size>::new();
             if $f.alternate() {
                 write!(temp, $alt, $($args),*)?;
             }
