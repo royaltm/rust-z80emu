@@ -48,8 +48,7 @@ Another example built on top of `z80emu` is the [SPECTRUSTY](https://royaltm.git
 Rust Version Requirements
 -------------------------
 
-`z80emu` requires Rustc version 1.36 or greater due to the usage of some macro features and API that was introduced
-or stabilized in this version.
+`z80emu` requires Rustc version 1.51 or greater due to the stabilization of const generics in this version.
 
 
 Licensing
@@ -68,7 +67,7 @@ Please mind that each source file contains a copyright notice indicating the det
 [Build Link]: https://github.com/royaltm/rust-z80emu/actions/workflows/ci.yml
 [Build img]: https://github.com/royaltm/rust-z80emu/actions/workflows/ci.yml/badge.svg?branch=master
 [rustc version link]: https://github.com/royaltm/rust-z80emu#rust-version-requirements
-[rustc version img]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
+[rustc version img]: https://img.shields.io/badge/rustc-1.51+-lightgray.svg
 [License Link]: https://www.gnu.org/licenses/#LGPL
 [License img]: https://img.shields.io/crates/l/z80emu
 [Coverage Link]: https://coveralls.io/github/royaltm/rust-z80emu?branch=master
