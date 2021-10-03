@@ -25,6 +25,10 @@ jobs:
           - stable
           - beta
           - nightly
+        include:
+          - os: ubuntu-latest
+          - rust: stable
+          - coverage: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -41,7 +45,7 @@ jobs:
           cargo build --verbose
           cargo test --verbose
       - name: Coverage
-        if: matrix.rust == 'stable'
+        if: matrix.coverage
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: 'latest'
