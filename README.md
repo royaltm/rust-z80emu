@@ -65,8 +65,8 @@ Please mind that each source file contains a copyright notice indicating the det
 [Crate img]: https://img.shields.io/crates/v/z80emu.svg
 [Docs Link]: https://docs.rs/z80emu
 [Docs img]: https://docs.rs/z80emu/badge.svg
-[Build Link]: https://travis-ci.org/royaltm/rust-z80emu
-[Build img]: https://travis-ci.org/royaltm/rust-z80emu.svg?branch=master
+[Build Link]: https://github.com/royaltm/rust-z80emu/actions/workflows/ci.yml
+[Build img]: https://github.com/royaltm/rust-z80emu/actions/workflows/ci.yml/badge.svg?branch=master
 [rustc version link]: https://github.com/royaltm/rust-z80emu#rust-version-requirements
 [rustc version img]: https://img.shields.io/badge/rustc-1.36+-lightgray.svg
 [License Link]: https://www.gnu.org/licenses/#LGPL
