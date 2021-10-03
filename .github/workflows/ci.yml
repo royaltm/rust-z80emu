@@ -13,23 +13,18 @@ env:
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
+    continue-on-error: false
     strategy:
       matrix:
         os: 
           - ubuntu-latest
           - windows-latest
           - macos-latest
-        rust: [1.51.0]
-        include:
-          - rust: 1.51.0
-            experimental: false
-          - rust: stable
-            experimental: false
-          - rust: beta
-            experimental: false
-          - rust: nightly
-            experimental: false
+        rust:
+          - 1.51.0
+          - stable
+          - beta
+          - nightly
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
