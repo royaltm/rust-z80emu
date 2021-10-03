@@ -23,7 +23,7 @@ jobs:
           - nightly
         include:
           - rust: stable
-          - coverage: 'send'
+            coverage: 'send'
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
