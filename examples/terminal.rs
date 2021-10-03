@@ -40,7 +40,12 @@ const DEFAULT_CLOCK_KHZ: Ts = 4_000;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     if cfg!(windows) {
-        if let Err(_) = TermLogger::init(LevelFilter::Debug, Config::default(), TerminalMode::Stdout) {
+        if let Err(_) = TermLogger::init(
+                            LevelFilter::Debug,
+                            Config::default(),
+                            TerminalMode::Stdout,
+                            ColorChoice::Auto)
+        {
             SimpleLogger::init(LevelFilter::Debug, Config::default())?
         };
     }
