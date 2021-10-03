@@ -6,6 +6,8 @@
 */
 //! This module contains various op-code bits parsing methods and their enum representations.
 #![allow(clippy::inconsistent_digit_grouping)]
+#![allow(clippy::unusual_byte_groupings)]
+#![allow(clippy::upper_case_acronyms)]
 use core::convert::TryFrom;
 use core::fmt;
 #[cfg(feature = "serde")] use serde::{Serialize, Deserialize};

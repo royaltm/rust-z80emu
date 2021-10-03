@@ -246,11 +246,11 @@ impl<'de> Visitor<'de> for RegisterPairVisitor {
     }
 
     fn visit_str<E: de::Error>(self, s: &str) -> Result<Self::Value, E> {
-        let body = if s.starts_with('$') {
-            &s[1..]
+        let body = if let Some(rest) = s.strip_prefix('$') {
+            rest
         }
-        else if s.starts_with("0x") {
-            &s[2..]
+        else if let Some(rest) = s.strip_prefix("0x") {
+            rest
         }
         else {
             s

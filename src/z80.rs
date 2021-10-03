@@ -490,7 +490,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
 
         if self.halt {
             debug_assert_eq!(self.prefix, None);
-            debug_assert_eq!(self.last_ei, false);
+            debug_assert!(!self.last_ei);
             let pc = self.pc.get16();
             loop {
                 if tsc.is_past_limit(vc_limit) {

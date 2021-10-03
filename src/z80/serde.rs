@@ -179,7 +179,7 @@ fn visit_seq<'de, V, A, Q>(visitor: V, mut seq: A, n: usize) -> Result<Z80<Q>, A
           A: SeqAccess<'de>,
           Q: Flavour + Deserialize<'de>
 {
-    let af       = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(n + 0, &visitor))?;
+    let af       = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(n    , &visitor))?;
     let af_alt   = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(n + 1, &visitor))?;
     let regs     = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(n + 2, &visitor))?;
     let regs_alt = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(n + 3, &visitor))?;
