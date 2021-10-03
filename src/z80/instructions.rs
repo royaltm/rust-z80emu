@@ -26,16 +26,16 @@ macro_rules! define_instructions_scoped {
 //#################################################################################//
 macro_rules! run_mnemonic {
     (     NOP *                     @@@ $code0:expr, $code1:expr) => {
-        cpu_debug!([$code0, $code1] "NOP*");
+        cpu_debug!([$code0, $code1] "NOP*")
     };
     (     DAA                       @@@ $code:expr) => {
-        instr_acc_op!(daa; [$code]);
+        instr_acc_op!(daa; [$code])
     };
     (     CPL                       @@@ $code:expr) => {
-        instr_acc_op!(cpl; [$code]);
+        instr_acc_op!(cpl; [$code])
     };
     (     NEG                       @@@ $code0:expr, $code1:expr) => {
-        instr_acc_op!(neg; [$code0, $code1]);
+        instr_acc_op!(neg; [$code0, $code1])
     };
     (     CCF                       @@@ $code:expr) => {
         {
@@ -54,7 +54,7 @@ macro_rules! run_mnemonic {
         }
     };
     (     NOP                       @@@ $code:expr) => {
-        cpu_debug!([$code] NOP );
+        cpu_debug!([$code] NOP )
     };
     (     DI                        @@@ $code:expr) => {
         {
@@ -362,10 +362,10 @@ macro_rules! run_mnemonic {
         }
     };
     (     INC r | INC (HL)          @@@ $code:expr) => {
-        instr_inc_dec8!( inc r|[hl]; [$code]);
+        instr_inc_dec8!( inc r|[hl]; [$code])
     };
     (     DEC r | DEC (HL)          @@@ $code:expr) => {
-        instr_inc_dec8!( dec r|[hl]; [$code]);
+        instr_inc_dec8!( dec r|[hl]; [$code])
     };
     (     ADD HL,dd                 @@@ $code:expr) => {
         { // ir:1 x 7
@@ -408,16 +408,16 @@ macro_rules! run_mnemonic {
         }
     };
     (     RLCA                      @@@ $code:expr) => {
-        instr_acc_op!(rlca; [$code]);
+        instr_acc_op!(rlca; [$code])
     };
     (     RRCA                      @@@ $code:expr) => {
-        instr_acc_op!(rrca; [$code]);
+        instr_acc_op!(rrca; [$code])
     };
     (     RLA                       @@@ $code:expr) => {
-        instr_acc_op!(rla; [$code]);
+        instr_acc_op!(rla; [$code])
     };
     (     RRA                       @@@ $code:expr) => {
-        instr_acc_op!(rra; [$code]);
+        instr_acc_op!(rra; [$code])
     };
     (     @rot|BIT|RES|SET r|(HL)   @@@ $code0:expr) => {
         { // pc+1:4

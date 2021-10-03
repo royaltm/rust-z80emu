@@ -33,10 +33,10 @@ macro_rules! define_cpu_debug_scoped {
         /// A sugar for creating CpuDebug and calling a debugger function if it was given as $deb.
         macro_rules! cpu_debug {
             ([$dol($code:expr),+] $mnemonic:literal $dol($id:ident:$e:tt),*) => {
-                cpu_debug!([$dol($code),+] str($mnemonic) $dol($id:$e),*);
+                cpu_debug!([$dol($code),+] str($mnemonic) $dol($id:$e),*)
             };
             ([$dol($code:expr),+] $mnemonic:ident $dol($id:ident:$e:tt),*) => {
-                cpu_debug!([$dol($code),+] str(stringify!($mnemonic)) $dol($id:$e),*);
+                cpu_debug!([$dol($code),+] str(stringify!($mnemonic)) $dol($id:$e),*)
             };
             ([$dol($code:expr),+] op8($op:expr) $id:ident:$e:tt) => {
                 match $op {
