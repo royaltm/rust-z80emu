@@ -42,6 +42,7 @@ jobs:
           cargo test --verbose
       - name: Coverage
         if: matrix.rust == 'stable'
-        run: |
-          cargo install cargo-tarpaulin
-          cargo tarpaulin --verbose --exclude-files benches/*.rs --coveralls ${{secrets.COVERALLS_KEY}}
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: 'latest'
+          args: --verbose --exclude-files benches/*.rs --coveralls ${{secrets.COVERALLS_KEY}}
