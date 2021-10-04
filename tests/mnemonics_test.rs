@@ -23,8 +23,6 @@ use std::str::FromStr;
 
 use arrayvec::ArrayVec;
 use rand::prelude::*;
-mod and_then;
-use and_then::AndThen;
 
 use z80emu::{*, z80::Z80BM1};
 use opconsts::HALT_OPCODE;
@@ -262,7 +260,7 @@ fn test_mnemonics_cpu<C: Cpu>(mut cpu: C) {
             Some(s) if s.starts_with(&textcode) => {
                 lines.next().and_then(|s| s.get(textcode.len()..))
             }
-            _ => (code[0] == 0xED).and_then(|| Some("NOP*"))
+            _ => (code[0] == 0xED).then(|| "NOP*")
         }.unwrap_or_else(||
             panic!("mnemonic not found for: {}", textcode));
 

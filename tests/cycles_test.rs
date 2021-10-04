@@ -27,8 +27,6 @@ use std::rc::Rc;
 
 use arrayvec::ArrayVec;
 use rand::prelude::*;
-mod and_then;
-use and_then::AndThen;
 
 use z80emu::{
     *,
@@ -357,7 +355,8 @@ impl FromStr for PrereqCycles {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut splitargs = s.split(",");
         let prereq = s.starts_with("<")
-                    .and_then(|| splitargs.next())
+                    .then(|| splitargs.next())
+                    .flatten()
                     .map(Prerequisite::from_str)
                     .transpose()?;
         splitargs.map(Cycle::from_str).collect::<Result<Vec<_>,_>>()
@@ -443,7 +442,7 @@ fn build_cycle_hash() -> Result<HashMap<String, InstrCycles>, String> {
                 let has_condition = line.contains("cc");
                 if parse_instruction_and_expand(line, |key| {
                     println!("  {:?}\t{:?}", key, line);
-                    let condition = has_condition.and_then(|| find_condition(&key));
+                    let condition = has_condition.then(|| find_condition(&key)).flatten();
                     let cycles = Rc::clone(&cycles);
                     let value = InstrCycles { cycles, immediate_values, has_offset, condition, prereq, visited };
                     assert!(hmap.insert(key, value).is_none(), "key duplicate in {:?}", line)
