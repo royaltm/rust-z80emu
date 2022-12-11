@@ -211,7 +211,7 @@ impl<Q: Flavour> Z80<Q> {
         self.push2(vhi, vlo, control, tsc);
     }
 
-    #[inline] // #[inline(always)]
+    #[inline(always)]
     pub(super) fn push2<M, T>(&mut self, vhi: u8, vlo: u8, control: &mut M, tsc: &mut T)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // sp-1:3,sp-2:3
@@ -222,7 +222,7 @@ impl<Q: Flavour> Z80<Q> {
         self.sp.set16(sp);
     }
 
-    #[inline] // #[inline(always)]
+    #[inline(always)]
     pub(super) fn push_ss<M, T>(&mut self, control: &mut M, tsc: &mut T, ss: StkReg16, flags: CpuFlags)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ir:1, sp-1:3, sp-2:3
@@ -238,7 +238,7 @@ impl<Q: Flavour> Z80<Q> {
         self.push2(vhi, vlo, control, tsc);
     }
 
-    #[inline] // #[inline(always)]
+    #[inline(always)]
     pub(super) fn pop_ss<M, T>(&mut self, control: &mut M, tsc: &mut T, ss: StkReg16, flags: &mut CpuFlags)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // sp:3,sp+1:3
@@ -276,7 +276,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline] // #[inline(always)]
+    #[inline(always)]
     pub(super) fn apply_reg8<F>(&mut self, tgt: Reg8, prefix: Option<Prefix>, op: F)
     where F: FnOnce(u8) -> u8
     {
@@ -575,7 +575,7 @@ impl<Q: Flavour> Z80<Q> {
         self.flavour.flags_modified();
     }
 
-    #[inline(never)]
+    #[inline(always)]
     pub(super) fn op16_reg16<T, F>(
         &mut self, tsc: &mut T, flags: &mut CpuFlags, op16: F, reg16: RegisterPair, nn: u16
     ) -> RegisterPair
@@ -620,7 +620,7 @@ impl<Q: Flavour> Z80<Q> {
     }
 
     /// Used by various 8-bit operations on the memory via one of the address registers: HL, IX or IY.
-    #[inline] // #[inline(always)]
+    #[inline(always)]
     pub(super) fn r_op_w_mem8<M, T, F>(&mut self, control: &mut M, tsc: &mut T, op8: F)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -633,7 +633,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(hl, val, tsc.add_mreq(hl));
     }
 
-    #[inline] // #[inline(always)]
+    #[inline(always)]
     pub(super) fn instr_inc_dec8<M, T, F>(
         &mut self, control: &mut M, tsc: &mut T, arg: R8ParseResult, flags: &mut CpuFlags, opfn: F
     )

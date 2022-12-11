@@ -201,7 +201,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         CpuFlags::from_bits_truncate(self.af.get8lo())
     }
 
-    #[inline]
+    #[inline(always)]
     fn set_flags(&mut self, flags: CpuFlags) {
         self.af.set8lo(flags.bits());
     }
@@ -238,7 +238,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.ir.set8hi(i);
     }
 
-    #[inline]
+    #[inline(always)]
     fn get_ir(&self) -> u16 {
         let ir = self.ir.get16();
         ir & 0xFF80 | self.r.0 as u16 & 0x007F
@@ -255,37 +255,37 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.iff2 = iff2;
     }
 
-    #[inline]
+    #[inline(always)]
     fn halt(&mut self) {
         self.halt = true;
     }
 
-    #[inline]
+    #[inline(always)]
     fn is_halt(&self) -> bool {
         self.halt
     }
 
-    #[inline]
+    #[inline(always)]
     fn get_im(&self) -> InterruptMode {
         self.im
     }
 
-    #[inline]
+    #[inline(always)]
     fn set_im(&mut self, im: InterruptMode) {
         self.im = im;
     }
 
-    #[inline]
+    #[inline(always)]
     fn ex_af_af(&mut self) {
         swap(&mut self.af, &mut self.af_alt);
     }
 
-    #[inline]
+    #[inline(always)]
     fn exx(&mut self) {
         swap(&mut self.regs, &mut self.regs_alt);
     }
 
-    #[inline]
+    #[inline(always)]
     fn get_reg(&self, reg: Reg8, prefix: Option<Prefix>) -> u8 {
         match reg {
             Reg8::B => self.regs.bc.get8hi(),
@@ -306,7 +306,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn set_reg(&mut self, dst: Reg8, prefix: Option<Prefix>, val: u8) {
         unsafe {
             *self.reg8_ptr(dst, prefix) = val;
@@ -343,12 +343,12 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.stkreg16_mut(src).set16(val)
     }
 
-    #[inline]
+    #[inline(always)]
     fn get_index2(&self, prefix: Prefix) -> (u8, u8) {
         self.index16_ref(prefix).get()
     }
 
-    #[inline]
+    #[inline(always)]
     fn get_index16(&self, prefix: Prefix) -> u16 {
         self.index16_ref(prefix).get16()
     }
@@ -358,7 +358,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.index16_mut(prefix).set(hi, lo)
     }
 
-    #[inline]
+    #[inline(always)]
     fn set_index16(&mut self, prefix: Prefix, val: u16) {
         self.index16_mut(prefix).set16(val)
     }
@@ -373,18 +373,18 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         is_int_allowed(self.prefix, self.last_ei)
     }
 
-    #[inline]
+    #[inline(always)]
     fn restore_iff1(&mut self) {
         self.iff1 = self.iff2;
     }
 
-    #[inline]
+    #[inline(always)]
     fn disable_interrupts(&mut self) {
         self.iff1 = false;
         self.iff2 = false;
     }
 
-    #[inline]
+    #[inline(always)]
     fn enable_interrupts(&mut self) {
         self.iff1 = true;
         self.iff2 = true;
