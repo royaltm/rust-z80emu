@@ -135,6 +135,7 @@ pub enum CpuDebugArgs {
 }
 
 impl fmt::Display for CpuDebugAddr {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugAddr::ImmAddr(nn)  => write!(f, "({})", nn),
@@ -146,6 +147,7 @@ impl fmt::Display for CpuDebugAddr {
 }
 
 impl fmt::LowerHex for CpuDebugAddr {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugAddr::ImmAddr(nn) => if f.alternate() {
@@ -172,6 +174,7 @@ impl fmt::LowerHex for CpuDebugAddr {
 }
 
 impl fmt::UpperHex for CpuDebugAddr {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugAddr::ImmAddr(nn) => if f.alternate() {
@@ -198,6 +201,7 @@ impl fmt::UpperHex for CpuDebugAddr {
 }
 
 impl fmt::Display for CpuDebugPort {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugPort::ImmPort(n)  => write!(f, "({})", n),
@@ -207,6 +211,7 @@ impl fmt::Display for CpuDebugPort {
 }
 
 impl fmt::LowerHex for CpuDebugPort {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugPort::ImmPort(n)  => if f.alternate() {
@@ -221,6 +226,7 @@ impl fmt::LowerHex for CpuDebugPort {
 }
 
 impl fmt::UpperHex for CpuDebugPort {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugPort::ImmPort(n)  => if f.alternate() {
@@ -235,6 +241,7 @@ impl fmt::UpperHex for CpuDebugPort {
 }
 
 impl fmt::Display for CpuDebugArg {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugArg::Imm8(n) => write!(f, "{}", n),
@@ -254,6 +261,7 @@ impl fmt::Display for CpuDebugArg {
 }
 
 impl fmt::LowerHex for CpuDebugArg {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugArg::Imm8(n) => if f.alternate() {
@@ -276,6 +284,7 @@ impl fmt::LowerHex for CpuDebugArg {
 }
 
 impl fmt::UpperHex for CpuDebugArg {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CpuDebugArg::Imm8(n) => if f.alternate() {
@@ -320,6 +329,7 @@ macro_rules! pad {
 }
 
 impl fmt::Display for CpuDebugArgs {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.width().is_some() {
             pad!([14] f, "{}", self)
@@ -338,6 +348,7 @@ impl fmt::Display for CpuDebugArgs {
 }
 
 impl fmt::LowerHex for CpuDebugArgs {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.width().is_some() {
             pad!([15] f, (#"{:#x}", "{:x}"), self)
@@ -366,6 +377,7 @@ impl fmt::LowerHex for CpuDebugArgs {
 }
 
 impl fmt::UpperHex for CpuDebugArgs {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.width().is_some() {
             pad!([15] f, (#"{:#X}", "{:X}"), self)
@@ -394,12 +406,14 @@ impl fmt::UpperHex for CpuDebugArgs {
 }
 
 impl fmt::Display for CpuDebug {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:>5} {:4} {:14} {:?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
     }
 }
 
 impl fmt::LowerHex for CpuDebug {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             write!(f, "{:#06x} {:4} {:#15x} {:02x?}", self.pc, self.mnemonic, self.args, self.code.as_slice())
@@ -411,6 +425,7 @@ impl fmt::LowerHex for CpuDebug {
 }
 
 impl fmt::UpperHex for CpuDebug {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
             write!(f, "{:#06X} {:4} {:#15X} {:02X?}", self.pc, self.mnemonic, self.args, self.code.as_slice())

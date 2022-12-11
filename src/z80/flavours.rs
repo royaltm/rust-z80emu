@@ -46,7 +46,7 @@ pub trait Flavour: Clone + Copy + Default + PartialEq + Eq {
     /// Panics if the `cpu_any` value is not a variant corresponding to this `Flavour`.
     fn unwrap_cpu_any(cpu_any: Z80Any) -> Z80<Self>;
     /// Should reset the state. Called by [crate::Cpu::reset]. The default implementation resets the state to default.
-    #[inline(always)]
+    // #[inline(always)]
     fn reset(&mut self) {
         *self = Default::default();
     }
@@ -87,7 +87,7 @@ pub struct BM1 {
 impl Flavour for NMOS {
     const CONSTANT_OUT_DATA: u8 = 0;
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool = true;
-    #[inline(always)]
+
     fn tag() -> &'static str {
         "NMOS"
     }
@@ -113,7 +113,7 @@ impl Flavour for NMOS {
             acc | flags.bits()
         }
     }
-    #[inline]
+
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
         Z80Any::NMOS(cpu)
     }
@@ -126,7 +126,7 @@ impl Flavour for NMOS {
 impl Flavour for CMOS {
     const CONSTANT_OUT_DATA: u8 = u8::max_value();
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool = false;
-    #[inline(always)]
+
     fn tag() -> &'static str {
         "CMOS"
     }
@@ -140,7 +140,7 @@ impl Flavour for CMOS {
     fn flags_modified(&mut self) {}
     #[inline(always)]
     fn get_q(&self, acc: u8, _flags: CpuFlags) -> u8 { acc }
-    #[inline]
+
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
         Z80Any::CMOS(cpu)
     }
@@ -153,7 +153,7 @@ impl Flavour for CMOS {
 impl Flavour for BM1 {
     const CONSTANT_OUT_DATA: u8 = 0;
     const ACCEPTING_INT_RESETS_IFF2_EARLY: bool = false;
-    #[inline(always)]
+
     fn tag() -> &'static str {
         "BM1"
     }
@@ -179,7 +179,7 @@ impl Flavour for BM1 {
             acc | flags.bits()
         }
     }
-    #[inline]
+
     fn cpu_into_any(cpu: Z80<Self>) -> Z80Any {
         Z80Any::BM1(cpu)
     }

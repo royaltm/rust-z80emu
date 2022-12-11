@@ -133,7 +133,6 @@ impl<Q: Flavour> Z80<Q> {
     /// Converts between instances of [Z80] with different flavours.
     ///
     /// **NOTE**: Some [Flavour] related information may be lost during conversion.
-    #[inline]
     pub fn from_flavour<F: Flavour>(cpu: Z80<F>) -> Self
         where Q: From<F>
     {
@@ -364,12 +363,12 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.index16_mut(prefix).set16(val)
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_irq_allowed(&self) -> bool {
         self.iff1 && is_int_allowed(self.prefix, self.last_ei)
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_nmi_allowed(&self) -> bool {
         is_int_allowed(self.prefix, self.last_ei)
     }
@@ -434,6 +433,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
     }
 
     #[allow(clippy::cognitive_complexity,clippy::never_loop)]
+    #[inline(never)]
     fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>, code: u8) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -460,6 +460,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
+    #[inline(never)]
     fn execute_next<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -474,14 +475,15 @@ impl<Q: Flavour> Cpu for Z80<Q> {
             Ok(())
         }
         else {
-            let mut pc = Wrapping(self.pc.get16());
-            let code: u8 = fetch_next_opcode_ext!(self, control, pc, tsc);
+            // let code: u8 = fetch_next_opcode_ext!(self, control, pc, tsc);
+            let (pc, code) = self.fetch_next_opcode(control, tsc, Wrapping(self.pc.get16()));
             self.pc.set16(pc.0);
             self.execute_instruction::<M,T,F>(control, tsc, debug, code)
         }
     }
 
-    #[allow(clippy::cognitive_complexity)]
+    // #[allow(clippy::cognitive_complexity)]
+    #[inline(never)]
     fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: &mut T, vc_limit: T::Limit) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock
@@ -519,6 +521,64 @@ impl<Q: Flavour> Cpu for Z80<Q> {
             }
         }
 
+        // let mut prefix = self.prefix;
+        // let mut pc = Wrapping(self.pc.get16());
+        // let mut flags = self.get_flags();
+
+        loop {
+            // let reason: LoopExitReason<_,_> = 'main: loop {
+            //     // can break 'main with Halt, WriteIo, Reti or EnableInt
+            //     execute_next_instruction! { DEBUG; prefix, flags, pc, self, control, tsc; break 'main }
+
+            //     if tsc.is_past_limit(vc_limit)  {
+            //         break 'main LoopExitReason::LimitReached
+            //     }
+
+            //     if is_int_allowed(prefix, false) && self.iff1 && control.is_irq(tsc.as_timestamp()) {
+            //         break 'main LoopExitReason::Irq
+            //     }
+            // };
+
+            // if let LoopExitReason::EnableInt = reason {
+            //     if !tsc.is_past_limit(vc_limit)  {
+            //         self.last_ei = false;
+            //         continue // this way skipping irq check immediately after EI
+            //     }
+            // }
+
+            // self.set_flags(flags);
+            // self.pc.set16(pc.0);
+            // self.prefix = prefix;
+            match self.execute_with_limit_loop(control, tsc, vc_limit) {
+            // match reason {
+                LoopExitReason::EnableInt|
+                LoopExitReason::LimitReached => return Ok(()),
+                LoopExitReason::Halt => return Err(BreakCause::Halt),
+                LoopExitReason::WriteIo(cause) => return Err(BreakCause::WriteIo(cause)),
+                LoopExitReason::Reti(cause) => return Err(BreakCause::Reti(cause)),
+                LoopExitReason::Irq => match self.irq_no_check::<M,T,_>(control, tsc, DEBUG) {
+                    Ok(()) => {
+                        if tsc.is_past_limit(vc_limit) {
+                            return Ok(());
+                        }
+                        continue;
+                    }
+                    Err(cause) => return Err(cause)
+                }
+            }
+        }
+    }
+}
+
+impl<Q: Flavour> Z80<Q> {
+    // #[allow(clippy::cognitive_complexity)]
+    #[inline(always)]
+    fn execute_with_limit_loop<M, T>(&mut self, control: &mut M, tsc: &mut T, vc_limit: T::Limit) -> LoopExitReason<M::WrIoBreak, M::RetiBreak>
+    where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
+          T: Clock
+    {
+        const DEBUG: Option<CpuDebugFn> = None;
+
         let mut prefix = self.prefix;
         let mut pc = Wrapping(self.pc.get16());
         let mut flags = self.get_flags();
@@ -548,25 +608,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
             self.pc.set16(pc.0);
             self.prefix = prefix;
 
-            match reason {
-                LoopExitReason::EnableInt|
-                LoopExitReason::LimitReached => return Ok(()),
-                LoopExitReason::Halt => return Err(BreakCause::Halt),
-                LoopExitReason::WriteIo(cause) => return Err(BreakCause::WriteIo(cause)),
-                LoopExitReason::Reti(cause) => return Err(BreakCause::Reti(cause)),
-                LoopExitReason::Irq => match self.irq_no_check::<M,T,_>(control, tsc, DEBUG) {
-                    Ok(()) => {
-                        if tsc.is_past_limit(vc_limit) {
-                            return Ok(());
-                        }
-                        prefix = self.prefix;
-                        pc = Wrapping(self.pc.get16());
-                        flags = self.get_flags();
-                        continue;
-                    }
-                    Err(cause) => return Err(cause)
-                }
-            }
+            return reason;
         }
     }
 }

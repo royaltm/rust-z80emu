@@ -166,7 +166,7 @@ macro_rules! execute_instruction {
     ([$code:expr]
     $deb:expr; $maybe_prefix:ident, $flags:ident, $pc:ident, $cpu:ident, $control:ident, $tsc:ident; break $main:tt) => {{
 
-        define_cpu_debug_scoped!([$] $deb; $maybe_prefix, $flags, $pc, $cpu, $control, $tsc);
+        define_cpu_debug_scoped!([$] $deb; $maybe_prefix, $pc);
         define_helpers_scoped!([$] $flags, $pc, $cpu, $control, $tsc);
 
         $cpu.flavour.begin_instruction();

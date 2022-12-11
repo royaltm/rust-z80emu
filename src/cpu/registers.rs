@@ -54,7 +54,6 @@ impl Default for InterruptMode {
 impl core::convert::TryFrom<u8> for InterruptMode {
     type Error = ();
 
-    #[inline(always)]
     fn try_from(im: u8) -> Result<Self, Self::Error> {
         match im {
             0 => Ok(InterruptMode::Mode0),
@@ -66,77 +65,79 @@ impl core::convert::TryFrom<u8> for InterruptMode {
 }
 
 impl RegisterPair {
-    #[inline]
+    #[inline(always)]
     pub fn ptr8hi(&mut self) -> *mut u8 {
         unsafe { self.0.as_mut_ptr().offset(1) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn ptr8lo(&mut self) -> *mut u8 {
         unsafe { self.0.as_mut_ptr().offset(0) }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get16(self) -> u16 {
         u16::from_le_bytes(self.0)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set16(&mut self, val: u16) {
         self.0 = val.to_le_bytes();
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get8hi(self) -> u8 {
         let [_, hi] = self.0;
         hi
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn get8lo(self) -> u8 {
         let [lo, _] = self.0;
         lo
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set8hi(&mut self, val: u8) {
-        unsafe { *self.ptr8hi() = val; }
+        self.0[1] = val;
+        // unsafe { *self.ptr8hi() = val; }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set8lo(&mut self, val: u8) {
-        unsafe { *self.ptr8lo() = val; }
+        self.0[0] = val;
+        // unsafe { *self.ptr8lo() = val; }
     }
 
     /// Returns values of this pair of registers as a tuple of `(MSB, LSB)`.
-    #[inline]
+    #[inline(always)]
     pub fn get(self) -> (u8, u8) {
         let [lo, hi] = self.0;
         (hi, lo)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn set(&mut self, hi: u8, lo: u8) {
         self.0 = [lo, hi];
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn inc16(&mut self) {
         self.set16(self.get16().wrapping_add(1));
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn add16(&mut self, val: u16) {
         self.set16(self.get16().wrapping_add(val));
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn dec16(&mut self) {
         self.set16(self.get16().wrapping_sub(1));
     }
 
     /// Subtracts 1 from the 16-bit register and returns true if the result is 0.
-    #[inline]
+    #[inline(always)]
     pub fn dec16_is_zero(&mut self) -> bool {
         let val = self.get16().wrapping_sub(1);
         self.set16(val);
@@ -144,14 +145,12 @@ impl RegisterPair {
     }
 
     /// Applies op to the 16-bit register value and modifies it in place.
-    #[inline]
     pub fn op16<F: FnOnce(u16) -> (u8, u8)>(&mut self, op: F) {
         let (vhi, vlo) = op(self.get16());
         self.set(vhi, vlo);
     }
 
     /// Applies op to the 8-bit high half value and modifies it in place.
-    #[inline]
     pub fn op8hi<F: FnOnce(u8) -> u8>(&mut self, op: F) {
         unsafe {
             let ptr = self.ptr8hi();
@@ -160,7 +159,6 @@ impl RegisterPair {
     }
 
     /// Applies op to the 8-bit low half value and modifies it in place.
-    #[inline]
     pub fn op8lo<F: FnOnce(u8) -> u8>(&mut self, op: F) {
         unsafe {
             let ptr = self.ptr8lo();
@@ -183,8 +181,16 @@ impl From<i16> for RegisterPair {
 }
 
 impl From<[u8;2]> for RegisterPair {
+    #[inline(always)]
     fn from(pair: [u8;2]) -> Self {
         RegisterPair(pair)
+    }
+}
+
+impl From<(u8, u8)> for RegisterPair {
+    #[inline(always)]
+    fn from((hi, lo): (u8, u8)) -> Self {
+        RegisterPair([lo, hi])
     }
 }
 

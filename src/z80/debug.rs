@@ -10,6 +10,7 @@ use super::flavours::Flavour;
 use super::Z80;
 
 impl<Q: Flavour> core::fmt::Debug for Z80<Q> {
+    #[inline(never)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Z80")
             .field("pc", &self.pc.get16())
@@ -38,6 +39,7 @@ impl<Q: Flavour> core::fmt::Debug for Z80<Q> {
 }
 
 impl CpuDebug {
+    #[inline(never)]
     pub(super) fn debug_instruction<F>(
             mnemonic: &'static str,
             args: CpuDebugArgs,

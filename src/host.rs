@@ -22,6 +22,7 @@ Please see [crate::host::cycles] module for the description of each emulated cyc
 #[cfg(feature = "std")] use std::error;
 #[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 use core::fmt;
+#[allow(unused_imports)]
 use core::num::{NonZeroU8, NonZeroU16, Wrapping};
 use core::ops::{Add, AddAssign, Deref, DerefMut};
 
@@ -195,6 +196,7 @@ pub trait Clock {
     /// This method should increase the counter by at least the value given in `add_ts`.
     /// It's being used by internal operations of the [Cpu](crate::cpu::Cpu) without any external access.
     /// The `address` given here is whatever was put on the address bus before.
+    // fn add_no_mreq<const ADD_TS: u8>(&mut self, address: u16);
     fn add_no_mreq(&mut self, address: u16, add_ts: NonZeroU8);
     /// This method should increase the counter by at least [M1_CYCLE_TS] `4`
     /// and should return the timestamp that may be passed to [Memory::read_opcode].
@@ -445,7 +447,7 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8> + core::convert
     type Timestamp = T;
 
     /// Returns `true` if `self` as `T` >= `limit`. Otherwise returns `false`.
-    #[inline]
+    #[inline(always)]
     fn is_past_limit(&self, limit: Self::Limit) -> bool {
         (self.0).0 >= limit
     }
@@ -458,8 +460,9 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8> + core::convert
         ts
     }
     /// Updates `self` by adding `add_ts` T-states to the previous value of `self`.
-    #[inline]
+    #[inline(always)]
     fn add_no_mreq(&mut self, _addr: u16, add_ts: NonZeroU8) {
+    // fn add_no_mreq<const ADD_TS: u8>(&mut self, _addr: u16) {
         self.0 += Wrapping(add_ts.get().into());
     }
     /// Returns `self` after adding [IO_IORQ_LOW_TS] as `T`.
@@ -472,14 +475,14 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8> + core::convert
     }
     /// Updates `self` by adding [MEMRW_CYCLE_TS] to the previous value of `self`.
     /// Returns `self` after updating as `T`.
-    #[inline]
+    #[inline(always)]
     fn add_mreq(&mut self, _addr: u16) -> T {
         self.0 += Wrapping(MEMRW_CYCLE_TS.into());
         (self.0).0
     }
     /// Updates `self` by adding [M1_CYCLE_TS] to the previous value of `self`.
     /// Returns `self` after updating as `T`.
-    #[inline]
+    #[inline(always)]
     fn add_m1(&mut self, _addr: u16) -> T {
         self.0 += Wrapping(M1_CYCLE_TS.into());
         (self.0).0
@@ -490,7 +493,7 @@ where T: Copy + PartialEq + PartialOrd + core::convert::From<u8> + core::convert
         self.0 += Wrapping(wait_states.get().into())
     }
     /// Returns a copy of `self` as `T`.
-    #[inline]
+    #[inline(always)]
     fn as_timestamp(&self) -> T {
         (self.0).0
     }

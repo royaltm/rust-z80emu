@@ -190,7 +190,7 @@ pub fn scf(q: u8, flags: &mut CpuFlags) {
     flags.insert(CpuFlags::mask_xy(q)|CpuFlags::C);
 }
 
-#[inline]
+#[inline(never)]
 pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
     let cf0 = flags.cf();
     let hf0 = flags.hf();
@@ -377,10 +377,10 @@ pub fn bit_mp(n: u32, val: u8, b35: u8, flags: &mut CpuFlags) {
     });
 }
 
-#[inline]
+#[inline(always)]
 pub fn res(b: u32, v: u8) -> u8 { !(1 << b) & v }
 
-#[inline]
+#[inline(always)]
 pub fn set(b: u32, v: u8) -> u8 {  (1 << b) | v }
 
 #[inline]

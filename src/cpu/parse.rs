@@ -27,7 +27,6 @@ pub enum Prefix {
 impl core::convert::TryFrom<u8> for Prefix {
     type Error = ();
 
-    #[inline(always)]
     fn try_from(code: u8) -> Result<Self, Self::Error> {
         match code {
             0xDD => Ok(Prefix::Xdd),
@@ -39,6 +38,7 @@ impl core::convert::TryFrom<u8> for Prefix {
 
 /// Displays prefix as a corresponding register pair.
 impl fmt::Display for Prefix {
+    #[inline(never)]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", match self {
             Prefix::Xdd  => "IX",
@@ -48,7 +48,7 @@ impl fmt::Display for Prefix {
 }
 
 macro_rules! reg_enum_mask_try_from {
-    ($name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
+    ($name:ident & ($mask:expr) {$($n:ident = $e:expr;)*} else { $err:expr }) => {
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[repr(u8)]
         pub enum $name {
@@ -62,12 +62,14 @@ macro_rules! reg_enum_mask_try_from {
             fn try_from(value: u8) -> Result<Self, Self::Error> {
                 match value & ($mask) {
                     $($e => Ok($name::$n),)*
-                    _ => Err(())
+                    $err => Err(()),
+                    _ => unsafe { core::hint::unreachable_unchecked() }
                 }
             }
         }
 
         impl core::fmt::Display for $name {
+            #[inline(never)]
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 write!(f, "{}", match self {
                     $($name::$n => stringify!($n),)*
@@ -101,7 +103,7 @@ macro_rules! reg_enum_mask_from {
         }
 
         impl From<$name> for &str {
-            #[inline(always)]
+            #[inline(never)]
             fn from(value: $name) -> Self {
                 match value {
                     $($name::$n => stringify!($n),)*
@@ -110,6 +112,7 @@ macro_rules! reg_enum_mask_from {
         }
 
         impl core::fmt::Display for $name {
+            #[inline(never)]
             fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 write!(f, "{}", match self {
                     $($name::$n => stringify!($n),)*
@@ -129,6 +132,9 @@ reg_enum_mask_try_from!{
         L = 0b101;
         // (HL)|n = 0b110;
         A = 0b111;
+    }
+    else {
+        0b110
     }
 }
 
@@ -194,11 +200,11 @@ pub Condition
 
 impl Condition {
     /// Parses JR cc OPCODE into one of the conditional variant.
-    #[inline]
+    #[inline(always)]
     pub(crate) fn from_jr_subset(code: u8) -> Self {
         Condition::from(code & 0b00_011_000)
     }
-    #[inline]
+    #[inline(always)]
     pub fn is_satisfied(self, flags: CpuFlags) -> bool {
         match self {
             Condition::NZ =>  !flags.contains(CpuFlags::Z),
@@ -252,6 +258,7 @@ impl Reg8 {
 
     /// Formats `Reg8` as a string with the given formatter with `prefix` modification.
     /// E.g. for [Reg8::H] writes "IXH" if prefix is [Prefix::Xdd].
+    #[inline(never)]
     pub fn format_with_prefix(self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
         match (self, prefix) {
             (Reg8::H, Some(Prefix::Xdd)) => f.write_str("IXH"),
@@ -266,6 +273,7 @@ impl Reg8 {
 impl Reg16 {
     /// Formats `Reg16` as a string with the given formatter with `prefix` modification.
     /// E.g. for [Reg16::HL] writes "IX" if prefix is [Prefix::Xdd].
+    #[inline(never)]
     pub fn format_with_prefix(self, f: &mut fmt::Formatter<'_>, prefix: Option<Prefix>) -> fmt::Result {
         match (self, prefix) {
             (Reg16::HL, Some(Prefix::Xdd)) => f.write_str("IX"),
