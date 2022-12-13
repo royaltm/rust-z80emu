@@ -155,14 +155,14 @@ impl ExecSelect {
 
 fn shuffle_run_execs<Q: Flavour>(cpu: Z80<Q>, execs: &[ExecSelect], total_duration: Duration) {
     for exe in execs.iter() {
-        println!("{} {:?}", Q::tag(), exe);
+        println!("Z80<{}> {:?}", Q::tag(), exe);
         exe.shuffle_run(cpu.clone(), total_duration);
     }
 }
 
 fn shuffle_run_execs_any(cpu: Z80Any, execs: &[ExecSelect], total_duration: Duration) {
     for exe in execs.iter() {
-        println!("{} {:?}", cpu.tag(), exe);
+        println!("Z80Any({}) {:?}", cpu.tag(), exe);
         exe.shuffle_run(cpu.clone(), total_duration);
     }
 }
