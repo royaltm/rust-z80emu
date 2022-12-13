@@ -55,7 +55,7 @@ pub type CpuDebugFn = fn(CpuDebug);
 /// 0090 : ADC    HL, HL               [ED, 6A]
 /// 0092 : JR     NC, 0x0097           [30, 03]
 /// ```
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CpuDebug {
     /// A copy of bytes that assemble the command that has been executed.
     pub code: CpuDebugCode,
@@ -70,7 +70,7 @@ pub struct CpuDebug {
 }
 
 /// An address command argument.
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CpuDebugAddr {
     /// An immediate address.
     ImmAddr(u16),
@@ -82,7 +82,7 @@ pub enum CpuDebugAddr {
 }
 
 /// An I/O port address.
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CpuDebugPort {
     /// An immediate port address.
     ImmPort(u8),
@@ -91,7 +91,7 @@ pub enum CpuDebugPort {
 }
 
 /// A command argument.
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CpuDebugArg {
     /// An immediate 8-bit integer.
     Imm8(u8),
@@ -121,7 +121,7 @@ pub enum CpuDebugArg {
 }
 
 /// An enum holding the command arguments.
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CpuDebugArgs {
     /// The command had no arguments.
     None,

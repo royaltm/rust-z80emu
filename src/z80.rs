@@ -445,6 +445,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         let mut pc = Wrapping(self.pc.get16());
         let mut flags = self.get_flags();
 
+        #[allow(clippy::never_loop)]
         let reason: LoopExitReason<_,_> = 'main: loop {
             execute_instruction! {[code] debug; prefix, flags, pc, self, control, tsc; break 'main }
             break 'main LoopExitReason::LimitReached;
@@ -482,7 +483,6 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
-    // #[allow(clippy::cognitive_complexity)]
     #[inline(never)]
     fn execute_with_limit<M, T>(&mut self, control: &mut M, tsc: &mut T, vc_limit: T::Limit) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
@@ -513,9 +513,8 @@ impl<Q: Flavour> Cpu for Z80<Q> {
             self.last_ei = false;
         }
         else if is_int_allowed(self.prefix, false) && self.iff1 && control.is_irq(tsc.as_timestamp()) {
-            if let Err(cause) = self.irq_no_check::<M,T,_>(control, tsc, DEBUG) {
-                return Err(cause);
-            }
+            self.irq_no_check::<M,T,_>(control, tsc, DEBUG)?;
+
             if tsc.is_past_limit(vc_limit) {
                 return Ok(());
             }
@@ -571,7 +570,6 @@ impl<Q: Flavour> Cpu for Z80<Q> {
 }
 
 impl<Q: Flavour> Z80<Q> {
-    // #[allow(clippy::cognitive_complexity)]
     #[inline(always)]
     fn execute_with_limit_loop<M, T>(&mut self, control: &mut M, tsc: &mut T, vc_limit: T::Limit) -> LoopExitReason<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,

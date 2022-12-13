@@ -123,7 +123,7 @@ impl<'de, Q> Deserialize<'de> for Z80<Q>
                                      .ok_or_else(|| de::Error::invalid_length(0, &self))?;
                     match &*variant {
                         "NMOS"|"CMOS"|"BM1" => visit_seq(self, seq, 1),
-                        _ => Err(de::Error::unknown_variant(&*variant, &["NMOS", "CMOS", "BM1"]))
+                        _ => Err(de::Error::unknown_variant(&variant, &["NMOS", "CMOS", "BM1"]))
                     }
                 }
             }
@@ -160,7 +160,7 @@ impl<'de> Deserialize<'de> for Z80Any {
                         "NMOS" => visit_seq(self, seq, 1).map(Z80Any::NMOS),
                         "CMOS" => visit_seq(self, seq, 1).map(Z80Any::CMOS),
                         "BM1"  => visit_seq(self, seq, 1).map(Z80Any::BM1),
-                        _ => Err(de::Error::unknown_variant(&*variant, &["NMOS", "CMOS", "BM1"]))
+                        _ => Err(de::Error::unknown_variant(&variant, &["NMOS", "CMOS", "BM1"]))
                     }
                 }
             }
