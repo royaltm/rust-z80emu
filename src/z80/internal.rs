@@ -70,7 +70,7 @@ impl<Q: Flavour> Z80<Q> {
     /// Reads 1 byte from memory via PC register (pc). Increases pc afterwards.
     /// Used for the M1 cycle (op-code fetch) so a proper number of M1 cycles is being added.
     /// Increases the memory refresh (R) counter.
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn fetch_next_opcode<M, T>(
         &mut self, control: &mut M, tsc: &mut T, pc: Wrapping<u16>
     ) -> (Wrapping<u16>, u8)
@@ -81,7 +81,7 @@ impl<Q: Flavour> Z80<Q> {
         (pc + Wrapping(1), code)
     }
 
-    #[inline] // #[inline(always)]
+    // #[inline]
     pub(super) fn fetch_next_imm8<M, T, const MREQ_ADD: u8>(
         &mut self, control: &mut M, tsc: &mut T, pc: Wrapping<u16>
     ) -> (Wrapping<u16>, u8)
@@ -96,7 +96,7 @@ impl<Q: Flavour> Z80<Q> {
         (pc + Wrapping(1), code)
     }
 
-    #[inline] // #[inline(always)]
+    // #[inline]
     pub(super) fn fetch_next_imm16<M, T, const MREQ_ADD: u8>(
         &mut self, control: &mut M, tsc: &mut T, pc: Wrapping<u16>
     ) -> (Wrapping<u16>, u16)
@@ -113,12 +113,12 @@ impl<Q: Flavour> Z80<Q> {
         (pc + Wrapping(2), nn)
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn ex_de_hl(&mut self) {
         swap(&mut self.regs.de, &mut self.regs.hl);
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn ex_af_af_with_flags(&mut self, flags: CpuFlags) -> CpuFlags {
         let a = self.af.get8hi();
         self.af = self.af_alt;
@@ -126,13 +126,13 @@ impl<Q: Flavour> Z80<Q> {
         self.get_flags()
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn load_reg(&mut self, dst: Reg8, src: Reg8, prefix: Option<Prefix>) {
         self.set_reg(dst, prefix, self.get_reg(src, prefix))
     }
 
     /// Force IRQ
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn irq_no_check<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -171,7 +171,7 @@ impl<Q: Flavour> Z80<Q> {
     }
 
     /// Force NMI
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn nmi_no_check<M, T>(&mut self, control: &mut M, tsc: &mut T)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock
@@ -192,7 +192,7 @@ impl<Q: Flavour> Z80<Q> {
         self.pc.set16(NMI_RESTART);
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn pop16<M, T>(&mut self, control: &mut M, tsc: &mut T) -> u16
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // sp:3,sp+1:3
@@ -203,7 +203,7 @@ impl<Q: Flavour> Z80<Q> {
         val
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn push16<M, T>(&mut self, val: u16, control: &mut M, tsc: &mut T)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // sp-1:3,sp-2:3
@@ -211,7 +211,7 @@ impl<Q: Flavour> Z80<Q> {
         self.push2(vhi, vlo, control, tsc);
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn push2<M, T>(&mut self, vhi: u8, vlo: u8, control: &mut M, tsc: &mut T)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // sp-1:3,sp-2:3
@@ -222,7 +222,6 @@ impl<Q: Flavour> Z80<Q> {
         self.sp.set16(sp);
     }
 
-    #[inline(always)]
     pub(super) fn push_ss<M, T>(&mut self, control: &mut M, tsc: &mut T, ss: StkReg16, flags: CpuFlags)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ir:1, sp-1:3, sp-2:3
@@ -238,7 +237,6 @@ impl<Q: Flavour> Z80<Q> {
         self.push2(vhi, vlo, control, tsc);
     }
 
-    #[inline(always)]
     pub(super) fn pop_ss<M, T>(&mut self, control: &mut M, tsc: &mut T, ss: StkReg16, flags: &mut CpuFlags)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // sp:3,sp+1:3
@@ -255,7 +253,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) unsafe fn reg8_ptr(&mut self, tgt: Reg8, prefix: Option<Prefix>) -> *mut u8 {
         match tgt {
             Reg8::B => self.regs.bc.ptr8hi(),
@@ -276,7 +274,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn apply_reg8<F>(&mut self, tgt: Reg8, prefix: Option<Prefix>, op: F)
     where F: FnOnce(u8) -> u8
     {
@@ -286,7 +284,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn reg16_ref(&self, src: Reg16) -> &RegisterPair {
         match src {
             Reg16::BC => &self.regs.bc,
@@ -296,7 +294,7 @@ impl<Q: Flavour> Z80<Q> {
         }        
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn stkreg16_ref(&self, src: StkReg16) -> &RegisterPair {
         match src {
             StkReg16::BC => &self.regs.bc,
@@ -306,7 +304,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn stkreg16_alt_ref(&self, src: StkReg16) -> &RegisterPair {
         match src {
             StkReg16::BC => &self.regs_alt.bc,
@@ -316,7 +314,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn get_prefix_reg16(&self, src: Reg16, prefix: Prefix) -> u16 {
         match src {
             Reg16::BC => self.regs.bc.get16(),
@@ -326,7 +324,7 @@ impl<Q: Flavour> Z80<Q> {
         }        
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn index16_ref(&self, prefix: Prefix) -> &RegisterPair {
         match prefix {
             Prefix::Xdd => &self.index.ix,
@@ -334,7 +332,7 @@ impl<Q: Flavour> Z80<Q> {
         }        
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn reg16_mut(&mut self, src: Reg16) -> &mut RegisterPair {
         match src {
             Reg16::BC => &mut self.regs.bc,
@@ -344,7 +342,7 @@ impl<Q: Flavour> Z80<Q> {
         }        
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn stkreg16_mut(&mut self, src: StkReg16) -> &mut RegisterPair {
         match src {
             StkReg16::BC => &mut self.regs.bc,
@@ -354,7 +352,7 @@ impl<Q: Flavour> Z80<Q> {
         }        
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn index16_mut(&mut self, prefix: Prefix) -> &mut RegisterPair {
         match prefix {
             Prefix::Xdd => &mut self.index.ix,
@@ -362,7 +360,7 @@ impl<Q: Flavour> Z80<Q> {
         }        
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn block_transfer<M, T>(
             &mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags,
             delta: BlockDelta, pc: Option<Wrapping<u16>>
@@ -392,7 +390,7 @@ impl<Q: Flavour> Z80<Q> {
         None
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn block_search<M, T>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags, delta: BlockDelta, pc: Option<Wrapping<u16>>) -> Option<Wrapping<u16>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // hl:3, hl:1 x 5, [hl:1 x 5]
@@ -420,7 +418,7 @@ impl<Q: Flavour> Z80<Q> {
         None
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn block_in<M, T>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags, delta: BlockDelta, pc: Option<Wrapping<u16>>) -> Option<Wrapping<u16>>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ir:1, IO, hl:3, [hl:1 x 5]
@@ -450,7 +448,7 @@ impl<Q: Flavour> Z80<Q> {
         None
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn block_out<M, T>(
             &mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags,
             delta: BlockDelta, pc: Option<Wrapping<u16>>
@@ -485,7 +483,7 @@ impl<Q: Flavour> Z80<Q> {
         (should_break, None)
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn op8(&mut self, op: Ops8, val: u8, flags: &mut CpuFlags) {
         match op {
             Ops8::ADD => self.af.op8hi(|a| ops::add(a, val, flags)),
@@ -500,7 +498,7 @@ impl<Q: Flavour> Z80<Q> {
         self.flavour.flags_modified();
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn op8_with_arg<M, T>(
         &mut self, control: &mut M, tsc: &mut T, op: Ops8, arg: R8ParseResult, flags: &mut CpuFlags
     )
@@ -514,7 +512,7 @@ impl<Q: Flavour> Z80<Q> {
         self.op8(op, val, flags);
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn ld_a_from_mem8<M, T>(&mut self, control: &mut M, tsc: &mut T, addr: u16)
         where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // nn:3
@@ -524,7 +522,7 @@ impl<Q: Flavour> Z80<Q> {
         self.af.set8hi(n);
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn ld_mem8_from_a<M, T>(&mut self, control: &mut M, tsc: &mut T, addr: u16)
         where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // nn:3
@@ -534,7 +532,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(addr, a, tsc.add_mreq(addr));
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn ex_sp_nn<M, T>(&mut self, control: &mut M, tsc: &mut T, (vhi, vlo): (u8, u8)) -> u16
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     {
@@ -555,7 +553,7 @@ impl<Q: Flavour> Z80<Q> {
         val
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn instr_rxd<M, T, F>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags, rxd: F)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -575,7 +573,7 @@ impl<Q: Flavour> Z80<Q> {
         self.flavour.flags_modified();
     }
 
-    #[inline(always)]
+    // #[inline(never)]
     pub(super) fn op16_reg16<T, F>(
         &mut self, tsc: &mut T, flags: &mut CpuFlags, op16: F, reg16: RegisterPair, nn: u16
     ) -> RegisterPair
@@ -592,7 +590,7 @@ impl<Q: Flavour> Z80<Q> {
         reg
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn write_mem16_addr16<M, T>(
         &mut self, control: &mut M, tsc: &mut T, addr: u16, (vhi, vlo): (u8, u8)
     )
@@ -606,7 +604,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(addr_1, vhi, tsc.add_mreq(addr_1));
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn read_mem16_addr16<M, T>(&mut self, control: &mut M, tsc: &mut T, addr: u16) -> u16
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock
@@ -620,7 +618,6 @@ impl<Q: Flavour> Z80<Q> {
     }
 
     /// Used by various 8-bit operations on the memory via one of the address registers: HL, IX or IY.
-    #[inline(always)]
     pub(super) fn r_op_w_mem8<M, T, F>(&mut self, control: &mut M, tsc: &mut T, op8: F)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -633,7 +630,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(hl, val, tsc.add_mreq(hl));
     }
 
-    #[inline(always)]
+    // #[inline]
     pub(super) fn instr_inc_dec8<M, T, F>(
         &mut self, control: &mut M, tsc: &mut T, arg: R8ParseResult, flags: &mut CpuFlags, opfn: F
     )
@@ -649,7 +646,7 @@ impl<Q: Flavour> Z80<Q> {
         self.flavour.flags_modified();
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn instr_inc_dec_x_mem8<M, T, F>(
         &mut self, control: &mut M, tsc: &mut T, prefix: Prefix, index8: u8, flags: &mut CpuFlags, opfn: F
     )
@@ -669,7 +666,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(ii_d, val, tsc.add_mreq(ii_d));
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn instr_ld_a_from_ir<M, T, const I: bool>(
         &mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags
     )
@@ -696,7 +693,7 @@ impl<Q: Flavour> Z80<Q> {
         self.af.set8hi(val);
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn instr_ld_ir_from_a<T, const I: bool>(&mut self, tsc: &mut T)
     where T: Clock
     { // ir: 1
@@ -711,7 +708,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn instr_ld_a_from_rp<M, T, const BC: bool>(&mut self, control: &mut M, tsc: &mut T)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ss:3
@@ -722,7 +719,7 @@ impl<Q: Flavour> Z80<Q> {
         self.af.set8hi(n);
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn instr_ld_rp_from_a<M, T, const BC: bool>(&mut self, control: &mut M, tsc: &mut T)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ss:3
@@ -735,7 +732,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(rp16, a, tsc.add_mreq(rp16));
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn write_mem8_hl<M, T>(&mut self, control: &mut M, tsc: &mut T, val: u8)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // ss: 3
@@ -743,7 +740,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(hl, val, tsc.add_mreq(hl));
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn write_mem8_ii_d<M, T>(
             &mut self, control: &mut M, tsc: &mut T, prefix: Prefix, index8: u8, val: u8
         )
@@ -755,7 +752,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(ii_d, val, tsc.add_mreq(ii_d));
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn read_mem8_hl<M, T, const MREQ_ADD: u8>(&mut self, control: &mut M, tsc: &mut T) -> u8
         where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // hl: 3
@@ -769,7 +766,7 @@ impl<Q: Flavour> Z80<Q> {
         val
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     pub(super) fn read_mem8_ii_d<M, T>(
             &mut self, control: &mut M, tsc: &mut T, prefix: Prefix, index8: u8
         ) -> u8
@@ -781,7 +778,7 @@ impl<Q: Flavour> Z80<Q> {
         control.read_mem(ii_d, tsc.add_mreq(ii_d))
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn io_a_inp_an<M, T>(&mut self, control: &mut M, tsc: &mut T, n: u8)
         where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // IO
@@ -795,7 +792,7 @@ impl<Q: Flavour> Z80<Q> {
         self.af.set8hi(data);
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn io_a_out_an<M, T>(&mut self, control: &mut M, tsc: &mut T, n: u8) -> Option<M::WrIoBreak>
         where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     { // IO
@@ -810,7 +807,7 @@ impl<Q: Flavour> Z80<Q> {
         should_break
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn io_r_inp_bc<M, T>(
             &mut self, control: &mut M, tsc: &mut T, arg: R8ParseResult, flags: &mut CpuFlags
         )
@@ -830,7 +827,7 @@ impl<Q: Flavour> Z80<Q> {
         }
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn io_r_out_bc<M, T>(
             &mut self, control: &mut M, tsc: &mut T, arg: R8ParseResult
         ) -> Option<M::WrIoBreak>
@@ -854,7 +851,7 @@ impl<Q: Flavour> Z80<Q> {
         should_break
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn bitops<M, T>(
             &mut self, control: &mut M, tsc: &mut T, bitops: BitOps, flags: &mut CpuFlags
         )
@@ -908,7 +905,7 @@ impl<Q: Flavour> Z80<Q> {
         };
     }
 
-    #[inline(never)]
+    // #[inline(never)]
     pub(super) fn bitops_qq<M, T>(
             &mut self, control: &mut M, tsc: &mut T,
             bitops: BitOps, flags: &mut CpuFlags,

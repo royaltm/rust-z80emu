@@ -85,13 +85,13 @@ impl<Q: Flavour> Z80<Q> {
     }
 
     /// Retrieves the internal state of the MEMPTR register.
-    #[inline]
+    // #[inline]
     pub fn get_memptr(&self) -> u16 {
         self.memptr.get16()
     }
 
     /// Changes the internal state of the MEMPTR register.
-    #[inline]
+    // #[inline]
     pub fn set_memptr(&mut self, memptr: u16) {
         self.memptr.set16(memptr)
     }
@@ -166,32 +166,32 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.flavour.reset();
     }
 
-    #[inline]
+    // #[inline]
     fn get_pc(&self) -> u16 {
         self.pc.get16()
     }
 
-    #[inline]
+    // #[inline]
     fn set_pc(&mut self, pc: u16) {
         self.pc.set16(pc)
     }
 
-    #[inline]
+    // #[inline]
     fn get_sp(&self) -> u16 {
         self.sp.get16()
     }
 
-    #[inline]
+    // #[inline]
     fn set_sp(&mut self, sp: u16) {
         self.sp.set16(sp)
     }
 
-    #[inline]
+    // #[inline]
     fn get_acc(&self) -> u8 {
         self.af.get8hi()
     }
 
-    #[inline]
+    // #[inline]
     fn set_acc(&mut self, val: u8) {
         self.af.set8hi(val)
     }
@@ -211,29 +211,29 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         self.r += Wrapping(1);
     }
 
-    #[inline]
+    // #[inline]
     fn add_r(&mut self, delta: i32) {
         self.r += Wrapping(delta as u8);
     }
 
-    #[inline]
+    // #[inline]
     fn get_r(&self) -> u8 {
         let r = self.ir.get8lo();
         r & 0x80 | self.r.0 & 0x7F
     }
 
-    #[inline]
+    // #[inline]
     fn set_r(&mut self, r: u8) {
         self.r = Wrapping(r);
         self.ir.set8lo(r);
     }
 
-    #[inline]
+    // #[inline]
     fn get_i(&self) -> u8 {
         self.ir.get8hi()
     }
 
-    #[inline]
+    // #[inline]
     fn set_i(&mut self, i: u8) {
         self.ir.set8hi(i);
     }
@@ -244,48 +244,48 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         ir & 0xFF80 | self.r.0 as u16 & 0x007F
     }
 
-    #[inline]
+    // #[inline]
     fn get_iffs(&self) -> (bool, bool) {
         (self.iff1, self.iff2)
     }
 
-    #[inline]
+    // #[inline]
     fn set_iffs(&mut self, iff1: bool, iff2: bool) {
         self.iff1 = iff1;
         self.iff2 = iff2;
     }
 
-    #[inline(always)]
+    // #[inline]
     fn halt(&mut self) {
         self.halt = true;
     }
 
-    #[inline(always)]
+    // #[inline]
     fn is_halt(&self) -> bool {
         self.halt
     }
 
-    #[inline(always)]
+    // #[inline]
     fn get_im(&self) -> InterruptMode {
         self.im
     }
 
-    #[inline(always)]
+    // #[inline]
     fn set_im(&mut self, im: InterruptMode) {
         self.im = im;
     }
 
-    #[inline(always)]
+    // #[inline]
     fn ex_af_af(&mut self) {
         swap(&mut self.af, &mut self.af_alt);
     }
 
-    #[inline(always)]
+    #[inline]
     fn exx(&mut self) {
         swap(&mut self.regs, &mut self.regs_alt);
     }
 
-    #[inline(always)]
+    // #[inline]
     fn get_reg(&self, reg: Reg8, prefix: Option<Prefix>) -> u8 {
         match reg {
             Reg8::B => self.regs.bc.get8hi(),
@@ -306,102 +306,102 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
-    #[inline(always)]
+    // #[inline]
     fn set_reg(&mut self, dst: Reg8, prefix: Option<Prefix>, val: u8) {
         unsafe {
             *self.reg8_ptr(dst, prefix) = val;
         }        
     }
 
-    #[inline]
+    // #[inline]
     fn get_reg2(&self, src: StkReg16) -> (u8, u8) {
         self.stkreg16_ref(src).get()
     }
 
-    #[inline]
+    // #[inline]
     fn get_alt_reg2(&self, src: StkReg16) -> (u8, u8) {
         self.stkreg16_alt_ref(src).get()
     }
 
-    #[inline]
+    // #[inline]
     fn get_reg16(&self, src: StkReg16) -> u16 {
         self.stkreg16_ref(src).get16()
     }
 
-    #[inline]
+    // #[inline]
     fn get_alt_reg16(&self, src: StkReg16) -> u16 {
         self.stkreg16_alt_ref(src).get16()
     }
 
-    #[inline]
+    // #[inline]
     fn set_reg2(&mut self, src: StkReg16, hi: u8, lo: u8) {
         self.stkreg16_mut(src).set(hi, lo)
     }
 
-    #[inline]
+    // #[inline]
     fn set_reg16(&mut self, src: StkReg16, val: u16) {
         self.stkreg16_mut(src).set16(val)
     }
 
-    #[inline(always)]
+    // #[inline]
     fn get_index2(&self, prefix: Prefix) -> (u8, u8) {
         self.index16_ref(prefix).get()
     }
 
-    #[inline(always)]
+    // #[inline]
     fn get_index16(&self, prefix: Prefix) -> u16 {
         self.index16_ref(prefix).get16()
     }
 
-    #[inline]
+    // #[inline]
     fn set_index2(&mut self, prefix: Prefix, hi: u8, lo: u8) {
         self.index16_mut(prefix).set(hi, lo)
     }
 
-    #[inline(always)]
+    // #[inline]
     fn set_index16(&mut self, prefix: Prefix, val: u16) {
         self.index16_mut(prefix).set16(val)
     }
 
-    #[inline]
+    // #[inline]
     fn is_irq_allowed(&self) -> bool {
         self.iff1 && is_int_allowed(self.prefix, self.last_ei)
     }
 
-    #[inline]
+    // #[inline]
     fn is_nmi_allowed(&self) -> bool {
         is_int_allowed(self.prefix, self.last_ei)
     }
 
-    #[inline(always)]
+    // #[inline]
     fn restore_iff1(&mut self) {
         self.iff1 = self.iff2;
     }
 
-    #[inline(always)]
+    // #[inline]
     fn disable_interrupts(&mut self) {
         self.iff1 = false;
         self.iff2 = false;
     }
 
-    #[inline(always)]
+    // #[inline]
     fn enable_interrupts(&mut self) {
         self.iff1 = true;
         self.iff2 = true;
         self.last_ei = true;
     }
 
-    #[inline]
+    // #[inline]
     fn is_after_ei(&self) -> bool {
         self.last_ei
     }
 
-    #[inline]
+    // #[inline]
     fn is_after_prefix(&self) -> bool {
         self.prefix.is_some()
     }
 
-    #[inline]
+    // #[inline]
     fn get_prefix(&self) -> Option<Prefix> {
         self.prefix
     }
@@ -432,7 +432,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
         }
     }
 
-    #[allow(clippy::cognitive_complexity,clippy::never_loop)]
+    // #[allow(clippy::cognitive_complexity,clippy::never_loop)]
     #[inline(never)]
     fn execute_instruction<M, T, F>(&mut self, control: &mut M, tsc: &mut T, debug: Option<F>, code: u8) -> Result<M::WrIoBreak, M::RetiBreak>
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
