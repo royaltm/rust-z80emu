@@ -532,7 +532,7 @@ impl<Q: Flavour> Z80<Q> {
         control.write_mem(addr, a, tsc.add_mreq(addr));
     }
 
-    #[inline(never)]
+    #[inline]
     pub(super) fn ex_sp_nn<M, T>(&mut self, control: &mut M, tsc: &mut T, (vhi, vlo): (u8, u8)) -> u16
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>, T: Clock
     {
@@ -553,7 +553,7 @@ impl<Q: Flavour> Z80<Q> {
         val
     }
 
-    #[inline(never)]
+    #[inline]
     pub(super) fn instr_rxd<M, T, F>(&mut self, control: &mut M, tsc: &mut T, flags: &mut CpuFlags, rxd: F)
     where M: Memory<Timestamp=T::Timestamp> + Io<Timestamp=T::Timestamp>,
           T: Clock,
@@ -573,7 +573,6 @@ impl<Q: Flavour> Z80<Q> {
         self.flavour.flags_modified();
     }
 
-    #[inline(never)]
     pub(super) fn op16_reg16<T, F>(
         &mut self, tsc: &mut T, flags: &mut CpuFlags, op16: F, reg16: RegisterPair, nn: u16
     ) -> RegisterPair
@@ -851,7 +850,7 @@ impl<Q: Flavour> Z80<Q> {
         should_break
     }
 
-    #[inline(never)]
+    #[inline]
     pub(super) fn bitops<M, T>(
             &mut self, control: &mut M, tsc: &mut T, bitops: BitOps, flags: &mut CpuFlags
         )
