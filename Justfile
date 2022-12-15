@@ -8,6 +8,10 @@ mir_extra := '-Zinline-mir=yes -Zinline-mir-threshold=500 -Zinline-mir-hint-thre
 
 iter_default := '10'
 
+# run RAL1243 example
+example:
+    cargo run --example terminal --release -- examples/ral1243/exroms -m 48 -c 8000
+
 # run shuffle example
 shuffle iters=iter_default:
     cargo run --example shuffle --release -- {{shuffle_args}} {{iters}}
@@ -32,10 +36,6 @@ shuffle-profgen iters=iter_default:
 # run shuffle profiled
 shuffle-prof iters=iter_default:
     RUSTFLAGS="-Cllvm-args=-pgo-warn-missing-function -Cprofile-use={{justfile_directory()}}/tmp/pgo-data/merged.profdata" cargo +nightly-{{target}} run --example shuffle --target="{{target}}" --release -- {{shuffle_args}} {{iters}}
-
-# run example
-example:
-    cargo run --example terminal --release -- examples/ral1243/exroms -m 48 -c 8000
 
 # build all docs
 doc:

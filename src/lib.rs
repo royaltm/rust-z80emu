@@ -90,7 +90,7 @@ In `z80emu` the command execution code and the debugger code are implemented tog
 This way there is only a single machine code [dispatcher]. This minimizes the probability of a debugger
 suffering from "schizophrenic effects" showing results not compatible with the execution unit.
 Thanks to Rust and LLVM, the compilator can optimize out the debugger parts when they are not
-[needed](https://github.com/royaltm/rust-z80emu/blob/master/benches/shuffle.rs).
+[needed](https://github.com/royaltm/rust-z80emu/blob/master/examples/shuffle.rs).
 
 The debugger provides information as a [CpuDebug] struct. It implements [Display][core::fmt::Display],
 [LowerHex][core::fmt::LowerHex], and [UpperHex][core::fmt::UpperHex] traits so it's easy to print it OOB
@@ -98,8 +98,8 @@ as well as provide a complete customized debugging solution.
 
 ## How To
 
-Start by inspecting the [tests](https://github.com/royaltm/rust-z80emu/tree/master/tests) and
-[benches](https://github.com/royaltm/rust-z80emu/tree/master/benches) directory.
+Start by inspecting the [tests](https://github.com/royaltm/rust-z80emu/tree/master/tests) directory and
+the [shuffle](https://github.com/royaltm/rust-z80emu/tree/master/examples/shuffle.rs) example.
 All of the test cases run minimalistic Z80 virtual computers and can be useful in learning the essentials.
 
 For a bigger picture see the crate's [repository example](https://github.com/royaltm/rust-z80emu/tree/master/examples/ral1243)
