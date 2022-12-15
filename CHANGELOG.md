@@ -1,3 +1,6 @@
+v0.8.0
+* major internal rework - replaced a substantial portion of macros with functions, taking advantage of const generics. Compilation produces smaller code with almost no run-time performance penalty (Rustc <=1.54 >=v1.60). Results in faster compilation time in release mode and profile-guided optimizations render better results in both smaller code footprint and increased performance.
+
 v0.7.0
 * added Justfile to demonstrate Profiled-Guided Optimizations for benchmarks
 * CI: migration to Github Actions

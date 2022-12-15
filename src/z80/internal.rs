@@ -1,6 +1,6 @@
 /*
     z80emu: a minimalistic Z80 CPU emulation library.
-    Copyright (C) 2019-2021  Rafal Michalski
+    Copyright (C) 2019-2022  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
 */
