@@ -54,7 +54,7 @@ impl CpuDebug {
         if let Some(pfx) = prefix {
             code.push(pfx as u8);
         }
-        code.extend(bytes.iter().cloned());
+        code.extend(bytes.iter().copied());
         let pc = (pc - Wrapping(code.len() as u16)).0;
         debugger(CpuDebug {
             code,
