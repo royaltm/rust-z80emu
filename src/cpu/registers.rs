@@ -362,5 +362,11 @@ mod tests {
         let mut regs = RegisterPair::from((0, 1));
         regs.op16(|x| (x as u8, 7));
         assert_eq!(regs, RegisterPair::from([0x07u8, 0x01u8]));
+        let mut regs = RegisterPair::from((0, 2));
+        regs.op8hi(|x| x + 1);
+        assert_eq!(regs, RegisterPair::from([0x02u8, 0x01u8]));
+        let mut regs = RegisterPair::from((2, 0));
+        regs.op8lo(|x| x + 1);
+        assert_eq!(regs, RegisterPair::from([0x01u8, 0x02u8]));
     }
 }
