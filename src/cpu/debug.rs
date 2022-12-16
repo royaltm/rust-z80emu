@@ -438,9 +438,12 @@ impl fmt::UpperHex for CpuDebug {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
+    #[allow(unused_imports)]
     use crate::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};
 
+    #[cfg(feature = "std")]
     #[test]
     fn debug_args_works() {
         let arg = CpuDebugArg::Imm8(255);

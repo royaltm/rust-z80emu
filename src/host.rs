@@ -556,6 +556,7 @@ mod tests {
       }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn break_cause() {
       type BrkCause = BreakCause<(),()>;
