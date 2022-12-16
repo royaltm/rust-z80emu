@@ -306,6 +306,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn flags_base() {
+        let flags = CpuFlags::default();
+        assert_eq!(flags.bits, 0);
+        assert_eq!(flags.bits, 0);
+        assert_eq!(flags.sf(), false);
+        assert_eq!(CpuFlags::S.sf(), true);
+        assert_eq!(flags.zf(), false);
+        assert_eq!(CpuFlags::Z.zf(), true);
+        assert_eq!(flags.hf(), false);
+        assert_eq!(CpuFlags::H.hf(), true);
+        assert_eq!(flags.pvf(), false);
+        assert_eq!(CpuFlags::PV.pvf(), true);
+        assert_eq!(CpuFlags::P.pvf(), true);
+        assert_eq!(CpuFlags::V.pvf(), true);
+        assert_eq!(flags.nf(), false);
+        assert_eq!(CpuFlags::N.nf(), true);
+        assert_eq!(flags.cf(), false);
+        assert_eq!(CpuFlags::C.cf(), true);
+    }
+
+    #[test]
     fn flags_work() {
         assert_eq!(0u8, CpuFlags::empty().bits());
         assert_eq!(false, CpuFlags::empty().cf());

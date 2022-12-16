@@ -305,6 +305,22 @@ mod tests {
         assert_eq!(regs, regs_de);
         let regs_de: GeneralRegisters = serde_json::from_str(r#"{"bc":"308","de":"$ffff","hl":"0x2A"}"#).unwrap();
         assert_eq!(regs, regs_de);
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"[]"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"{}"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"[256,0]"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"[-1,0]"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"xyz"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"0xABCDEF"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"$ABCDEF"#);
+        assert!(err.is_err());
+        let err: Result<RegisterPair,_> = serde_json::from_str(r#"99999"#);
+        assert!(err.is_err());
 
         let encoded: Vec<u8> = bincode::serialize(&regs).unwrap();
         let regs_de: GeneralRegisters = bincode::deserialize(&encoded).unwrap();
@@ -341,5 +357,10 @@ mod tests {
         assert_eq!(regs.0, [1, 0]);
         regs.add16(0xffff);
         assert_eq!(regs.0, [0, 0]);
+        assert_eq!(RegisterPair::from([1,2]), RegisterPair::from((2,1)));
+        assert_eq!(RegisterPair::from(-32768i16), RegisterPair::from(32768u16));
+        let mut regs = RegisterPair::from((0, 1));
+        regs.op16(|x| (x as u8, 7));
+        assert_eq!(regs, RegisterPair::from([0x07u8, 0x01u8]));
     }
 }

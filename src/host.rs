@@ -530,6 +530,69 @@ mod tests {
     #[allow(unused_imports)]
     use super::*;
 
+    #[test]
+    fn default_host_impl() {
+      #[derive(Default)]
+      struct Ctrl;
+      impl Io for Ctrl {
+        type Timestamp = i32;
+        type WrIoBreak = ();
+        type RetiBreak = ();
+      }
+      impl Memory for Ctrl {
+        type Timestamp = i32;
+      }
+      let mut ctrl = Ctrl::default();
+      for val in 0..=u16::max_value() {
+        assert_eq!(ctrl.read_io(val, 0), (0xFF, None));
+        assert_eq!(ctrl.write_io(val, 0, 0), (None, None));
+        assert_eq!(ctrl.is_irq(0), false);
+        assert_eq!(ctrl.irq_data(val, 0), (RST_38H_OPCODE, None));
+        assert_eq!(ctrl.reti(val, 0), None);
+        assert_eq!(ctrl.read_mem(val, 0), 0xFF);
+        assert_eq!(ctrl.read_mem16(val, 0), 0xFFFF);
+        assert_eq!(ctrl.read_opcode(val, val, 0), 0xFF);
+        assert_eq!(ctrl.read_debug(val), 0xFF);
+      }
+    }
+
+    #[test]
+    fn break_cause() {
+      type BrkCause = BreakCause<(),()>;
+      assert_eq!(BrkCause::Halt.to_string(), "a HALT instruction was executed");
+      assert_eq!(BrkCause::WriteIo(()).to_string(), "an I/O write operation has requested a break");
+      assert_eq!(BrkCause::Reti(()).to_string(), "a break was requested at the end of an interrupt service routine");
+    }
+
+    #[test]
+    fn ts_counter() {
+      let mut tc = TsCounter::<i32>::default();
+      assert!(tc.is_past_limit(0));
+      assert!(!tc.is_past_limit(1));
+      tc.0.0 = 1;
+      assert!(!tc.is_past_limit(2));
+      assert!(tc.is_past_limit(1));
+      assert!(tc.is_past_limit(0));
+      tc.0 = Wrapping(0).into();
+      assert_eq!(tc.add_irq(0), INT_IORQ_LOW_TS as i32);
+      assert_eq!(tc.as_timestamp(), IRQ_ACK_CYCLE_TS as i32);
+      tc = 0.into();
+      tc.add_no_mreq(0, NonZeroU8::new(3).unwrap());
+      assert_eq!(*tc, Wrapping(3i32));
+      *tc = Wrapping(0).into();
+      assert_eq!(tc.add_io(0), IO_IORQ_LOW_TS as i32);
+      assert_eq!(tc.as_timestamp(), IO_CYCLE_TS as i32);
+      tc = 0.into();
+      assert_eq!(tc.add_mreq(0), MEMRW_CYCLE_TS as i32);
+      assert_eq!(tc.as_timestamp(), MEMRW_CYCLE_TS as i32);
+      tc.0 = Wrapping(0).into();
+      assert_eq!(tc.add_m1(0), M1_CYCLE_TS as i32);
+      assert_eq!(tc.as_timestamp(), M1_CYCLE_TS as i32);
+      tc = 0.into();
+      tc.add_wait_states(0, NonZeroU16::new(7).unwrap());
+      assert_eq!(tc.as_timestamp(), 7i32);
+    }
+
     #[cfg(feature = "serde")]
     #[test]
     fn tscounter_serde() {

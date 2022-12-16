@@ -435,3 +435,148 @@ impl fmt::UpperHex for CpuDebug {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Reg8, Reg16, StkReg16, Prefix, Condition, InterruptMode};
+
+    #[test]
+    fn debug_args_works() {
+        let arg = CpuDebugArg::Imm8(255);
+        assert_eq!(arg.to_string(), "255");
+        assert_eq!(format!("{:x}", arg), "ffh");
+        assert_eq!(format!("{:X}", arg), "FFh");
+        assert_eq!(format!("{:#x}", arg), "0xff");
+        assert_eq!(format!("{:#X}", arg), "0xFF");
+        let arg = CpuDebugArg::Bit(7);
+        assert_eq!(arg.to_string(), "7");
+        let arg = CpuDebugArg::IntMode(InterruptMode::Mode2);
+        assert_eq!(arg.to_string(), "2");
+        let arg = CpuDebugArg::Reg8(None, Reg8::A);
+        assert_eq!(arg.to_string(), "A");
+        let arg = CpuDebugArg::Reg8(None, Reg8::B);
+        assert_eq!(arg.to_string(), "B");
+        let arg = CpuDebugArg::Reg8(None, Reg8::C);
+        assert_eq!(arg.to_string(), "C");
+        let arg = CpuDebugArg::Reg8(None, Reg8::D);
+        assert_eq!(arg.to_string(), "D");
+        let arg = CpuDebugArg::Reg8(None, Reg8::E);
+        assert_eq!(arg.to_string(), "E");
+        let arg = CpuDebugArg::Reg8(None, Reg8::H);
+        assert_eq!(arg.to_string(), "H");
+        let arg = CpuDebugArg::Reg8(None, Reg8::L);
+        assert_eq!(arg.to_string(), "L");
+        let arg = CpuDebugArg::Reg8(Some(Prefix::Xdd), Reg8::H);
+        assert_eq!(arg.to_string(), "IXH");
+        let arg = CpuDebugArg::Reg8(Some(Prefix::Yfd), Reg8::L);
+        assert_eq!(arg.to_string(), "IYL");
+        let arg = CpuDebugArg::Reg8(None, Reg8::L);
+        assert_eq!(arg.to_string(), "L");
+        let arg = CpuDebugArg::Imm16(32767);
+        assert_eq!(arg.to_string(), "32767");
+        assert_eq!(format!("{:x}", arg), "7fffh");
+        assert_eq!(format!("{:X}", arg), "7FFFh");
+        assert_eq!(format!("{:#x}", arg), "0x7fff");
+        assert_eq!(format!("{:#X}", arg), "0x7FFF");
+        let arg = CpuDebugArg::Reg16(None, Reg16::BC);
+        assert_eq!(arg.to_string(), "BC");
+        let arg = CpuDebugArg::Reg16(None, Reg16::DE);
+        assert_eq!(arg.to_string(), "DE");
+        let arg = CpuDebugArg::Reg16(None, Reg16::HL);
+        assert_eq!(arg.to_string(), "HL");
+        let arg = CpuDebugArg::Reg16(Some(Prefix::Xdd), Reg16::HL);
+        assert_eq!(arg.to_string(), "IX");
+        let arg = CpuDebugArg::Reg16(Some(Prefix::Yfd), Reg16::HL);
+        assert_eq!(arg.to_string(), "IY");
+        let arg = CpuDebugArg::Reg16(None, Reg16::SP);
+        assert_eq!(arg.to_string(), "SP");
+        let arg = CpuDebugArg::Stk16(StkReg16::BC);
+        assert_eq!(arg.to_string(), "BC");
+        let arg = CpuDebugArg::Stk16(StkReg16::DE);
+        assert_eq!(arg.to_string(), "DE");
+        let arg = CpuDebugArg::Stk16(StkReg16::HL);
+        assert_eq!(arg.to_string(), "HL");
+        let arg = CpuDebugArg::Stk16(StkReg16::AF);
+        assert_eq!(arg.to_string(), "AF");
+        let arg = CpuDebugArg::Addr(CpuDebugAddr::ImmAddr(32767));
+        assert_eq!(arg.to_string(), "(32767)");
+        assert_eq!(format!("{:x}", arg), "(7fffh)");
+        assert_eq!(format!("{:X}", arg), "(7FFFh)");
+        assert_eq!(format!("{:#x}", arg), "(0x7fff)");
+        assert_eq!(format!("{:#X}", arg), "(0x7FFF)");
+        let arg = CpuDebugArg::Addr(CpuDebugAddr::RegAddr(Reg16::HL));
+        assert_eq!(arg.to_string(), "(HL)");
+        let arg = CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(Prefix::Xdd, None));
+        assert_eq!(arg.to_string(), "(IX)");
+        let arg = CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(Prefix::Xdd, Some(127)));
+        assert_eq!(arg.to_string(), "(IX+127)");
+        assert_eq!(format!("{:x}", arg), "(IX+7fh)");
+        assert_eq!(format!("{:X}", arg), "(IX+7Fh)");
+        assert_eq!(format!("{:#x}", arg), "(IX+0x7f)");
+        assert_eq!(format!("{:#X}", arg), "(IX+0x7F)");
+        let arg = CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(Prefix::Yfd, None));
+        assert_eq!(arg.to_string(), "(IY)");
+        let arg = CpuDebugArg::Addr(CpuDebugAddr::IndexAddr(Prefix::Yfd, Some(-127)));
+        assert_eq!(arg.to_string(), "(IY-127)");
+        assert_eq!(format!("{:x}", arg), "(IY-7fh)");
+        assert_eq!(format!("{:X}", arg), "(IY-7Fh)");
+        assert_eq!(format!("{:#x}", arg), "(IY-0x7f)");
+        assert_eq!(format!("{:#X}", arg), "(IY-0x7F)");
+        let arg = CpuDebugArg::Port(CpuDebugPort::ImmPort(254));
+        assert_eq!(arg.to_string(), "(254)");
+        assert_eq!(format!("{:x}", arg), "(feh)");
+        assert_eq!(format!("{:X}", arg), "(FEh)");
+        assert_eq!(format!("{:#x}", arg), "(0xfe)");
+        assert_eq!(format!("{:#X}", arg), "(0xFE)");
+        let arg = CpuDebugArg::Cond(Condition::NZ);
+        assert_eq!(arg.to_string(), "NZ");
+        let arg = CpuDebugArg::Cond(Condition::Z);
+        assert_eq!(arg.to_string(), "Z");
+        let arg = CpuDebugArg::Cond(Condition::NC);
+        assert_eq!(arg.to_string(), "NC");
+        let arg = CpuDebugArg::Cond(Condition::C);
+        assert_eq!(arg.to_string(), "C");
+        let arg = CpuDebugArg::Cond(Condition::PO);
+        assert_eq!(arg.to_string(), "PO");
+        let arg = CpuDebugArg::Cond(Condition::PE);
+        assert_eq!(arg.to_string(), "PE");
+        let arg = CpuDebugArg::Cond(Condition::P);
+        assert_eq!(arg.to_string(), "P");
+        let arg = CpuDebugArg::Cond(Condition::M);
+        assert_eq!(arg.to_string(), "M");
+
+        assert_eq!(CpuDebugArgs::None.to_string(), "");
+        assert_eq!(CpuDebugArgs::Single(CpuDebugArg::I).to_string(), "I");
+        assert_eq!(CpuDebugArgs::Double(CpuDebugArg::Reg8(None, Reg8::A), CpuDebugArg::R).to_string(), "A, R");
+        let arg = CpuDebugArgs::Double(CpuDebugArg::Stk16(StkReg16::AF), CpuDebugArg::Stk16(StkReg16::AF));
+        assert_eq!(arg.to_string(), "AF, AF'");
+        let arg = CpuDebugArgs::Double(CpuDebugArg::Imm16(32767), CpuDebugArg::Addr(CpuDebugAddr::ImmAddr(65535)));
+        assert_eq!(arg.to_string(), "32767, (65535)");
+        assert_eq!(format!("{:x}", arg), "7fffh, (ffffh)");
+        assert_eq!(format!("{:X}", arg), "7FFFh, (FFFFh)");
+        assert_eq!(format!("{:#x}", arg), "0x7fff, (0xffff)");
+        assert_eq!(format!("{:#X}", arg), "0x7FFF, (0xFFFF)");
+        let arg = CpuDebugArgs::BitOpExt(4, CpuDebugArg::Imm8(255), Reg8::C);
+        assert_eq!(arg.to_string(), "4, 255, C");
+        assert_eq!(format!("{:x}", arg), "4, ffh, C");
+        assert_eq!(format!("{:X}", arg), "4, FFh, C");
+        assert_eq!(format!("{:#x}", arg), "4, 0xff, C");
+        assert_eq!(format!("{:#X}", arg), "4, 0xFF, C");
+        let mut code = CpuDebugCode::new();
+        code.push(0x30);
+        code.push(0x03);
+        let deb = CpuDebug { code,
+                             mnemonic: "JR",
+                             pc: 0x0E00,
+                             prefix: None,
+                             args: CpuDebugArgs::Double(CpuDebugArg::Cond(Condition::NC), CpuDebugArg::Imm16(0x0E05)) };
+        assert_eq!(deb.to_string(),       " 3584 JR   NC, 3589       [48, 3]");
+        assert_eq!(format!("{:x}", deb),  "0e00h JR   NC, 0e05h      [30, 03]");
+        assert_eq!(format!("{:X}", deb),  "0E00h JR   NC, 0E05h      [30, 03]");
+        assert_eq!(format!("{:#x}", deb), "0x0e00 JR   NC, 0x0e05      [30, 03]");
+        assert_eq!(format!("{:#X}", deb), "0x0E00 JR   NC, 0x0E05      [30, 03]");
+        assert_eq!(format!("{:04x} : {:6} {:#20x} {:02X?}", deb.pc, deb.mnemonic, deb.args, deb.code.as_slice()),
+                                "0e00 : JR     NC, 0x0e05           [30, 03]");
+    }
+}

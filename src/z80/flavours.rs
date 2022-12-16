@@ -233,11 +233,75 @@ mod tests {
     use crate::z80::Z80;
 
     #[test]
+    fn flavour_works() {
+        assert_eq!(NMOS::memptr_mix(1, 1), (1, 2));
+        assert_eq!(NMOS::memptr_mix(1, 255), (1, 0));
+        assert_eq!(CMOS::memptr_mix(1, 1), (1, 2));
+        assert_eq!(CMOS::memptr_mix(1, 255), (1, 0));
+        assert_eq!(BM1::memptr_mix(1, 1), (0, 2));
+        assert_eq!(BM1::memptr_mix(1, 255), (0, 0));
+
+        let flags = CpuFlags::all();
+
+        let mut flav = NMOS::default();
+        assert!(!flav.last_flags_modified);
+        assert!(!flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0xFF);
+        flav.begin_instruction();
+        assert!(!flav.last_flags_modified);
+        assert!(!flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0xFF);
+        flav.flags_modified();
+        assert!(!flav.last_flags_modified);
+        assert!(flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0xFF);
+        flav.begin_instruction();
+        assert!(flav.last_flags_modified);
+        assert!(!flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0);
+
+        let mut flav = BM1::default();
+        assert!(!flav.last_flags_modified);
+        assert!(!flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0xFF);
+        flav.begin_instruction();
+        assert!(!flav.last_flags_modified);
+        assert!(!flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0xFF);
+        flav.flags_modified();
+        assert!(!flav.last_flags_modified);
+        assert!(flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0xFF);
+        flav.begin_instruction();
+        assert!(flav.last_flags_modified);
+        assert!(!flav.flags_modified);
+        assert_eq!(flav.get_q(0, flags), 0);
+
+        let mut flav = CMOS::default();
+        assert_eq!(flav.get_q(0, flags), 0);
+        flav.begin_instruction();
+        assert_eq!(flav.get_q(1, flags), 1);
+        flav.flags_modified();
+        assert_eq!(flav.get_q(2, flags), 2);
+        flav.begin_instruction();
+        assert_eq!(flav.get_q(3, flags), 3);
+    }
+
+    #[test]
     fn flavour_conversion() {
         let cmos: Z80<CMOS> = Z80::<BM1>::default().into_flavour();
         let nmos = Z80::<NMOS>::from_flavour(cmos);
         let bm1 = nmos.into_flavour::<BM1>();
         assert_eq!(bm1, Z80::<BM1>::default());
+        let cmos1: Z80<CMOS> = Z80::<CMOS>::default();
+        let cmos2: Z80<CMOS> = Z80::<CMOS>::default();
+        assert_eq!(Z80Any::from(cmos1), Z80Any::CMOS(cmos2));
+        let nmos1: Z80<NMOS> = Z80::<NMOS>::default();
+        let nmos2: Z80<NMOS> = Z80::<NMOS>::default();
+        assert_eq!(Z80Any::from(nmos1), Z80Any::NMOS(nmos2));
+        let bm1_1: Z80<BM1> = Z80::<BM1>::default();
+        let bm1_2: Z80<BM1> = Z80::<BM1>::default();
+        assert_eq!(Z80Any::from(bm1_1), Z80Any::BM1(bm1_2));
     }
 
     #[cfg(feature = "serde")]
