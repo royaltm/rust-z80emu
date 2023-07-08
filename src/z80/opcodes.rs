@@ -201,7 +201,7 @@ macro_rules! execute_next_instruction {
 /// Used by the match_instruction! macro to indirectly invoke the instructions::instr! macro.
 macro_rules! instruction_dispatch {
     (match ($code:expr) {
-            $($($mat:pat)|* => {$($mnem:tt)*})*
+            $($($mat:pat_param)|* => {$($mnem:tt)*})*
         }
     ) => {
         match $code {
@@ -210,7 +210,7 @@ macro_rules! instruction_dispatch {
     };
 
     (match ($code0:expr, $code1:expr) {
-            $($($mat:pat)|* => {$($mnem:tt)*})*
+            $($($mat:pat_param)|* => {$($mnem:tt)*})*
         }
     ) => {
         match $code1 {

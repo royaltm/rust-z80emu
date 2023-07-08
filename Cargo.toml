@@ -2,7 +2,7 @@
 name = "z80emu"
 version = "0.8.0"
 authors = ["Rafał Michalski <royaltm75@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "LGPL-3.0-or-later"
 include = ["src/", "CHANGELOG.md", "/README.md", "COPYING", "COPYING.LESSER"]
 readme = "README.md"
