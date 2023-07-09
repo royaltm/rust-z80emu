@@ -1,6 +1,6 @@
 /*
     z80emu: a minimalistic Z80 CPU emulation library.
-    Copyright (C) 2019-2022  Rafal Michalski
+    Copyright (C) 2019-2023  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
 */
@@ -247,7 +247,7 @@ impl<Q: Flavour> Z80<Q> {
             StkReg16::DE => self.regs.de.set16(val),
             StkReg16::HL => self.regs.hl.set16(val),
             StkReg16::AF => {
-                *flags = CpuFlags::from_bits_truncate(val as u8);
+                *flags = CpuFlags::from_bits_retain(val as u8);
                 self.af.set16(val);
             }
         }

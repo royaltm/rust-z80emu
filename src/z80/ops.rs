@@ -1,6 +1,6 @@
 /*
     z80emu: a minimalistic Z80 CPU emulation library.
-    Copyright (C) 2019-2022  Rafal Michalski
+    Copyright (C) 2019-2023  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
 */
@@ -238,7 +238,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
 #[inline]
 pub fn rlca(acc: u8, flags: &mut CpuFlags) -> u8 {
     let acc = acc.rotate_left(1);
-    let cflag = CpuFlags::from_bits_truncate(acc & 1);
+    let cflag = CpuFlags::from_bits_retain(acc & 1);
     flags.remove(CpuFlags::XY|CpuFlags::H|CpuFlags::N|CpuFlags::C);
     flags.insert(CpuFlags::mask_xy(acc)|cflag);
     acc
@@ -246,7 +246,7 @@ pub fn rlca(acc: u8, flags: &mut CpuFlags) -> u8 {
 
 #[inline]
 pub fn rrca(acc: u8, flags: &mut CpuFlags) -> u8 {
-    let cflag = CpuFlags::from_bits_truncate(acc & 1);
+    let cflag = CpuFlags::from_bits_retain(acc & 1);
     let acc = acc.rotate_right(1);
     flags.remove(CpuFlags::XY|CpuFlags::H|CpuFlags::N|CpuFlags::C);
     flags.insert(CpuFlags::mask_xy(acc)|cflag);
@@ -256,7 +256,7 @@ pub fn rrca(acc: u8, flags: &mut CpuFlags) -> u8 {
 #[inline]
 pub fn rla(acc: u8, flags: &mut CpuFlags) -> u8 {
     let acc = acc.rotate_left(1);
-    let cflag = CpuFlags::from_bits_truncate(acc & 1);
+    let cflag = CpuFlags::from_bits_retain(acc & 1);
     let acc = (acc & !1) | (*flags & CpuFlags::C).bits();
     flags.remove(CpuFlags::XY|CpuFlags::H|CpuFlags::N|CpuFlags::C);
     flags.insert(CpuFlags::mask_xy(acc)|cflag);
@@ -265,7 +265,7 @@ pub fn rla(acc: u8, flags: &mut CpuFlags) -> u8 {
 
 #[inline]
 pub fn rra(acc: u8, flags: &mut CpuFlags) -> u8 {
-    let cflag = CpuFlags::from_bits_truncate(acc & 1);
+    let cflag = CpuFlags::from_bits_retain(acc & 1);
     let acc = ((acc & !1) | (*flags & CpuFlags::C).bits()).rotate_right(1);
     flags.remove(CpuFlags::XY|CpuFlags::H|CpuFlags::N|CpuFlags::C);
     flags.insert(CpuFlags::mask_xy(acc)|cflag);

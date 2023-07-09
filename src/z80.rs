@@ -198,7 +198,7 @@ impl<Q: Flavour> Cpu for Z80<Q> {
 
     #[inline(always)]
     fn get_flags(&self) -> CpuFlags {
-        CpuFlags::from_bits_truncate(self.af.get8lo())
+        CpuFlags::from_bits_retain(self.af.get8lo())
     }
 
     #[inline(always)]
