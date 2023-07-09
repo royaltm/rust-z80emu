@@ -45,5 +45,5 @@ jobs:
         if: matrix.coverage == 'send'
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.26.1'
+          version: '0.20.0'
           args: --verbose --exclude-files benches/*.rs --coveralls ${{secrets.COVERALLS_KEY}}
