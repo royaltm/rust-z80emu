@@ -10,7 +10,7 @@ iter_default := '10'
 
 # run RAL1243 example
 example:
-    cargo run --example terminal --release -- examples/ral1243/exroms -m 48 -c 8000
+    cargo run --example terminal --release --no-default-features -- examples/ral1243/exroms -m 48 -c 8000
 
 # run shuffle example
 shuffle iters=iter_default:
@@ -28,7 +28,7 @@ shuffle-mir-extra iters=iter_default:
 shuffle-profgen iters=iter_default:
     @echo "TARGET: [{{target}}]"
     @echo "using {{llvm_profdata_exe}}"
-    set -euxo pipefail
+    set -eux
     rm -rf tmp/pgo-data
     RUSTFLAGS="-Cprofile-generate=tmp/pgo-data" cargo +nightly-{{target}} run --example shuffle --target="{{target}}" --release -- {{shuffle_args}} {{iters}}
     {{llvm_profdata_exe}} merge -o tmp/pgo-data/merged.profdata tmp/pgo-data
