@@ -223,6 +223,7 @@ pub trait Clock {
 ///
 /// Please see also [cycles].
 #[allow(unused_variables)]
+#[allow(clippy::wrong_self_convention)]
 pub trait Io {
     /// This type is being used for timestamping I/O operations. See also [Clock::Timestamp].
     type Timestamp: Sized;
