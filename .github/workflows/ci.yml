@@ -54,7 +54,6 @@ jobs:
 
       - name: Coverage
         if: matrix.coverage == 'send'
-        uses: actions-rs/cargo@v1
         env:
           LLVM_PROFILE_FILE: "z80emu-%p-%m.profraw"
           RUSTFLAGS: "-Cinstrument-coverage"
