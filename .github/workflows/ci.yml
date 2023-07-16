@@ -63,7 +63,7 @@ jobs:
           cargo build --verbose
           cargo test --verbose
           grcov . \
-              --binary-path ./target/debug/
+              --binary-path ./target/debug/ \
               --branch \
               --output-types coveralls \
               --source-dir . \
