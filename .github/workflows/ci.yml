@@ -24,6 +24,7 @@ jobs:
         include:
           - rust: nightly
             coverage: 'send'
+            components: llvm-tools
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -33,6 +34,7 @@ jobs:
         with:
           profile: minimal
           toolchain:  ${{ matrix.rust }}
+          components: ${{ matrix.components }}
           override: true
 
       - name: Install grcov
