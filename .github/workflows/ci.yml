@@ -67,7 +67,7 @@ jobs:
               --branch \
               --output-types coveralls \
               --source-dir . \
-              --output-path ./coveralls.json \
+              --output-path ./lcov.info \
               --token ${{secrets.COVERALLS_KEY}} \
               --ignore-not-existing \
               --keep-only 'src/*' \
@@ -75,5 +75,12 @@ jobs:
               --service-job-id ${{ github.job }} \
               --service-name "GitHub Actions" \
               --service-number ${{ github.run_id }}
-          gzip ./coveralls.json
-          curl -X POST https://coveralls.io/api/v1/jobs -F 'json_file=@./coveralls.json.gz' -H 'Content-Type: gzip/json'
+
+      - name: Upload coverage to Coveralls
+        if: matrix.coverage == 'send'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: lcov.info
+          format: lcov
+          debug: true
+          measure: true
