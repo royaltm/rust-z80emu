@@ -65,10 +65,9 @@ jobs:
           grcov . \
               --binary-path ./target/debug/ \
               --branch \
-              --output-types coveralls \
+              --output-types lcov \
               --source-dir . \
               --output-path ./lcov.info \
-              --token ${{secrets.COVERALLS_KEY}} \
               --ignore-not-existing \
               --keep-only 'src/*' \
               --commit-sha ${{ github.sha }} \
