@@ -166,9 +166,6 @@ assert_eq!(tsc.as_timestamp(), 10+10+(FIB_N as i32)*(4+11+13)-5+4);
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[macro_use]
-extern crate bitflags;
-
 pub mod host;
 mod cpu;
 pub mod z80;

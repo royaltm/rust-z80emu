@@ -5,39 +5,41 @@
     For the full copyright notice, see the lib.rs file.
 */
 //! Cpu flags register bits definitions and flag helper methods.
+use bitflags::bitflags;
+
 bitflags! {
     /// Z80 [Cpu](crate::Cpu) Flags.
     #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     pub struct CpuFlags: u8 {
-        /// Sign Flag.
-        const S  = 0b1000_0000;
-        /// Zero Flag.
-        const Z  = 0b0100_0000;
-        /// Undocumented bit 5 of the Flag.
-        const Y  = 0b0010_0000;
-        /// Half Carry Flag.
-        const H  = 0b0001_0000;
-        /// Undocumented bit 3 of the Flag.
-        const X  = 0b0000_1000;
-        /// Parity/Overflow Flag.
-        const PV = 0b0000_0100;
-        /// Add/Subtract Flag.
-        const N  = 0b0000_0010;
         /// Carry Flag.
         const C  = 0b0000_0001;
-        /// An alias of [CpuFlags::PV].
-        const P  = Self::PV.bits();
-        /// An alias of [CpuFlags::PV].
-        const V  = Self::PV.bits();
-        /// A mask of both undocumented Flag's bits 3 and 5. [CpuFlags::X] | [CpuFlags::Y].
-        const XY = Self::X.bits() | Self::Y.bits();
-        /// A mask over bits 0 to 3 being used to detect half-byte carry.
-        const HMASK = CpuFlags::H.bits() - 1;
+        /// Add/Subtract Flag.
+        const N  = 0b0000_0010;
+        /// Parity/Overflow Flag.
+        const PV = 0b0000_0100;
+        /// Undocumented bit 3 of the Flag.
+        const X  = 0b0000_1000;
+        /// Half Carry Flag.
+        const H  = 0b0001_0000;
+        /// Undocumented bit 5 of the Flag.
+        const Y  = 0b0010_0000;
+        /// Zero Flag.
+        const Z  = 0b0100_0000;
+        /// Sign Flag.
+        const S  = 0b1000_0000;
     }
 }
 
-
 impl CpuFlags {
+    /// An alias of [CpuFlags::PV].
+    pub const P: Self  = CpuFlags::from_bits_retain(Self::PV.bits());
+    /// An alias of [CpuFlags::PV].
+    pub const V: Self  = CpuFlags::from_bits_retain(Self::PV.bits());
+    /// A mask of both undocumented Flag's bits 3 and 5. [CpuFlags::X] | [CpuFlags::Y].
+    pub const XY: Self = CpuFlags::from_bits_retain(Self::X.bits() | Self::Y.bits());
+    /// A mask over bits 0 to 3 being used to detect half-byte carry.
+    pub const HMASK: Self = CpuFlags::from_bits_retain(CpuFlags::H.bits() - 1);
+
     /// Resets all [CpuFlags] to `false`.
     pub fn reset(&mut self) {
         const RESET: CpuFlags = CpuFlags::empty();
@@ -433,5 +435,8 @@ mod tests {
         assert_eq!(CpuFlags::X.bits(), CpuFlags::mask_bitops(0b00001000, false, false).bits());
         assert_eq!((CpuFlags::S|CpuFlags::XY|CpuFlags::H|CpuFlags::C).bits(), CpuFlags::mask_bitops(0b10101000, true, true).bits());
         assert_eq!((CpuFlags::P|CpuFlags::S|CpuFlags::XY|CpuFlags::H|CpuFlags::C).bits(), CpuFlags::mask_bitops(0b10101001, true, true).bits());
+        for i in 0..=255 {
+            assert_eq!(CpuFlags::from_bits_retain(i), CpuFlags::from_bits_truncate(i))
+        }
     }
 }
