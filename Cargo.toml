@@ -9,7 +9,7 @@ readme = "README.md"
 repository = "https://github.com/royaltm/rust-z80emu"
 categories = ["emulators", "no-std"]
 keywords = ["Z80", "retro"]
-description = "A minimalistic Z80 CPU emulation library."
+description = "ZiLOG Z80 microprocessor emulation library."
 
 [features]
 default = ["std", "serde"]

@@ -1,5 +1,5 @@
 /*
-    z80emu: a minimalistic Z80 CPU emulation library.
+    z80emu: ZiLOG Z80 microprocessor emulation library.
     Copyright (C) 2019-2023  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
