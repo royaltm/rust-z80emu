@@ -1,7 +1,7 @@
 v0.9.0
 * migration to 2021 edition
 * minimum supported rust version changed to Rust 1.60
-* deps: arrayvec update and bitflags upgrade to 2.3.3
+* deps: arrayvec update and bitflags upgrade to 2.3.3, dev-deps updated
 
 v0.8.0
 * major internal rework - replaced a substantial portion of macros with functions, taking advantage of const generics. Compilation produces smaller code with almost no run-time performance penalty (Rustc <=1.54 >=v1.60). Results in faster compilation time in release mode and profile-guided optimizations render better results in both smaller code footprint and increased performance.
