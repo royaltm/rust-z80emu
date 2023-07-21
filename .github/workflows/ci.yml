@@ -2,7 +2,7 @@ name: Continuous integration
 
 on:
   push:
-    branches: [ master, grcov-test ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
     
@@ -17,9 +17,9 @@ jobs:
     strategy:
       matrix:
         rust:
-          # - 1.60.0
-          # - stable
-          # - beta
+          - 1.60.0
+          - stable
+          - beta
           - nightly
         include:
           - rust: nightly
@@ -89,5 +89,3 @@ jobs:
         with:
           file: lcov.info
           format: lcov
-          debug: true
-          measure: true
