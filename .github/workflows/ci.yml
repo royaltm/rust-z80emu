@@ -22,17 +22,29 @@ jobs:
           - beta
           - nightly
         include:
-          - rust: 1.60.0
+          - rust: nightly
             coverage: 'send'
+            components: llvm-tools
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
+
       - name: Install ${{ matrix.rust }} toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain:  ${{ matrix.rust }}
+          components: ${{ matrix.components }}
           override: true
+
+      - name: Install grcov
+        if: matrix.coverage == 'send'
+        uses: actions-rs/install@v0.1
+        with:
+          crate: grcov
+          version: latest
+          use-tool-cache: true
+
       - name: Tests
         env:
           RUSTFLAGS: '-D warnings'
@@ -41,9 +53,39 @@ jobs:
           cargo test --verbose --no-default-features
           cargo build --verbose
           cargo test --verbose
+
       - name: Coverage
         if: matrix.coverage == 'send'
-        uses: actions-rs/tarpaulin@v0.1
+        env:
+          LLVM_PROFILE_FILE: "z80emu-%p-%m.profraw"
+          RUSTFLAGS: "-Cinstrument-coverage"
+        run: |
+          cargo build --verbose
+          cargo test --verbose
+          grcov . \
+              --binary-path ./target/debug/ \
+              --branch \
+              --output-types lcov \
+              --source-dir . \
+              --output-path ./lcov.info \
+              --ignore-not-existing \
+              --keep-only 'src/*' \
+              --commit-sha ${{ github.sha }} \
+              --service-job-id ${{ github.job }} \
+              --service-name "GitHub Actions" \
+              --service-number ${{ github.run_id }}
+
+      - name: Upload coverage as artifact
+        if: matrix.coverage == 'send'
+        uses: actions/upload-artifact@v2
         with:
-          version: '0.22.0'
-          args: --verbose --exclude-files tests/*.rs tests/*/*.rs examples/*.rs --coveralls ${{secrets.COVERALLS_KEY}}
+          name: lcov.info
+          path: ./lcov.info
+          if-no-files-found: error
+
+      - name: Upload coverage to Coveralls
+        if: matrix.coverage == 'send'
+        uses: coverallsapp/github-action@v2
+        with:
+          file: lcov.info
+          format: lcov
