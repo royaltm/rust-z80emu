@@ -32,7 +32,6 @@ trait CpuExec {
     fn cpu_exec<C: Cpu>(cpu: &mut C, shuffle: &mut TestShuffle, tsc: &mut TsClock, limit: i32) -> host::Result<u8, ()>;
 }
 
-const NO_DEBUG: Option<CpuDebugFn> = None;
 const SEED_ZERO: u16 = u16::max_value();
 
 type TsClock = host::TsCounter<i32>;
@@ -95,20 +94,39 @@ impl CpuExec for CpuExecWithLimit {
     }
 }
 
+// Ensure only a single Cpu::execute_instruction instance exists per each Cpu type.
+#[inline(always)]
+fn execute_next<C: Cpu>(
+    cpu: &mut C,
+    shuffle: &mut TestShuffle,
+    tsc: &mut TsClock,
+    debug: Option<&mut dyn FnMut(CpuDebug)>
+) -> host::Result<u8, ()>
+{
+    cpu.execute_next(shuffle, tsc, debug)
+}
+
 struct CpuExecSteps;
 impl CpuExec for CpuExecSteps {
     #[inline(never)]
     fn cpu_exec<C: Cpu>(cpu: &mut C, shuffle: &mut TestShuffle, tsc: &mut TsClock, limit: i32) -> host::Result<u8, ()> {
+        const NO_DEBUG: Option<&mut dyn FnMut(CpuDebug)> = None;
+        // const NO_DEBUG: Option<CpuDebugFn> = None;
         loop {
             if tsc.is_past_limit(limit) {
                 return Ok(());
             }
-            if let Err(err) = cpu.execute_next(shuffle, tsc, NO_DEBUG) {
+            if let Err(err) = execute_next(cpu, shuffle, tsc, NO_DEBUG) {
                 return Err(err);
             }
         }
     }
 }
+
+#[rustversion::since(1.66)]
+fn black_box(opt: &mut Option<CpuDebug>) { core::hint::black_box(opt); }
+#[rustversion::before(1.66)]
+fn black_box(opt: &mut Option<CpuDebug>) { let _ = core::convert::identity(opt); }
 
 struct CpuExecDebug;
 impl CpuExec for CpuExecDebug {
@@ -119,8 +137,9 @@ impl CpuExec for CpuExecDebug {
             if tsc.is_past_limit(limit) {
                 return Ok(());
             }
-            if let Err(err) = cpu.execute_next(shuffle, tsc, Some(|deb| {
+            if let Err(err) = execute_next(cpu, shuffle, tsc, Some(&mut |deb| {
                 debopt = Some(deb);
+                black_box(&mut debopt);
             })) {
                 return Err(err);
             }
