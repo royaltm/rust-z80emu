@@ -18,7 +18,7 @@ It is however up to the [Clock] implementation to actually increase the counter.
 timestamps which in turn are being used when accessing peripherals or memory to mark certain actions on the time axis.
 
 Please see [crate::host::cycles] module for the description of each emulated cycle.
-!*/
+*/
 #[cfg(feature = "std")] use std::error;
 #[cfg(feature = "serde")] use serde::{Serialize, Deserialize};
 use core::fmt;

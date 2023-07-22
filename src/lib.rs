@@ -81,20 +81,20 @@ Alternatively, a [Z80Any] enum can be used if changing of the [z80::Flavour] in 
 
 ## Debugger
 
-The Cpu trait provides an ability to debug the executed machine code. Some of the Cpu functions accept
-the optional callback argument: `debug`. This callback is being fed with the extended information about
-the command being executed, and can be used to display the human-readable text of the disassembled
-instructions or gather statistics.
+The [Cpu] interface provides ways to debug the executed Z80 machine code. [Cpu::execute_next],
+[Cpu::execute_instruction] and [Cpu::irq] methods accept the optional callback argument: `debug`.
+The callback, if provided, is being fed with the extended information about the instruction being executed,
+and can be used to display a human-readable text of the disassembled instructions or gather statistics.
 
-In `z80emu` the command execution code and the debugger code are implemented together in a single unit.
+In `z80emu` the command execution code and the debugger are both implemented in a single unit.
 This way there is only a single machine code [dispatcher]. This minimizes the probability of a debugger
 suffering from "schizophrenic effects" showing results not compatible with the execution unit.
-Thanks to Rust and LLVM, the compilator can optimize out the debugger parts when they are not
+The Rust and LLVM compilator can optimize out the debugger parts when they are not
 [needed](https://github.com/royaltm/rust-z80emu/blob/master/examples/shuffle.rs).
 
-The debugger provides information as a [CpuDebug] struct. It implements [Display][core::fmt::Display],
-[LowerHex][core::fmt::LowerHex], and [UpperHex][core::fmt::UpperHex] traits so it's easy to print it OOB
-as well as provide a complete customized debugging solution.
+The debugger provides information in a form of a [CpuDebug] struct which implements [Display][core::fmt::Display],
+[LowerHex][core::fmt::LowerHex], and [UpperHex][core::fmt::UpperHex] traits. The `debug` closure can just print
+the information out or provide a complete customized debugging [solution][disasm].
 
 ## How To
 
@@ -105,6 +105,12 @@ All of the test cases run minimalistic Z80 virtual computers and can be useful i
 For a bigger picture see the crate's [repository example](https://github.com/royaltm/rust-z80emu/tree/master/examples/ral1243)
 implementation of the imaginary Z80 based computer, to see how a system bus could be implemented with
 custom PIO and CTC peripheral chips.
+
+For the most optimized emulator code execution, when the debugger is not needed, the emulators should
+use the [Cpu::execute_with_limit] method to execute code in time frames. The code is executed in a loop
+where mostly used Z80 registers can be kept in host CPU registers or its data cache. The optimizer 
+removes all debugging related code for this method, even though it uses exactly the same instruction
+execution source underneath as [Cpu::execute_next].
 
 ## Example
 
