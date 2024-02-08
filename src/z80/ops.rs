@@ -197,6 +197,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
     let nf0 = flags.nf();
     let high_nibble = acc & HALF8_MASK_HI;
     let low_nibble  = acc & HALF8_MASK_LO;
+    #[allow(overlapping_range_endpoints)]
     let diff = match (cf0, high_nibble, hf0, low_nibble) {
         (false, 0x00..=0x90, false, 0x0..=0x9) => 0x00,
         (false, 0x00..=0x90, true , 0x0..=0x9) => 0x06,
@@ -209,6 +210,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
         (false, 0xA0..=0xF0, true , 0x0..=0x9) => 0x66,
         _ => debug_unreachable_unchecked!()
     };
+    #[allow(overlapping_range_endpoints)]
     let cf = match (cf0, high_nibble, low_nibble) {
         (false, 0x00..=0x90, 0x0..=0x9) => false,
         (false, 0x00..=0x80, 0xA..=0xF) => false,
@@ -217,6 +219,7 @@ pub fn daa(acc: u8, flags: &mut CpuFlags) -> u8 {
         (true ,      _     ,     _    ) => true,
         _ => debug_unreachable_unchecked!()
     };
+    #[allow(overlapping_range_endpoints)]
     let hf = match (nf0, hf0, low_nibble) {
         (false,   _  , 0x0..=0x9) => false,
         (false,   _  , 0xA..=0xF) => true,
