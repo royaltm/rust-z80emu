@@ -12,10 +12,11 @@
 
 /// An enum representing the maskable interrupt modes.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy,Clone,PartialEq,Eq,Hash,Debug)]
+#[derive(Default,Copy,Clone,PartialEq,Eq,Hash,Debug)]
 #[repr(u8)]
 pub enum InterruptMode {
     /// The data bus instruction mode: `IM 0`.
+    #[default]
     Mode0 = 0,
     /// The `RST 38` mode: `IM 1`.
     Mode1 = 1,
@@ -43,12 +44,6 @@ pub(crate) struct GeneralRegisters {
 pub(crate) struct IndexRegisters {
     pub(crate) ix: RegisterPair,
     pub(crate) iy: RegisterPair
-}
-
-impl Default for InterruptMode {
-    fn default() -> Self {
-        InterruptMode::Mode0
-    }
 }
 
 impl core::convert::TryFrom<u8> for InterruptMode {
