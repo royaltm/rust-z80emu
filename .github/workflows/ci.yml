@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.60.0
+          - 1.66.0
           - stable
           - beta
           - nightly
@@ -35,6 +35,7 @@ jobs:
           profile: minimal
           toolchain:  ${{ matrix.rust }}
           components: ${{ matrix.components }}
+          target: thumbv7em-none-eabihf
           override: true
 
       - name: Install grcov
@@ -53,6 +54,7 @@ jobs:
           cargo test --verbose --no-default-features
           cargo build --verbose
           cargo test --verbose
+          cargo build -p z80emu-embedded --target thumbv7em-none-eabihf --verbose
 
       - name: Coverage
         if: matrix.coverage == 'send'
