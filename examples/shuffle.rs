@@ -123,10 +123,7 @@ impl CpuExec for CpuExecSteps {
     }
 }
 
-#[rustversion::since(1.66)]
 fn black_box(opt: &mut Option<CpuDebug>) { core::hint::black_box(opt); }
-#[rustversion::before(1.66)]
-fn black_box(opt: &mut Option<CpuDebug>) { let _ = core::convert::identity(opt); }
 
 struct CpuExecDebug;
 impl CpuExec for CpuExecDebug {
