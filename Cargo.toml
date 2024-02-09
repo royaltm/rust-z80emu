@@ -13,7 +13,7 @@ description = "ZiLOG Z80 microprocessor emulation library."
 
 [features]
 default = ["std", "serde"]
-std = ["serde/std", "arrayvec/std"]
+std = []
 
 [dependencies]
 arrayvec = { version = "0.7.4", default-features = false }
@@ -41,3 +41,9 @@ rustversion = "1.0.14"
 # opt-level = 3
 # incremental = false
 # codegen-units = 1
+
+[workspace]
+members = [
+  ".",
+  "examples/embedded"
+]
