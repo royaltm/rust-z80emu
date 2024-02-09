@@ -45,6 +45,7 @@ doc:
 test:
     cargo test --no-default-features
     cargo test
+    cargo build -p z80emu-embedded --target thumbv7em-none-eabihf
 
 # run all tests with no capture
 test-nocapt:

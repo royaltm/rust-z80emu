@@ -1,6 +1,6 @@
 /*
     ral1243: Emulator program as an example implementation for the z80emu library.
-    Copyright (C) 2019-2020  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the mod.rs file.
 */
@@ -15,6 +15,7 @@ pub const fn bit8(n: u32) -> u8 {
     1 << n
 }
 
+#[allow(dead_code)]
 pub trait BusMemory {
     fn memory_debug(&self, addr: Range<u16>) -> Vec<u8>;
 }
