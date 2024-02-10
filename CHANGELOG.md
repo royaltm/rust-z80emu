@@ -1,7 +1,6 @@
 v0.10.0
 * deps: fixed arrayvec always depending on std
 * deps: bumped bitflags to 2.4.2
-* deps: do not enable std for any of the dependencies
 * added z80emu-embedded example to test the bare-metal case
 * minimum supported rust version changed to Rust 1.66
 * use Default derive macro for InterruptMode

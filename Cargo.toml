@@ -13,7 +13,7 @@ description = "ZiLOG Z80 microprocessor emulation library."
 
 [features]
 default = ["std", "serde"]
-std = []
+std = ["serde/std"]
 
 [dependencies]
 arrayvec = { version = "0.7.4", default-features = false }
