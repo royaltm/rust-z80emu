@@ -27,7 +27,7 @@ pub trait BusDevice {
     fn reset(&mut self, ts: Self::Timestamp);
     /// This is called once per frame so devices can update themselves.
     fn frame_end(&mut self, ts: Self::Timestamp);
-    /// This will be called whenever Memory::read_opcode is being called.
+    /// This will be called whenever [Memory::read_opcode] is being called.
     fn m1(&mut self, ts: Self::Timestamp);
     /// Allows access to the next device in a daisy chain.
     fn next_device(&mut self) -> &mut Self::NextDevice;

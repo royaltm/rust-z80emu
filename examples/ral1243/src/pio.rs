@@ -49,6 +49,7 @@ struct Channel<T: Copy, D: PioDevice<Timestamp=T>> {
     device: D
 }
 
+/// Emulator of PIO Z8420 for [z80emu].
 pub struct Pio<T: Copy, A: PioDevice<Timestamp=T>, B: PioDevice<Timestamp=T>, D> {
     port_match_mask: u16,
     port_match_bits: u16,
@@ -67,6 +68,9 @@ where T: Copy,
       B: PioDevice<Timestamp=T>,
       D: BusDevice + Io<Timestamp=T>
 {
+    /// Create a new instance of [Pio]. Provide implementations of [PioDevice]
+    /// for channel A and B and a remeaining [BusDevice] devices in a device chain
+    /// or a [Terminator](crate::bus::Terminator).
     pub fn new(pio_device_a: A, pio_device_b: B, daisy_chained: D) -> Self {
         Pio {
             port_match_mask: 0,
@@ -80,6 +84,7 @@ where T: Copy,
         }
     }
 
+    /// Configure I/O ports.
     pub fn with_port_bits(mut self, port_match_mask: u16, port_match_bits: u16,
                                     channel_select_bit: u32, control_select_bit: u32) -> Self {
         assert_ne!(channel_select_bit, control_select_bit);
@@ -95,10 +100,12 @@ where T: Copy,
         self
     }
 
+    /// Mutably access PIO device attached to channel A.
     pub fn pio_device_a(&mut self) -> &mut A {
         &mut self.channel_a.device
     }
 
+    /// Mutably access PIO device attached to channel B.
     pub fn pio_device_b(&mut self) -> &mut B {
         &mut self.channel_b.device
     }

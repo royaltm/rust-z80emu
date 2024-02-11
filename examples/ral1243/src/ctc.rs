@@ -16,7 +16,7 @@ use log::{error, warn, info, debug, trace, Level};
 pub trait CtcTrigger {
     type Timestamp: Copy;
     /// Should return `Ok(Timestamp)` of the first CLK/TRG edge mathing `rising_edge` before or at `ts`.
-    /// Or return the next Err(Timestamp) hint in the future.
+    /// Or return the next `Err(Timestamp)` hint in the future.
     /// The timestamp returned should be synchronized to the edge of the following CTC's clock pulse.
     fn next_clk_trg(&mut self, rising_edge: bool, ts: Self::Timestamp) -> Result<Self::Timestamp, Self::Timestamp>;
     /// Purge all CLK/TRG events before `ts`, return next timestamp hint in the future.
@@ -64,6 +64,7 @@ struct Channel<T: Copy, R: CtcTrigger<Timestamp=T>> {
     trigger: R
 }
 
+/// Emulator of CTC Z8430 for [z80emu].
 pub struct Ctc<T: Copy,
         R0: CtcTrigger<Timestamp=T>,
         R1: CtcTrigger<Timestamp=T>,
@@ -92,6 +93,8 @@ where T: Copy + Default,
       R2: CtcTrigger<Timestamp=T>,
       R3: CtcTrigger<Timestamp=T>
 {
+    /// Create a new [Ctc] instance, provide trigger implementations for channels
+    /// and a remaining [BusDevice] devices in a device chain or a [Terminator](crate::bus::Terminator).
     pub fn new(ctc_trigger0: R0, ctc_trigger1: R1, ctc_trigger2: R2, ctc_trigger3: R3, daisy_chained: D) -> Self {
         Ctc {
             next_ts_hint: T::default(),
@@ -109,6 +112,7 @@ where T: Copy + Default,
         }
     }
 
+    /// Configure I/O ports.
     pub fn with_port_bits(mut self, port_match_mask: u16, port_match_bits: u16,
                                     channel_select1_bit: u32, channel_select0_bit: u32) -> Self {
         assert_ne!(channel_select1_bit, channel_select0_bit);
@@ -124,18 +128,22 @@ where T: Copy + Default,
         self
     }
 
+    /// Mutably access channel-0 trigger implementation.
     pub fn ctc0_trigger(&mut self) -> &mut R0 {
         &mut self.channel0.trigger
     }
 
+    /// Mutably access channel-1 trigger implementation.
     pub fn ctc1_trigger(&mut self) -> &mut R1 {
         &mut self.channel1.trigger
     }
 
+    /// Mutably access channel-2 trigger implementation.
     pub fn ctc2_trigger(&mut self) -> &mut R2 {
         &mut self.channel2.trigger
     }
 
+    /// Mutably access channel-3 trigger implementation.
     pub fn ctc3_trigger(&mut self) -> &mut R3 {
         &mut self.channel3.trigger
     }

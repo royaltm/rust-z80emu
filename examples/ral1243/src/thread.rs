@@ -8,6 +8,7 @@
 use std::time::{Duration, Instant};
 use std::thread::{spawn, sleep, JoinHandle};
 use std::sync::mpsc::{SyncSender, Receiver, TryRecvError};
+use log::{debug, warn};
 use super::Ral1243;
 use super::runner::FrameRunner;
 use super::*;
@@ -55,12 +56,15 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
 
         let mut time = Instant::now();
 
+        let mut total_ts = 0;
+        let mut duration = Duration::ZERO;
         loop {
-            let _delta_ts = self.step();
-            if let Some(duration) = frame_duration.checked_sub(time.elapsed()) {
-                thread::sleep(duration);
-            }
-            time += frame_duration;
+            let delta_ts = self.step();
+            let elapsed = time.elapsed();
+
+            duration += elapsed;
+            total_ts += delta_ts;
+
             match run_rx.try_recv() {
                 Ok(RunnerMsg::Terminate) => break,
                 Ok(RunnerMsg::Reset) => {
@@ -71,6 +75,22 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
                 }
                 Err(TryRecvError::Empty) => {},
                 Err(TryRecvError::Disconnected) => break,
+            }
+
+            if let Some(duration) = frame_duration.checked_sub(time.elapsed()) {
+                thread::sleep(duration);
+                time += frame_duration;
+            }
+            else {
+                warn!("emulation too slow");
+                time = Instant::now();
+                continue
+            }
+
+            if duration > Duration::from_secs(5) {
+                debug!("emulation max {:.4} MHz", total_ts as f64 / duration.as_secs_f64() / 1e6);
+                duration = Duration::ZERO;
+                total_ts = 0;
             }
         }
     }

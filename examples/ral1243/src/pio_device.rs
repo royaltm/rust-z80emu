@@ -22,13 +22,13 @@ pub trait PioStream {
     fn slurp(&mut self) -> Option<u8>;
 }
 
-/// Implements [PioDevice] as input-only channel.
+/// Implements [PioDevice] as an input-only channel.
 pub struct PioInput<T> {
     source: T,
     ready: bool
 }
 
-/// Implements [PioDevice] as output-only channel.
+/// Implements [PioDevice] as an output-only channel.
 pub struct PioOutput<T> {
     sink: T,
     pending: Option<u8>

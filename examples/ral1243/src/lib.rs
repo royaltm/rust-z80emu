@@ -92,8 +92,8 @@ pub const EX_ROM002: &[u8] = include_bytes!("../exroms/exrom002.bin");
 ///
 /// Require Cpu and implementations of [PioStream] and [PioSink].
 ///
-/// `EXT_HZ`: external clock frequency (for CTC) in Hz.
-/// `FRAME_HZ`: how many frames per second will be run.
+/// * `EXT_HZ`: external clock frequency (for CTC) in Hz.
+/// * `FRAME_HZ`: how many frames per second will be run.
 pub struct Ral1243<C: Cpu, I: PioStream, O: PioSink,
         const EXT_HZ: u32 = 10_000,
         const FRAME_HZ: u32 = 500> {
@@ -140,7 +140,7 @@ impl<C: Cpu + Default, I: PioStream, O: PioSink,
     pub fn frame_duration() -> core::time::Duration {
         FrameRunner::<EXT_HZ, FRAME_HZ>::frame_duration()
     }
-    /// Handly tool to validate CPU clock frequency.
+    /// Handy tool to validate CPU clock frequency.
     pub fn check_clock(clock_hz: Ts, max_clock_hz: Ts) -> Result<(), &'static str> {
         if !FrameRunner::<EXT_HZ, FRAME_HZ>::clock_is_valid(clock_hz) ||
             clock_hz > max_clock_hz
@@ -150,7 +150,7 @@ impl<C: Cpu + Default, I: PioStream, O: PioSink,
         Ok(())
     }
 
-    /// Handly tool to validate RAM size in kilobytes.
+    /// Handy tool to validate RAM size in kilobytes.
     pub fn check_ram_size(ramsizekb: usize) -> Result<(), &'static str> {
         if !(1..=Memory::MAXRAM_KB).contains(&ramsizekb) {
             return Err("please specify RAM between 1 and 48");
