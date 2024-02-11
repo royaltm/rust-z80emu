@@ -45,7 +45,10 @@ doc:
 test:
     cargo test --no-default-features
     cargo test
-    cargo build -p z80emu-embedded --target thumbv7em-none-eabihf
+    cargo build -p ral1243 --no-default-features
+    cargo build -p ral1243 --features=std
+    cargo build -p ral1243 --target thumbv7em-none-eabihf
+    cargo build -p z80emu-embedded-example --target thumbv7em-none-eabihf
 
 # run all tests with no capture
 test-nocapt:

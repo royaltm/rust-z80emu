@@ -54,7 +54,10 @@ jobs:
           cargo test --verbose --no-default-features
           cargo build --verbose
           cargo test --verbose
-          cargo build -p z80emu-embedded --target thumbv7em-none-eabihf --verbose
+          cargo build -p ral1243 --no-default-features --verbose
+          cargo build -p ral1243 --features=std --verbose
+          cargo build -p ral1243 --target thumbv7em-none-eabihf --verbose
+          cargo build -p z80emu-embedded-example --target thumbv7em-none-eabihf --verbose
 
       - name: Coverage
         if: matrix.coverage == 'send'

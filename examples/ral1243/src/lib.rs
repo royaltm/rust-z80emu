@@ -17,13 +17,14 @@
 
     Author contact information: see Cargo.toml file, section [package.authors].
 */
-mod bus;
-mod clock;
-mod ctc;
-mod ctc_trigger;
-mod memory;
-mod pio;
-mod pio_device;
+#![cfg_attr(not(features = "std"), no_std)]
+pub mod bus;
+pub mod clock;
+pub mod ctc;
+pub mod ctc_trigger;
+pub mod memory;
+pub mod pio;
+pub mod pio_device;
 mod runner;
 #[cfg(feature = "std")]
 mod thread;
@@ -51,11 +52,11 @@ use ctc_trigger::{CtcActive, CtcPassive};
 use memory::{Rom, Memory};
 use pio::Pio;
 use pio_device::{PioInput, PioOutput};
-use runner::FrameRunner;
 
 /// For implementations.
 pub use clock::Ts;
 pub use pio_device::{PioStream, PioSink};
+pub use runner::FrameRunner;
 #[cfg(feature = "std")]
 pub use thread::RunnerMsg;
 
@@ -81,11 +82,11 @@ const CTC_PORT_BITS: u16 = 0b00000100;    // 4,5,6,7
 const CTC_PORT_CHANNEL_SELECT1: u32 = 1;
 const CTC_PORT_CHANNEL_SELECT0: u32 = 0;
 
-const ROM: &[u8] = include_bytes!("rom/rom.bin");
+const ROM: &[u8] = include_bytes!("../rom/rom.bin");
 /// For implementations.
-pub const EX_ROM001: &[u8] = include_bytes!("exroms/exrom001.bin");
+pub const EX_ROM001: &[u8] = include_bytes!("../exroms/exrom001.bin");
 /// For implementations.
-pub const EX_ROM002: &[u8] = include_bytes!("exroms/exrom002.bin");
+pub const EX_ROM002: &[u8] = include_bytes!("../exroms/exrom002.bin");
 
 /// The computer.
 ///

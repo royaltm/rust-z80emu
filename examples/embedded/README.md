@@ -21,5 +21,5 @@ Build it with one of the following targets:
 
 For example:
 ```
-cargo build -p z80emu-embedded --target thumbv7em-none-eabihf
+cargo build -p z80emu-embedded-example --target thumbv7em-none-eabihf
 ```

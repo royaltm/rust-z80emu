@@ -1,9 +1,10 @@
 v0.10.0
 * deps: fixed arrayvec always depending on std
 * deps: bumped bitflags to 2.4.2
-* added z80emu-embedded example to test the bare-metal case
 * minimum supported rust version changed to Rust 1.66
 * use Default derive macro for InterruptMode
+* examples: added z80emu-embedded-example example to test the no-std/no-main targets
+* examples: ral1243 becomes a library, much improved and no-std/no-main targets ready
 
 v0.9.0
 * migration to 2021 edition

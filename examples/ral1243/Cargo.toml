@@ -1,15 +1,14 @@
 [package]
-name = "z80emu-embedded-example"
-version = "0.1.0"
+name = "ral1243"
+version = "1.0.0"
 authors = ["Rafał Michalski <royaltm75@gmail.com>"]
 edition = "2021"
 license = "LGPL-3.0-or-later"
 
-[[bin]]
-name="embedded"
-path="embedded.rs"
+[features]
+default = ["std"]
+std = ["z80emu/std"]
 
 [dependencies]
+log = "0.4.20"
 z80emu = { version = "*", path = "../..", default-features = false }
-cortex-m-rt = "0.7.3"
-panic-halt = "0.2.0"

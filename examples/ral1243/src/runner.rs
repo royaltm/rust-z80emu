@@ -1,6 +1,6 @@
 /*
     ral1243: Emulator program as an example implementation for the z80emu library.
-    Copyright (C) 2019-2020  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the mod.rs file.
 */
@@ -9,9 +9,9 @@
 
  Emulates in frame pulses.
 
-|<- 1/TIME_FRAME_HZ s.->|
-t1                      t2                       t3
-<======= sleep =========><- work -><=== sleep ===>
+|<-      1/TIME_FRAME_HZ s.     ->|
+t1       t2                      t3
+<- work -><======= sleep =========>
 */
 use core::time::{Duration};
 use super::clock::{TClock, Ts};

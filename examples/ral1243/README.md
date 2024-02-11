@@ -22,6 +22,13 @@ cargo run --example terminal --release -- examples/ral1243/exroms -m 48 -c 8000
 
 ... so you may enjoy "Sssshnake", the only game written for RAL 1243.
 
+
+Library
+-------
+
+The RAL 1243 computer is a library too. Ready for embedded.
+
+
 Memory
 ------
 
@@ -154,6 +161,7 @@ Special output control terminal I/O codes:
 * 0 - hidden
 * 1 - underscore
 * 2 - block
+* 3 - bar
 
 Depending on the terminal capability more shapes may be available.
 

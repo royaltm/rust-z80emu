@@ -1,3 +1,9 @@
+/*
+    ral1243: Emulator program as an example implementation for the z80emu library.
+    Copyright (C) 2019-2024  Rafal Michalski
+
+    For the full copyright notice, see the mod.rs file.
+*/
 //! Std thread runner for Ral1243.
 use std::time::{Duration, Instant};
 use std::thread::{spawn, sleep, JoinHandle};
