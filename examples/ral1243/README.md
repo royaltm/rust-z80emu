@@ -161,7 +161,6 @@ Special output control terminal I/O codes:
 * 0 - hidden
 * 1 - underscore
 * 2 - block
-* 3 - bar
 
 Depending on the terminal capability more shapes may be available.
 

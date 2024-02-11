@@ -17,6 +17,9 @@
 
     Author contact information: see Cargo.toml file, section [package.authors].
 */
+//! RAL 1243 is a fictional computer brought into its virtual existence to provide
+//! an example on how to implement emulators based on [z80emu](https://github.com/royaltm/rust-z80emu)
+//! Z80 CPU emulator.
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod bus;
 pub mod clock;
