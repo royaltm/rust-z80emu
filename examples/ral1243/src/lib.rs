@@ -17,7 +17,7 @@
 
     Author contact information: see Cargo.toml file, section [package.authors].
 */
-#![cfg_attr(not(features = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 pub mod bus;
 pub mod clock;
 pub mod ctc;
