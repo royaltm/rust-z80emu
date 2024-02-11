@@ -5,28 +5,30 @@ RAL 1243 is a fictional computer brought into its virtual existence to provide a
 
 The computer has no graphics or a keyboard interface but instead communicates with the user via the PIO onboard chipset.
 
+Library
+-------
+
+The RAL 1243 computer is a library. Ready for embedded.
+
+
 Usage
 -----
+
+An example using this library can be found in [z80emu][z80emu repo] repository, called `terminal`.
 
 To run the emulator with the built-in ex-ROMs and default 16kb of user RAM and with the CPU clocked at 4MHz:
 
 ```
-cargo run --example terminal --release
+cargo run -r --example terminal
 ```
 
 To run the emulator with 48kb RAM, the CPU at 8MHz and externally loaded ex-ROMs:
 
 ```
-cargo run --example terminal --release -- examples/ral1243/exroms -m 48 -c 8000
+cargo run -r --example terminal -- examples/ral1243/exroms -m 48 -c 8000
 ```
 
 ... so you may enjoy "Sssshnake", the only game written for RAL 1243.
-
-
-Library
--------
-
-The RAL 1243 computer is a library too. Ready for embedded.
 
 
 Memory
