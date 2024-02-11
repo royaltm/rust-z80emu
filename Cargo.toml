@@ -38,7 +38,7 @@ serde_json = "1.0"
 bincode = "1.3"
 simplelog = "0.11"
 pancurses = "0.17"
-ral1243 = { version = "*", path = "examples/ral1243", features = ["std"] }
+ral1243 = { version = "1", path = "examples/ral1243", features = ["std"] }
 
 [profile.release]
 # lto = 'thin'
