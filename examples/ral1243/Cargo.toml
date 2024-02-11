@@ -16,6 +16,6 @@ std = ["z80emu/std"]
 log = "0.4"
 
 [dependencies.z80emu]
-version = "0.10"
+version = ">=0.9"
 path = "../.."
 default-features = false
