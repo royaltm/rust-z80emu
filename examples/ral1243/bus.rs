@@ -4,6 +4,7 @@
 
     For the full copyright notice, see the mod.rs file.
 */
+use super::vec::Vec;
 use core::num::NonZeroU16;
 use core::ops::Range;
 use core::marker::PhantomData;
@@ -15,7 +16,6 @@ pub const fn bit8(n: u32) -> u8 {
     1 << n
 }
 
-#[allow(dead_code)]
 pub trait BusMemory {
     fn memory_debug(&self, addr: Range<u16>) -> Vec<u8>;
 }
@@ -25,6 +25,8 @@ pub trait BusDevice {
     type NextDevice: BusDevice;
     /// This is called on hard reset.
     fn reset(&mut self, ts: Self::Timestamp);
+    /// This is called once per frame so devices can update themselves.
+    fn frame_end(&mut self, ts: Self::Timestamp);
     /// This will be called whenever Memory::read_opcode is being called.
     fn m1(&mut self, ts: Self::Timestamp);
     /// Allows access to the next device in a daisy chain.
@@ -61,6 +63,9 @@ where D: BusDevice<Timestamp=T>
     type NextDevice = D;
     fn reset(&mut self, ts: T) {
         self.device.reset(ts)
+    }
+    fn frame_end(&mut self, ts: Self::Timestamp) {
+        self.device.frame_end(ts)
     }
     fn m1(&mut self, ts: T) {
         self.device.m1(ts)
@@ -167,10 +172,14 @@ impl<T: Copy> BusDevice for Terminator<T> {
     #[inline(always)]
     fn reset(&mut self, _ts: T) {}
     #[inline(always)]
+    fn frame_end(&mut self, _ts: Self::Timestamp) {}
+    #[inline(always)]
     fn m1(&mut self, _ts: T) {}
+    #[inline(always)]
     fn next_device(&mut self) -> &mut Self {
         self
     }
+    #[inline(always)]
     fn next_second(&mut self, _delta: T) {}
 }
 

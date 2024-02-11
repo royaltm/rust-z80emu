@@ -1,10 +1,9 @@
 /*
     ral1243: Emulator program as an example implementation for the z80emu library.
-    Copyright (C) 2019-2020  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the mod.rs file.
 */
-use core::convert::TryFrom;
 use core::num::{NonZeroU16, Wrapping};
 use core::ops::{Add, Sub};
 use z80emu::Io;
@@ -16,23 +15,34 @@ use log::{error, warn, info, debug, trace, Level};
 /// An interface to trigger lines: CLK/TRG in and ZC/TO out.
 pub trait CtcTrigger {
     type Timestamp: Copy;
-    /// Should return `Some(Timestamp)` of the first CLK/TRG edge mathing `rising_edge` before `ts`.
+    /// Should return `Ok(Timestamp)` of the first CLK/TRG edge mathing `rising_edge` before or at `ts`.
+    /// Or return the next Err(Timestamp) hint in the future.
     /// The timestamp returned should be synchronized to the edge of the following CTC's clock pulse.
-    fn was_clk_trg(&mut self, rising_edge: bool, ts: Self::Timestamp) -> Option<Self::Timestamp>;
-    /// Purge all CLK/TRG events before `ts`.
-    fn purge_clk_trg(&mut self, ts: Self::Timestamp);
+    fn next_clk_trg(&mut self, rising_edge: bool, ts: Self::Timestamp) -> Result<Self::Timestamp, Self::Timestamp>;
+    /// Purge all CLK/TRG events before `ts`, return next timestamp hint in the future.
+    fn purge_clk_trg(&mut self, ts: Self::Timestamp) -> Self::Timestamp;
     /// A pulse on ZC/TO is being signalled with the given `ts`. The pulse is high and lasts 2 T-states.
     fn zc_to_pulse(&mut self, ts: Self::Timestamp);
+    /// Next second wrap
+    fn next_second(&mut self, delta: Self::Timestamp);
 }
 
 #[allow(non_camel_case_types)]
 #[derive(Debug,Clone,Copy)]
+#[repr(u8)]
 enum Prescaler {
-    x256,
-    x16,
+    x256 = 1,
+    x16 = 16,
 }
 
-#[derive(PartialEq, Debug)]
+impl Prescaler {
+    #[inline(always)]
+    fn to_ts_factor(self) -> u32 {
+        self as u32
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
 enum ChannelMode {
     Timer, Counter
 }
@@ -40,6 +50,7 @@ enum ChannelMode {
 struct Channel<T: Copy, R: CtcTrigger<Timestamp=T>> {
     prescaler: Prescaler,
     mode: ChannelMode,
+    next_ts_hint: T, // Predict the future, 0 has special meaning, forcing all channels to process
     timer_last_ts: Option<T>, // None -> waiting for trigger, Some(T) Timer is ticking
     ext_trigger_ts: Option<T>, // None -> no ext loaded when timer_ext_trigger==true
     timer_counter_internal: u16, // starts with 256; on x16 each ts decrements by 16 on x256 each ts decrements 1
@@ -59,6 +70,7 @@ pub struct Ctc<T: Copy,
         R2: CtcTrigger<Timestamp=T>,
         R3: CtcTrigger<Timestamp=T>,
         D> {
+    next_ts_hint: T,
     port_match_mask: u16,
     port_match_bits: u16,
     port_cs0_mask: u16,
@@ -74,11 +86,15 @@ pub struct Ctc<T: Copy,
 
 #[allow(dead_code)]
 impl<T, R0, R1, R2, R3, D> Ctc<T, R0, R1, R2, R3, D>
-where T: Copy,
-      R0: CtcTrigger<Timestamp=T>, R1: CtcTrigger<Timestamp=T>, R2: CtcTrigger<Timestamp=T>, R3: CtcTrigger<Timestamp=T>
+where T: Copy + Default,
+      R0: CtcTrigger<Timestamp=T>,
+      R1: CtcTrigger<Timestamp=T>,
+      R2: CtcTrigger<Timestamp=T>,
+      R3: CtcTrigger<Timestamp=T>
 {
     pub fn new(ctc_trigger0: R0, ctc_trigger1: R1, ctc_trigger2: R2, ctc_trigger3: R3, daisy_chained: D) -> Self {
         Ctc {
+            next_ts_hint: T::default(),
             port_match_mask: 0,
             port_match_bits: 0,
             port_cs0_mask: 1,
@@ -125,8 +141,38 @@ where T: Copy,
     }
 }
 
+impl<T, R0, R1, R2, R3, D> Ctc<T, R0, R1, R2, R3, D>
+where T: Copy + Eq + Ord + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
+      R0: CtcTrigger<Timestamp=T>,
+      R1: CtcTrigger<Timestamp=T>,
+      R2: CtcTrigger<Timestamp=T>,
+      R3: CtcTrigger<Timestamp=T>
+{
+    fn process_channels(&mut self, ts: T) {
+        let hint_ts = self.next_ts_hint;
+        if ts >= hint_ts {
+            let force = hint_ts == T::from(0);
+            macro_rules! process_channel {
+                ($channel:ident) => {
+                    if ts >= self.$channel.next_ts_hint || force {
+                        self.$channel.process(ts);
+                    }
+                };
+            }
+            process_channel!(channel0);
+            process_channel!(channel1);
+            process_channel!(channel2);
+            process_channel!(channel3);
+            self.next_ts_hint = self.channel0.next_ts_hint
+                .min(self.channel1.next_ts_hint)
+                .min(self.channel2.next_ts_hint)
+                .min(self.channel3.next_ts_hint);
+        }
+    }
+}
+
 impl<T, R0, R1, R2, R3, D> BusDevice for Ctc<T, R0, R1, R2, R3, D>
-where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
+where T: Copy + Eq + Ord + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
       R0: CtcTrigger<Timestamp=T>,
       R1: CtcTrigger<Timestamp=T>,
       R2: CtcTrigger<Timestamp=T>,
@@ -136,16 +182,19 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
     type Timestamp = T;
     type NextDevice = D;
 
+    fn frame_end(&mut self, ts: T) {
+        self.process_channels(ts);
+        self.daisy_chained.frame_end(ts);
+    }
+
     fn m1(&mut self, ts: T) {
-        self.channel0.process(ts);
-        self.channel1.process(ts);
-        self.channel2.process(ts);
-        self.channel3.process(ts);
+        self.process_channels(ts);
         self.daisy_chained.m1(ts);
     }
 
     fn reset(&mut self, ts: T) {
         self.ieo = false;
+        self.next_ts_hint = T::from(0);
         self.channel0.reset(ts);
         self.channel1.reset(ts);
         self.channel2.reset(ts);
@@ -158,6 +207,8 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
     }
 
     fn next_second(&mut self, delta: T) {
+        let ts = self.next_ts_hint;
+        self.next_ts_hint = if ts >= delta { ts - delta } else { T::from(0) };
         self.channel0.next_second(delta);
         self.channel1.next_second(delta);
         self.channel2.next_second(delta);
@@ -167,7 +218,7 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
 }
 
 impl<T, R0, R1, R2, R3, D> Io for Ctc<T, R0, R1, R2, R3, D>
-where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
+where T: Copy + Eq + Ord + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
       R0: CtcTrigger<Timestamp=T>,
       R1: CtcTrigger<Timestamp=T>,
       R2: CtcTrigger<Timestamp=T>,
@@ -180,7 +231,7 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
 
     fn read_io(&mut self, port: u16, ts: Self::Timestamp) -> (u8, Option<NonZeroU16>) {
         if port & self.port_match_mask == self.port_match_bits {
-            debug!("read ctc io: {:04x}", port);
+            // debug!("read ctc io: {:04x}", port);
             let data = match (port & self.port_cs1_mask, port & self.port_cs0_mask) {
                 (0, 0) => self.channel0.read_counter(ts),
                 (0, _) => self.channel1.read_counter(ts),
@@ -196,7 +247,7 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
 
     fn write_io(&mut self, port: u16, data: u8, ts: Self::Timestamp) -> (Option<()>, Option<NonZeroU16>) {
         if port & self.port_match_mask == self.port_match_bits {
-            debug!("written ctc io: {:04x} = {:02x} ({:02x},{:02x})", port, data, port & self.port_cs1_mask, port & self.port_cs0_mask);
+            // debug!("written ctc io: {:04x} = {:02x} ({:02x},{:02x})", port, data, port & self.port_cs1_mask, port & self.port_cs0_mask);
             let was_control_word = match (port & self.port_cs1_mask, port & self.port_cs0_mask) {
                 (0, 0) => self.channel0.write_control(data, ts),
                 (0, _) => self.channel1.write_control(data, ts),
@@ -204,7 +255,7 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
                 (_, _) => self.channel3.write_control(data, ts),
             };
             if !was_control_word {
-                debug!("write ctc vector: {:04x} = {:02x}", port, data);
+                // debug!("write ctc vector: {:04x} = {:02x}", port, data);
                 self.vector = data & 0b11111000;
             }
             (None, None)
@@ -217,12 +268,12 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
     fn is_irq(&mut self, ts: Self::Timestamp) -> bool {
         if self.ieo {
             false
-        }
+        } 
         else {
+            self.process_channels(ts);
             macro_rules! check_channel {
                 ($channel:ident) => {
                     {
-                        self.$channel.process(ts);
                         if self.$channel.int_active {
                             // trace!("is_irq: {}", stringify!($channel));
                             return true;
@@ -278,12 +329,13 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
 }
 
 impl<T, R> Channel<T, R>
-where T: Copy, R: CtcTrigger<Timestamp=T>
+where T: Copy + Default, R: CtcTrigger<Timestamp=T>
 {
     fn new(trigger: R) -> Self {
         Channel {
             prescaler: Prescaler::x256,
             mode: ChannelMode::Timer,
+            next_ts_hint: T::default(),
             timer_last_ts: None,
             ext_trigger_ts: None,
             timer_counter_internal: 256,
@@ -297,21 +349,27 @@ where T: Copy, R: CtcTrigger<Timestamp=T>
             trigger
         }
     }
+}
 
+impl<T, R> Channel<T, R>
+where T: Copy + From<u32>, R: CtcTrigger<Timestamp=T>
+{
     fn set_int_active(&mut self) {
         if self.ints_enabled {
             // trace!("int set: {}", self.int_active);
             self.int_active = true;
         }
+        self.next_ts_hint = T::from(0);
     }
 }
 
 impl<T, R> Channel<T, R>
-where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
+where T: Copy + Eq + Ord + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32: TryFrom<T>,
       R: CtcTrigger<Timestamp=T>
 {
     fn reset(&mut self, ts: T) {
         self.process(ts);
+        self.next_ts_hint = T::from(0);
         self.restart = None;
         self.timer_last_ts = None;
         self.ext_trigger_ts = None;
@@ -334,6 +392,9 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
         if let Some(ts) = self.ext_trigger_ts {
             self.ext_trigger_ts = Some(if ts >= delta { ts - delta } else { T::from(0) });
         }
+        let ts = self.next_ts_hint;
+        self.next_ts_hint = if ts >= delta { ts - delta } else { T::from(0) };
+        self.trigger.next_second(delta);
     }
 
     fn read_counter(&mut self, ts: T) -> u8 {
@@ -346,6 +407,10 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
         self.process(ts);
         if self.awaiting_time_constant { // Time Constant
             self.awaiting_time_constant = false;
+            if self.restart.is_none() {
+                self.current = Wrapping(data);
+            }
+            self.restart = Some(data);
             match self.mode {
                 ChannelMode::Timer => {
                     if self.timer_last_ts.is_none() {
@@ -359,10 +424,6 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
                 }
                 ChannelMode::Counter => {}
             }
-            if self.restart.is_none() {
-                self.current = Wrapping(data);
-            }
-            self.restart = Some(data);
             true
         }
         else if data & bit8(0) != 0 { // Control Word
@@ -433,18 +494,22 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
     }
 
     #[inline(always)]
-    fn downcount_by_one(&mut self, restart: u8, ts: T) {
+    fn downcount_by_one(&mut self, restart: u8, ts: T) -> bool {
         self.current -= Wrapping(1);
         if self.current.0 == 0 {
             self.current = Wrapping(restart);
             self.trigger.zc_to_pulse(ts);
             self.set_int_active();
+            return true
         }
+        false
     }
 
     #[inline(always)]
     fn start_timer(&mut self, ts: T) {
-        self.timer_last_ts = Some(ts + T::from(1));
+        let start = ts + T::from(1);
+        self.timer_last_ts = Some(start);
+        self.next_ts_hint = start;
     }
 
     fn clk_trg_edge_changed(&mut self, ts: T) {
@@ -467,29 +532,37 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
     }
 
     fn process(&mut self, ts: T) {
+        // trace!("proc: {} >= {}", u32::try_from(ts).unwrap_or(0), u32::try_from(self.next_ts_hint).unwrap_or(0));
         if let Some(restart) = self.restart {
             match self.mode {
-                ChannelMode::Counter => {
-                    while let Some(tgt) = self.trigger.was_clk_trg(self.triggering_rising_edge, ts) {
-                        self.downcount_by_one(restart, tgt);
+                ChannelMode::Counter => loop {
+                    match self.trigger.next_clk_trg(self.triggering_rising_edge, ts) {
+                        Ok(tgt) => if self.downcount_by_one(restart, tgt) {
+                            return /* we triggered */
+                        },
+                        Err(hint) => {
+                            self.next_ts_hint = hint;
+                            return
+                        }
                     }
                 }
                 ChannelMode::Timer => {
                     if let Some(last_ts) = self.timer_last_ts {
+                        self.trigger.purge_clk_trg(ts);
                         if ts > last_ts {
                             let delta_ts = match u32::try_from(ts - last_ts) {
                                 Ok(dt) => dt,
                                 Err(_) => panic!("Delta T-states out of range!")
                             };
-                            let factor = match self.prescaler {
-                                Prescaler::x256 => 1,
-                                Prescaler::x16 => 16,
-                            };
+                            let factor = self.prescaler.to_ts_factor(); // (x256: 1, x16: 16)
                             let mut counter_delta = delta_ts * factor;
-                            let mut timer_counter = (u32::from(match self.current.0 {
-                                0 => 255,
-                                t => t - 1
-                            }) << 8) + u32::from(self.timer_counter_internal);
+                            let mut timer_counter =
+                                (u32::from((self.current - Wrapping(1)).0) << 8) +
+                                 u32::from(self.timer_counter_internal);
+                            // let mut timer_counter = (u32::from(match self.current.0 {
+                            //     0 => 255,
+                            //     t => t - 1
+                            // }) << 8) + u32::from(self.timer_counter_internal);
                             let mut pulse_ts = last_ts;
                             let restart: u32 = match restart {
                                 0 => 256,
@@ -505,6 +578,12 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
                             timer_counter -= counter_delta;
                             debug_assert_ne!(timer_counter, 0);
                             // trace!("delta: {} timer: {}", delta_ts, timer_counter);
+                            self.next_ts_hint = if pulse_ts != last_ts {
+                                T::from(0)
+                            }
+                            else {
+                                ts + T::from(timer_counter / factor)
+                            };
                             match timer_counter & 255 {
                                 0 => {
                                     self.timer_counter_internal = 256;
@@ -516,24 +595,31 @@ where T: Copy + PartialEq + PartialOrd + Add<T, Output=T> + Sub<T, Output=T> + F
                                 }
                             }
                             self.timer_last_ts = Some(ts);
+                            return
                         }
+                        self.next_ts_hint = last_ts + T::from(1);
+                        return
                     }
                     else if let Some(trig_ts) = self.ext_trigger_ts {
-                        while let Some(tgt) = self.trigger.was_clk_trg(self.triggering_rising_edge, ts) {
-                            if tgt >= trig_ts {
-                                self.start_timer(tgt);
-                                break;
+                        loop {
+                            match self.trigger.next_clk_trg(self.triggering_rising_edge, ts) {
+                                Ok(tgt) => if tgt >= trig_ts {
+                                    self.start_timer(tgt);
+                                    // self.trigger.purge_clk_trg(ts);
+                                    return
+                                }
+                                Err(hint) => {
+                                    self.next_ts_hint = hint;
+                                    return
+                                }
                             }
                         }
-
                     }
-                    self.trigger.purge_clk_trg(ts);
+                    // timer mode awaiting external trigger
                 }
             }
         }
-        else { // waiting for constant to be uploaded, while purging all previous CLK/TRG events
-            self.trigger.purge_clk_trg(ts);
-        }
-
+        // waiting for constant to be uploaded, while purging all previous CLK/TRG events
+        self.next_ts_hint = self.trigger.purge_clk_trg(ts);
     }
 }

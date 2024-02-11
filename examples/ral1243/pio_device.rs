@@ -1,126 +1,101 @@
 /*
     ral1243: Emulator program as an example implementation for the z80emu library.
-    Copyright (C) 2019-2020  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the mod.rs file.
 */
-use std::rc::Rc;
-use std::time::Instant;
-use std::sync::mpsc::{SyncSender, Receiver, TrySendError};
 use super::clock::Ts;
-use super::run::TimeProxy;
 use super::pio::PioDevice;
 
 #[allow(unused_imports)]
 use log::{error, warn, info, debug, trace, Level};
 
-pub struct PioMessage {
-    pub time: Instant,
-    pub data: u8
+/// Implement this sink to receive data from [PioOutput].
+pub trait PioSink {
+    /// Attempt to flush the next byte, return whether flushing succeeds.
+    fn flush(&mut self, data: u8) -> bool;
 }
 
-pub struct PioInput {
-    tp: Rc<TimeProxy>,
-    rx: Receiver<PioMessage>,
-    pending: Option<PioMessage>,
+/// Implement this stream to provide data for [PioInput].
+pub trait PioStream {
+    /// Attempt to slurp the next byte from the stream.
+    fn slurp(&mut self) -> Option<u8>;
 }
 
-pub struct PioOutput {
-    tp: Rc<TimeProxy>,
-    tx: SyncSender<PioMessage>,
-    pending: Option<PioMessage>,
+/// Implements [PioDevice] as input-only channel.
+pub struct PioInput<T> {
+    source: T,
+    ready: bool
 }
 
-impl PioMessage {
-    pub fn new(data: u8) -> Self {
-        let time = Instant::now();
-        PioMessage { time, data }
+/// Implements [PioDevice] as output-only channel.
+pub struct PioOutput<T> {
+    sink: T,
+    pending: Option<u8>
+}
+
+impl<T: PioStream> PioInput<T> {
+    pub fn new(source: T) -> PioInput<T> {
+        PioInput { source, ready: false }
+    }
+
+}
+
+impl<T: PioSink> PioOutput<T> {
+    pub fn new(sink: T) -> PioOutput<T> {
+        PioOutput { sink, pending: None }
     }
 }
 
-impl PioInput {
-    pub fn new(rx: Receiver<PioMessage>, tp: Rc<TimeProxy>) -> PioInput {
-        PioInput { tp, rx, pending: None }
-    }
-
-    fn fetch_next(&mut self) -> Option<PioMessage> {
-        self.rx.try_recv().ok()
-    }
-}
-
-impl PioDevice for PioInput {
+impl<T: PioStream> PioDevice for PioInput<T> {
     type Timestamp = Ts;
-
-    fn set_floating_bus(&mut self, _ts: Self::Timestamp) {}
-
-    fn ready(&mut self, _ts: Self::Timestamp) {
-        if self.pending.is_none() {
-            self.pending = self.fetch_next();
-        }
+    /// input mode was set
+    fn set_floating_bus(&mut self, _ts: Self::Timestamp) {
+        self.ready = true;
     }
-
-    fn try_sample_data(&mut self, timestamp: Self::Timestamp) -> Option<u8> {
-        if let Some(msg) = self.pending.take().or_else(|| self.fetch_next()) {
-            let ts = self.tp.instant_to_timestamp(msg.time);
-            if ts <= timestamp {
-               return Some(msg.data)
-            }
-            else {
-                self.pending = Some(msg);
+    /// output mode was set
+    fn set_bus_data(&mut self, _data: u8, _ts: Self::Timestamp) {
+        self.ready = false;
+    }
+    /// The READY goes high on read in input mode.
+    fn ready(&mut self, _ts: Self::Timestamp) {
+        self.ready = true;
+    }
+    /// If the STROBE had signalled sampling of any new data on the bus.
+    fn try_sample_data(&mut self, _ts: Self::Timestamp) -> Option<u8> {
+        if self.ready {
+            if let Some(data) = self.source.slurp() {
+                self.ready = false;
+                return Some(data)
             }
         }
         None
     }
-
-    fn set_bus_data(&mut self, _data: u8, _ts: Self::Timestamp) {
-        warn!("output not supported {}", _data);
-    }
-    fn ready_with_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
-    fn was_strobe(&mut self, _ts: Self::Timestamp) -> bool { false }
 }
 
-impl PioOutput {
-    pub fn new(tx: SyncSender<PioMessage>, tp: Rc<TimeProxy>) -> PioOutput {
-        PioOutput { tp, tx, pending: None }
+impl<T: PioSink> PioDevice for PioOutput<T> {
+    type Timestamp = Ts;
+    /// input mode was set
+    fn set_floating_bus(&mut self, _ts: Self::Timestamp) {
+        self.pending = None;
     }
-
-    pub fn push_pending(&mut self) -> bool {
-        if let Some(msg) = self.pending.take() {
-            match self.tx.try_send(msg){
-                Ok(()) => true,
-                Err(TrySendError::Full(msg))|
-                Err(TrySendError::Disconnected(msg)) => {
-                    self.pending = Some(msg);
-                    false
-                }
+    /// output mode was set
+    fn set_bus_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
+    /// The READY goes high on write in output mode.
+    fn ready_with_data(&mut self, data: u8, _ts: Self::Timestamp) {
+        // trace!("ready_with_data: {:02x}", data);
+        if !self.sink.flush(data) {
+            self.pending = Some(data);
+        }
+    }
+    /// If the STROBE signalled the device is ready for more writes.
+    fn was_strobe(&mut self, _ts: Self::Timestamp) -> bool {
+        if let Some(data) = self.pending.take() {
+            if !self.sink.flush(data) {
+                self.pending = Some(data);
+                return false;
             }
         }
-        else {
-            true
-        }
-    }
-}
-
-impl PioDevice for PioOutput {
-    type Timestamp = Ts;
-    fn set_floating_bus(&mut self, _ts: Self::Timestamp) {
-        warn!("input not supported");
-    }
-    fn ready(&mut self, _ts: Self::Timestamp) {}
-    fn try_sample_data(&mut self, _ts: Self::Timestamp) -> Option<u8> { None }
-    fn set_bus_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
-    fn ready_with_data(&mut self, data: u8, timestamp: Self::Timestamp) {
-        // trace!("ready_with_data: {:02x}", data);
-        if self.pending.is_none() {
-            let time = self.tp.timestamp_to_instant(timestamp);
-            self.pending = Some(PioMessage { time, data });
-            self.push_pending();
-        }
-        else {
-            warn!("pio output dropped");
-        }
-    }
-    fn was_strobe(&mut self, _ts: Self::Timestamp) -> bool {
-        self.push_pending()
+        true
     }
 }

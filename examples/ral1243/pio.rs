@@ -1,6 +1,6 @@
 /*
     ral1243: Emulator program as an example implementation for the z80emu library.
-    Copyright (C) 2019-2020  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the mod.rs file.
 */
@@ -16,20 +16,20 @@ use log::{error, warn, info, debug, trace, Level};
 pub trait PioDevice {
     type Timestamp: Copy;
     /// input mode was set
-    fn set_floating_bus(&mut self, ts: Self::Timestamp);
+    fn set_floating_bus(&mut self, _ts: Self::Timestamp) {}
     /// The READY goes high on read in input mode.
-    fn ready(&mut self, ts: Self::Timestamp);
+    fn ready(&mut self, _ts: Self::Timestamp) {}
     /// If the STROBE had signalled sampling of any new data on the bus.
-    fn try_sample_data(&mut self, ts: Self::Timestamp) -> Option<u8>;
+    fn try_sample_data(&mut self, _ts: Self::Timestamp) -> Option<u8> { None }
     /// output mode was set
-    fn set_bus_data(&mut self, data: u8, ts: Self::Timestamp);
+    fn set_bus_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
     /// The READY goes high on write in output mode.
-    fn ready_with_data(&mut self, data: u8, ts: Self::Timestamp);
+    fn ready_with_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
     /// If the STROBE signalled the device is ready for more writes.
-    fn was_strobe(&mut self, ts: Self::Timestamp) -> bool;
+    fn was_strobe(&mut self, _ts: Self::Timestamp) -> bool { false }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum ChannelMode {
     Input,
     Output,
@@ -112,6 +112,12 @@ where T: Copy,
 {
     type Timestamp = T;
     type NextDevice = D;
+
+    fn frame_end(&mut self, ts: T) {
+        self.channel_a.check_int(ts);
+        self.channel_b.check_int(ts);
+        self.daisy_chained.frame_end(ts);
+    }
 
     fn m1(&mut self, ts: T) {
         self.channel_a.m1(ts);
@@ -226,7 +232,7 @@ where T: Copy, D: PioDevice<Timestamp=T>
             want_ints_enabled: false,
             ints_enabled: false,
             int_active: false,
-            ready_active: false,
+            ready_active: true,
             data_in: 0,
             data_out: 0,
             vector: 0,
@@ -239,7 +245,7 @@ where T: Copy, D: PioDevice<Timestamp=T>
         self.want_ints_enabled = false;
         self.ints_enabled = false;
         self.int_active = false;
-        self.ready_active = false;
+        self.ready_active = true;
         self.data_in = 0;
         self.data_out = 0;
         // self.vector = 0;
@@ -252,27 +258,25 @@ where T: Copy, D: PioDevice<Timestamp=T>
         }
     }
 
-    fn m1(&mut self, ts: T) {
+    fn m1(&mut self, _ts: T) {
         if self.want_ints_enabled {
             self.ints_enabled = true;
             self.want_ints_enabled = false;
         }
-        if self.ready_active {
-            self.check_int(ts);
-        }
+        // self.check_int(ts);
     }
 
     fn check_int(&mut self, ts: T) -> bool {
-        match self.mode {
-            ChannelMode::Input => {
-                if let Some(data) = PioDevice::try_sample_data(&mut self.device, ts) {
-                    self.data_in = data;
-                    self.ready_active = false;
-                    self.set_int_active();
+        if self.ready_active {
+            match self.mode {
+                ChannelMode::Input => {
+                    if let Some(data) = PioDevice::try_sample_data(&mut self.device, ts) {
+                        self.data_in = data;
+                        self.ready_active = false;
+                        self.set_int_active();
+                    }
                 }
-            }
-            ChannelMode::Output => {
-                if self.ready_active  {
+                ChannelMode::Output => {
                     if PioDevice::was_strobe(&mut self.device, ts) {
                         self.ready_active = false;
                         self.set_int_active();
@@ -288,11 +292,6 @@ where T: Copy, D: PioDevice<Timestamp=T>
     {
         match self.mode {
             ChannelMode::Input => {
-                if let Some(data) = PioDevice::try_sample_data(&mut self.device, ts) {
-                    self.data_in = data;
-                    self.ready_active = false;
-                    self.set_int_active();
-                }
                 if self.ready_active {
                     PioDevice::ready(&mut self.device, ts + T::from(3));
                 }
@@ -306,7 +305,6 @@ where T: Copy, D: PioDevice<Timestamp=T>
                 self.data_out
             }
         }
-        
     }
 
     fn write_io_data(&mut self, data: u8, ts: T)
@@ -314,23 +312,21 @@ where T: Copy, D: PioDevice<Timestamp=T>
     {
         // trace!("write io data: {:02x}", data);
         self.data_out = data;
-        match self.mode {
-            ChannelMode::Output => {
-                if self.ready_active {
-                    if PioDevice::was_strobe(&mut self.device, ts) {
-                        self.set_int_active();
-                        PioDevice::ready_with_data(&mut self.device, data, ts + T::from(1));
-                    }
-                    else {
-                        PioDevice::ready_with_data(&mut self.device, data, ts + T::from(3));
-                    }
+        if self.mode == ChannelMode::Output {
+            let ts = if self.ready_active {
+                if self.device.was_strobe(ts) {
+                    self.set_int_active();
+                    ts + T::from(1)
                 }
                 else {
-                    self.ready_active = true;
-                    PioDevice::ready_with_data(&mut self.device, data, ts + T::from(1));
+                    ts + T::from(3)
                 }
             }
-            _ => {}
+            else {
+                self.ready_active = true;
+                ts + T::from(1)
+            };
+            self.device.ready_with_data(data, ts);
         }
     }
 
@@ -344,12 +340,12 @@ where T: Copy, D: PioDevice<Timestamp=T>
                 0b1111 => { // mode select
                     self.mode = match data >> 6 {
                         0 => {
-                            // trace!("mode select: OUTPUT {:02x}", data);
+                            self.ready_active = false;
                             self.device.set_bus_data(self.data_out, ts);
                             ChannelMode::Output
                         }
                         1 => {
-                            // trace!("mode select: INPUT {:02x}", data);
+                            self.ready_active = true;
                             self.device.set_floating_bus(ts);
                             ChannelMode::Input
                         }
@@ -374,7 +370,7 @@ where T: Copy, D: PioDevice<Timestamp=T>
                     }
                 }
                 _ => {
-                    warn!("unrecognized control word: {:02x}", data);
+                    // warn!("unrecognized control word: {:02x}", data);
                 }
             }
         }

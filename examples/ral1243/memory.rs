@@ -1,10 +1,13 @@
 /*
     ral1243: Emulator program as an example implementation for the z80emu library.
-    Copyright (C) 2019-2020  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the mod.rs file.
 */
 use core::ptr::NonNull;
+use super::vec;
+use super::vec::Vec;
+use super::boxed::Box;
 use super::bus::MemoryControl;
 use super::clock::Ts;
 
@@ -37,6 +40,8 @@ unsafe fn read_unaligned16(ptr: *const u8) -> u16 {
 
 impl Memory {
     pub const ROMSIZE: usize = ROMSIZE;
+    pub const MAXRAM_KB: usize = MAXRAMSIZE / 1024;
+
     pub fn new(rom_in: &[u8], ramsizekilos: usize) -> Self {
         let ramsize = ramsizekilos * 1024;
         let rom = Self::make_rom(rom_in);
@@ -58,8 +63,13 @@ impl Memory {
         u8::max_value() as usize - self.exroms.len()
     }
 
-    pub fn attach_exroms(&mut self, exroms: &mut Vec<Rom>) {
-        for exrom in exroms.drain(0..exroms.len().min(self.free_exrom_slots())) {
+    pub fn attach_exroms<I>(&mut self, exroms: I)
+        where I: IntoIterator<Item=Rom>,
+              I::IntoIter: ExactSizeIterator
+    {
+        let exroms = exroms.into_iter();
+        let max_exroms = exroms.len().min(self.free_exrom_slots());
+        for exrom in exroms.take(max_exroms) {
             self.attach_exrom(exrom);
         }
     }
@@ -127,7 +137,7 @@ impl Memory {
 
 impl MemoryControl for Memory {
     fn read_ctrl(&self) -> u8 {
-        trace!("read bank: {}", self.exrom_select);
+        // trace!("read bank: {}", self.exrom_select);
         self.exrom_select
     }
 
@@ -135,14 +145,14 @@ impl MemoryControl for Memory {
         // trace!("set memory: {} prev: {}", no, self.exrom_select);
         if self.exrom_select != no {
             self.exrom_select = no;
-            trace!("bank changed: {}", no);
+            // trace!("bank changed: {}", no);
             if !self.bank1_is_ram {
                 self.exrom_to_bank1();
             }
         }
     }
 
-    fn memory_debug(&self, addrs: std::ops::Range<u16>) -> Vec<u8> {
+    fn memory_debug(&self, addrs: core::ops::Range<u16>) -> Vec<u8> {
         addrs.map(|addr| z80emu::Memory::read_debug(self, addr)).collect()
     }
 }
