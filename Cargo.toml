@@ -17,6 +17,7 @@ std = ["serde/std"]
 
 [[example]]
 name = "terminal"
+path = "examples/terminal.rs"
 required-features = ["std"]
 
 [dependencies]
