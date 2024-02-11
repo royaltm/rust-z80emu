@@ -48,7 +48,7 @@ Another example built on top of `z80emu` is the [SPECTRUSTY](https://royaltm.git
 Rust Version Requirements
 -------------------------
 
-`z80emu` requires Rustc version 1.66 or greater due to the stabilization of const generics in this version.
+`z80emu` requires Rustc version 1.66 or greater.
 
 
 Licensing
