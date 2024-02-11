@@ -3,6 +3,7 @@ name = "z80emu-embedded-example"
 version = "0.1.0"
 authors = ["Rafał Michalski <royaltm75@gmail.com>"]
 edition = "2021"
+description = "A small example of using z80emu with a `no_std` target"
 license = "LGPL-3.0-or-later"
 
 [[bin]]

@@ -3,6 +3,7 @@ name = "ral1243"
 version = "1.0.0"
 authors = ["Rafał Michalski <royaltm75@gmail.com>"]
 edition = "2021"
+description = "RAL 1243 is a fictional computer emulator"
 license = "LGPL-3.0-or-later"
 
 [features]
@@ -10,5 +11,9 @@ default = []
 std = ["z80emu/std"]
 
 [dependencies]
-log = "0.4.20"
-z80emu = { version = "*", path = "../..", default-features = false }
+log = "0.4"
+
+[dependencies.z80emu]
+version = "*"
+path = "../.."
+default-features = false

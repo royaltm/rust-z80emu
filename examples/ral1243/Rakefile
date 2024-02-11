@@ -22,5 +22,5 @@ end
 
 desc "Run RAL1243 terminal"
 task :run do
-  sh "cargo run --example terminal --release -- \"#{File.join(__dir__, "exroms")}\" -m 48 -c 4000"
+  sh "cargo run -p z80emu --example terminal --release -- \"#{File.join(__dir__, "exroms")}\" -m 48 -c 4000"
 end
