@@ -6,7 +6,7 @@ edition = "2021"
 license = "LGPL-3.0-or-later"
 
 [features]
-default = ["std"]
+default = []
 std = ["z80emu/std"]
 
 [dependencies]
