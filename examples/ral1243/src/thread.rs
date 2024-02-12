@@ -54,12 +54,18 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
         self.start();
         let frame_duration: Duration = FrameRunner::<EXT_HZ, FRAME_HZ>::frame_duration();
 
+        let mut nmi_request = false;
+
         let mut time = Instant::now();
 
         let mut total_ts = 0u64;
         let mut duration = Duration::ZERO;
         let mut frame_count = 0;
         loop {
+            if nmi_request && self.nmi() {
+                nmi_request = false;
+            }
+
             let mtime = Instant::now();
             let delta_ts = self.step();
             let elapsed = mtime.elapsed();
@@ -73,7 +79,7 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
                     self.reset();
                 }
                 Ok(RunnerMsg::Nmi) => {
-                    self.nmi(); // TODO
+                    nmi_request = !self.nmi();
                 }
                 Err(TryRecvError::Empty) => {},
                 Err(TryRecvError::Disconnected) => break,
