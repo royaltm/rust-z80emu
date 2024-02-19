@@ -1,6 +1,6 @@
 /*
     z80emu: ZiLOG Z80 microprocessor emulation library.
-    Copyright (C) 2019-2023  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
 */
@@ -10,7 +10,7 @@
                                             self, Deserializer, Visitor, SeqAccess}};
 #[cfg(feature = "serde")] use std::fmt;
 
-/// An enum representing the maskable interrupt modes.
+/// An enum of the maskable interrupt modes.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Default,Copy,Clone,PartialEq,Eq,Hash,Debug)]
 #[repr(u8)]
@@ -46,9 +46,23 @@ pub(crate) struct IndexRegisters {
     pub(crate) iy: RegisterPair
 }
 
+impl InterruptMode {
+    /// Return the interrupt mode number.
+    pub const fn to_mode_number(self) -> u8 {
+        self as u8
+    }
+}
+
+impl From<InterruptMode> for u8 {
+    /// Convert interrupt mode to the IM mode number.
+    fn from(im: InterruptMode) -> u8 {
+        im.to_mode_number()
+    }
+}
+
 impl core::convert::TryFrom<u8> for InterruptMode {
     type Error = ();
-
+    /// Attempt to convert to this type from an IM number.
     fn try_from(im: u8) -> Result<Self, Self::Error> {
         match im {
             0 => Ok(InterruptMode::Mode0),
