@@ -25,6 +25,7 @@ impl Memory for Mem<'_> {
         *self.1.get(addr.wrapping_sub(self.0) as usize).unwrap_or(&0xff)
     }
 }
+
 /// Interprets a given `memory` chunk as machine code instructions.
 ///
 /// * `pc` - the address of the first byte of memory chunk given.
@@ -39,10 +40,10 @@ impl Memory for Mem<'_> {
 /// *NOTE*: `debug` is being invoked only for multi-byte instructions which entirely fit
 /// in the provided memory.
 pub fn disasm_memory<C: Cpu, F: FnMut(CpuDebug) -> Result<(), E>, E>(
-            pc: u16,
-            memory: &[u8],
-            mut debug: F
-        ) -> Result<(), E>
+        pc: u16,
+        memory: &[u8],
+        mut debug: F
+    ) -> Result<(), E>
 {
     let mut cpu = C::default();
     let mut cursor: usize = 0;
@@ -76,13 +77,41 @@ pub fn disasm_memory<C: Cpu, F: FnMut(CpuDebug) -> Result<(), E>, E>(
     Ok(())
 }
 
+/// Interprets a given `memory` chunk as a machine code instruction.
+///
+/// * `pc` - the address of the first byte of memory chunk given.
+/// * `memory` - a chunk of memory to disassemble.
+/// * `debug` - a function called once for the interpreted instruction with a single argument: [CpuDebug].
+///
+/// The `debug` closure may be called once or none at all if a complete instruction wasn't found in `memory`.
+/// 
+/// When an instruction is found and `debug` closure was called the function returns `Some(R)`.
+/// Otherwise returns `None`.
+pub fn disasm_memory_once<C, F, R>(
+        pc: u16,
+        memory: &[u8],
+        debug: F
+    ) -> Option<R>
+    where C: Cpu, F: FnOnce(CpuDebug) -> R
+{
+    let mut dbg: CpuDebug = CpuDebug::default();
+    if disasm_memory::<C,_,_>(pc, memory, |deb| {
+        dbg = deb;
+        Err(()) /* break */
+    }).is_ok()
+    {
+        return None
+    }
+    Some(debug(dbg))
+}
+
 /// Instead of providing your own `debug` function to [disasm_memory], provide a [fmt::Write]
 /// implementation which will get disassembled instructions written as lines of text.
 pub fn disasm_memory_write_text<C: Cpu, W: fmt::Write>(
-            pc: u16,
-            mem: &[u8],
-            mut f: W
-        ) -> fmt::Result
+        pc: u16,
+        mem: &[u8],
+        mut f: W
+    ) -> fmt::Result
 {
     disasm_memory::<C,_,_>(pc, mem, |deb|
         writeln!(f, "{:x}", deb)
