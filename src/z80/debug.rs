@@ -1,6 +1,6 @@
 /*
     z80emu: ZiLOG Z80 microprocessor emulation library.
-    Copyright (C) 2019-2023  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
 */
@@ -52,7 +52,7 @@ impl CpuDebug {
     {
         let mut code = CpuDebugCode::new();
         if let Some(pfx) = prefix {
-            code.push(pfx as u8);
+            code.push(pfx.to_code());
         }
         code.extend(bytes.iter().copied());
         let pc = (pc - Wrapping(code.len() as u16)).0;

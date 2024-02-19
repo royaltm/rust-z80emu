@@ -1,6 +1,6 @@
 /*
     z80emu: ZiLOG Z80 microprocessor emulation library.
-    Copyright (C) 2019-2023  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     For the full copyright notice, see the lib.rs file.
 */
@@ -18,15 +18,31 @@ use super::flags::CpuFlags;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Prefix {
-    /// Modifies instructions to use `(IX+d)` indexed addressing.
-    Xdd  = 0xDD,
-    /// Modifies instructions to use `(IY+d)` indexed addressing.
-    Yfd  = 0xFD
+    /// Modifies instructions to use `(IX+d)` indexed addressing or `IX` instead of `HL`.
+    Xdd = 0xDD,
+    /// Modifies instructions to use `(IY+d)` indexed addressing or `IY` instead of `HL`.
+    Yfd = 0xFD
+}
+
+impl Prefix {
+    /// Return a bytecode of the prefix.
+    #[inline(always)]
+    pub const fn to_code(self) -> u8 {
+        self as u8
+    }
+}
+
+impl From<Prefix> for u8 {
+    /// Return a bytecode from this type.
+    #[inline(always)]
+    fn from(prefix: Prefix) -> u8 {
+        prefix.to_code()
+    }
 }
 
 impl core::convert::TryFrom<u8> for Prefix {
     type Error = ();
-
+    /// Attempt to convert to this type from an opcode.
     fn try_from(code: u8) -> Result<Self, Self::Error> {
         match code {
             0xDD => Ok(Prefix::Xdd),
@@ -48,22 +64,50 @@ impl fmt::Display for Prefix {
 }
 
 macro_rules! reg_enum_mask_try_from {
-    ($name:ident & ($mask:expr) {$($n:ident = $e:expr;)*} else { $err:expr }) => {
+    ($(#[$doc:meta])? $vis:vis $name:ident & ($mask:expr) {$($n:ident = $e:expr;)*} else { $err:expr }) => {
+        $(#[$doc])?
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[repr(u8)]
-        pub enum $name {
+        $vis enum $name {
             $($n = $e,)*
+        }
+
+        impl $name {
+            /// Return an opcode part.
+            #[inline(always)]
+            pub const fn to_code(self) -> u8 {
+                self as u8
+            }
+        }
+
+        impl From<$name> for u8 {
+            /// Return an opcode part from this type.
+            #[inline(always)]
+            fn from(reg: $name) -> Self {
+                reg.to_code()
+            }
         }
 
         impl core::convert::TryFrom<u8> for $name {
             type Error = ();
 
+            /// Attempt to convert to this type from an opcode.
             #[inline(always)]
             fn try_from(value: u8) -> Result<Self, Self::Error> {
                 match value & ($mask) {
                     $($e => Ok($name::$n),)*
                     $err => Err(()),
                     _ => unsafe { core::hint::unreachable_unchecked() }
+                }
+            }
+        }
+
+        impl From<$name> for &str {
+            /// Return a string representation of this type.
+            #[inline(never)]
+            fn from(value: $name) -> Self {
+                match value {
+                    $($name::$n => stringify!($n),)*
                 }
             }
         }
@@ -85,24 +129,48 @@ macro_rules! reg_enum_mask_try_from {
 /// 2. All items must exhaust all possible bitwise combinations.
 /// Otherwise UB.
 macro_rules! reg_enum_mask_from {
-    ($vis:vis $name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
+    ($(#[$doc:meta])? $vis:vis $name:ident & ($mask:expr) {$($n:ident = $e:expr;)*}) => {
+        $(#[$doc])?
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
         #[repr(u8)]
         $vis enum $name {
             $($n = $e,)*
         }
 
-        impl From<u8> for $name {
+        impl $name {
+            /// Parse an opcode and return the matching type.
             #[inline(always)]
-            fn from(value: u8) -> Self {
-                match value & ($mask) {
+            pub const fn from_code(code: u8) -> Self {
+                match code & ($mask) {
                     $($e => $name::$n,)*
                     _ => unsafe { core::hint::unreachable_unchecked() }
                 }
             }
+            /// Return an opcode part.
+            #[inline(always)]
+            pub const fn to_code(self) -> u8 {
+                self as u8
+            }
+        }
+
+        impl From<$name> for u8 {
+            /// Return an opcode part from this type.
+            #[inline(always)]
+            fn from(reg: $name) -> Self {
+                reg.to_code()
+            }
+        }
+
+        impl From<u8> for $name {
+            /// Convert to this type from an opcode.
+            #[inline(always)]
+            fn from(value: u8) -> Self {
+                $name::from_code(value)
+            }
         }
 
         impl From<$name> for &str {
+            /// Return a string representation of this type.
             #[inline(never)]
             fn from(value: $name) -> Self {
                 match value {
@@ -123,7 +191,8 @@ macro_rules! reg_enum_mask_from {
 }
 
 reg_enum_mask_try_from!{
-    Reg8 & (0b111) {
+/// An enum of 8-bit registers.
+pub Reg8 & (0b111) {
         B = 0b000;
         C = 0b001;
         D = 0b010;
@@ -139,15 +208,18 @@ reg_enum_mask_try_from!{
 }
 
 reg_enum_mask_from!{
-pub StkReg16  & (0b00_11_0000) {
-            BC = 0b00_00_0000;
-            DE = 0b00_01_0000;
-            HL = 0b00_10_0000;
-            AF = 0b00_11_0000;
+/// An enum of 16-bit registers for the stack-related operations.
+pub StkReg16
+          & (0b00_11_0000) {
+        BC = 0b00_00_0000;
+        DE = 0b00_01_0000;
+        HL = 0b00_10_0000;
+        AF = 0b00_11_0000;
     }
 }
 
 reg_enum_mask_from!{
+/// An enum of 16-bit registers.
 pub Reg16 & (0b00_11_0000) {
         BC = 0b00_00_0000;
         DE = 0b00_01_0000;
@@ -157,8 +229,8 @@ pub Reg16 & (0b00_11_0000) {
 }
 
 reg_enum_mask_from!{
-pub(crate)
-    Ops8   & (0b00_111_000) {
+pub(crate) Ops8
+           & (0b00_111_000) {
         ADD = 0b00_000_000;
         ADC = 0b00_001_000;
         SUB = 0b00_010_000;
@@ -171,8 +243,8 @@ pub(crate)
 }
 
 reg_enum_mask_from!{
-pub(crate)
-    Rot    & (0b00_111_000) {
+pub(crate) Rot
+           & (0b00_111_000) {
         RLC = 0b00_000_000;
         RRC = 0b00_001_000;
         RL  = 0b00_010_000;
@@ -185,6 +257,7 @@ pub(crate)
 }
 
 reg_enum_mask_from!{
+/// An enum of condition code suffixes.
 pub Condition
            & (0b00_111_000) {
         NZ  = 0b00_000_000;
@@ -199,13 +272,14 @@ pub Condition
 }
 
 impl Condition {
-    /// Parses JR cc OPCODE into one of the conditional variant.
+    /// Parse JR cc OPCODE into one of the conditional variants.
     #[inline(always)]
-    pub(crate) fn from_jr_subset(code: u8) -> Self {
-        Condition::from(code & 0b00_011_000)
+    pub const fn from_jr_subset(code: u8) -> Self {
+        Condition::from_code(code & 0b00_011_000)
     }
     #[inline(always)]
-    pub fn is_satisfied(self, flags: CpuFlags) -> bool {
+    /// Return whether flags satisfy a condition.
+    pub const fn is_satisfied(self, flags: CpuFlags) -> bool {
         match self {
             Condition::NZ =>  !flags.contains(CpuFlags::Z),
             Condition::Z  =>  flags.contains(CpuFlags::Z),
