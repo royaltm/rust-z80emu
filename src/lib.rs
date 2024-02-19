@@ -1,6 +1,6 @@
 /*
     z80emu: ZiLOG Z80 microprocessor emulation library.
-    Copyright (C) 2019-2023  Rafal Michalski
+    Copyright (C) 2019-2024  Rafal Michalski
 
     z80emu is free software: you can redistribute it and/or modify it under
     the terms of the GNU Lesser General Public License (LGPL) as published
@@ -187,21 +187,218 @@ pub const NMI_RESTART: u16 = 0x66;
 
 /// Selected Z80 opcodes.
 ///
-/// May be used as a convenient argument to the [Cpu::execute_instruction] function or as a return value from [Io::irq_data].
+/// For example a convenient argument to the [Cpu::execute_instruction] function
+/// or a return value from [Io::irq_data].
+///
+/// Match instruction conditions with:
+///
+/// * `JR cc` opcode - [`Condition::from_jr_subset`],
+/// * other `cc` opcodes - [`Condition::from_code`].
 pub mod opconsts {
+    #[allow(unused_imports)]
+    use crate::Prefix;
+    /// Extended opcode prefix.
+    pub const ED_PREFIX     : u8 = 0xED;
+    /// [Prefix::Xdd] prefix.
+    pub const DD_PREFIX     : u8 = 0xDD;
+    /// [Prefix::Yfd] prefix.
+    pub const FD_PREFIX     : u8 = 0xFD;
+    /// No operation.
     pub const NOP_OPCODE    : u8 = 0x00;
+    /// Halt execution.
     pub const HALT_OPCODE   : u8 = 0x76;
-    pub const RET_OPCODE    : u8 = 0xC9;
-    pub const RETI_OPCODE_T2: (u8, u8) = (0xED, 0x4D);
+    /// Disable interrupts.
     pub const DI_OPCODE     : u8 = 0xF3;
+    /// Enable interrupts.
     pub const EI_OPCODE     : u8 = 0xFB;
+    /// Return from subroutine.
+    pub const RET_OPCODE    : u8 = 0xC9;
+    /// Base of the conditional `RET cc` opcode.
+    ///
+    /// Match instructions with: `(code & RET_CC_OPMASK) == RET_CC_OPBASE`.
+    ///
+    /// Build instructions with: `RET_CC_OPBASE|Condition::CC.to_code()`.
+    pub const RET_CC_OPBASE : u8 = 0b11_000_000;
+    /// Opcode mask of the conditional `RET cc`.
+    pub const RET_CC_OPMASK : u8 = 0b11_000_111;
+    /// The officially documented `RETI` opcode.
+    pub const RETI_OPCODE_T2: (u8, u8) = (ED_PREFIX, 0x4D);
+    /// The officially documented `RETN` opcode.
+    pub const RETN_OPCODE_T2: (u8, u8) = (ED_PREFIX, 0x45);
+    /// All `RETN/RETI` instructions 2nd opcode base after [`ED_PREFIX`].
+    ///
+    /// Match instructions with: `code[0] == ED_PREFIX && (code[1] & RETN_OP2_MASK) == RETN_OP2_BASE`.
+    pub const RETN_OP2_BASE : u8 = 0b01_000_101;
+    /// All `RETN/RETI` instructions 2nd opcode mask after [`ED_PREFIX`].
+    pub const RETN_OP2_MASK : u8 = 0b11_000_111;
+    /// Call a subroutine.
+    pub const CALL_OPCODE   : u8 = 0xCD;
+    /// Base of the conditional `CALL cc` opcode.
+    ///
+    /// Match instructions with: `(code & CALL_CC_OPMASK) == CALL_CC_OPBASE`.
+    ///
+    /// Build instructions with: `CALL_CC_OPBASE|Condition::CC.to_code()`.
+    pub const CALL_CC_OPBASE: u8 = 0b11_000_100;
+    /// Opcode mask of the conditional `CALL cc`.
+    pub const CALL_CC_OPMASK: u8 = 0b11_000_111;
+    /// Branch to an absolute address.
     pub const JP_OPCODE     : u8 = 0xC3;
+    /// Base of the conditional `JP cc` opcode.
+    ///
+    /// Match instructions with: `(code & JP_CC_OPMASK) == JP_CC_OPBASE`.
+    ///
+    /// Build instructions with: `JP_CC_OPBASE|Condition::CC.to_code()`.
+    pub const JP_CC_OPBASE  : u8 = 0b11_000_010;
+    /// Opcode mask of the conditional `JP cc`.
+    pub const JP_CC_OPMASK  : u8 = 0b11_000_111;
+    /// Branch to a relative address.
+    pub const JR_OPCODE     : u8 = 0x18;
+    /// Base of the conditional `JR cc` opcode.
+    ///
+    /// Match instructions with: `(code & JR_CC_OPMASK) == JR_CC_OPBASE`.
+    ///
+    /// Build instructions with: `JR_CC_OPBASE|Condition::CC.to_code()`.
+    ///
+    /// **Note:** only `NZ`, `Z`, `NC`, `C` are valid `JR cc` conditions.
+    pub const JR_CC_OPBASE  : u8 = 0b00_100_000;
+    /// Opcode mask of the conditional `JR cc`.
+    pub const JR_CC_OPMASK  : u8 = 0b11_100_111;
+    /// Call a system subroutine at `0x00`.
     pub const RST_00H_OPCODE: u8 = 0xC7;
+    /// Call a system subroutine at `0x08`.
     pub const RST_08H_OPCODE: u8 = 0xCF;
+    /// Call a system subroutine at `0x10`.
     pub const RST_10H_OPCODE: u8 = 0xD7;
+    /// Call a system subroutine at `0x18`.
     pub const RST_18H_OPCODE: u8 = 0xDF;
+    /// Call a system subroutine at `0x20`.
     pub const RST_20H_OPCODE: u8 = 0xE7;
+    /// Call a system subroutine at `0x28`.
     pub const RST_28H_OPCODE: u8 = 0xEF;
+    /// Call a system subroutine at `0x30`.
     pub const RST_30H_OPCODE: u8 = 0xF7;
+    /// Call a system subroutine at `0x38`.
     pub const RST_38H_OPCODE: u8 = 0xFF;
+    /// Decrement `B` and branch to a relative address unless `B=0`.
+    pub const DJNZ_OPCODE:    u8 = 0x10;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use disasm::disasm_memory;
+    use z80::NMOS;
+    use opconsts::*;
+
+    fn test_opcode(len: usize, opcode: u8, matching: &str) -> CpuDebug {
+        let deb = debug_opcode(None, opcode, len);
+        let res = format!("{} {}", deb.mnemonic, deb.args);
+        assert_eq!(res.as_str(), matching);
+        deb
+    }
+
+    fn test_opcode2(len: usize, opcode: (u8, u8), matching: &str) -> CpuDebug {
+        let deb = debug_opcode(Some(opcode.0), opcode.1, len);
+        let res = format!("{} {}", deb.mnemonic, deb.args);
+        assert_eq!(res.as_str(), matching);
+        deb
+    }
+
+    fn debug_opcode(prefix: Option<u8>, opcode: u8, len: usize) -> CpuDebug {
+        let mut dbg = None;
+        let mut memory = [0u8;4];
+        if let Some(pfx) = prefix {
+            memory[0] = pfx;
+            memory[1] = opcode;
+        }
+        else {
+            memory[0] = opcode;
+        }
+        disasm_memory::<Z80<NMOS>,_,()>(0, &memory[0..len], |deb| {
+            if dbg.is_some() {
+                return Err(());
+            }
+            dbg = Some(deb);
+            Ok(())
+        }).expect("only a single intstruction");
+        dbg.expect("some opcode")
+    }
+
+    #[test]
+    fn opconst_opcodes() {
+        test_opcode(1, NOP_OPCODE,     "NOP ");
+        test_opcode(1, HALT_OPCODE,    "HALT ");
+        test_opcode(1, DI_OPCODE,      "DI ");
+        test_opcode(1, EI_OPCODE,      "EI ");
+        test_opcode(1, RET_OPCODE,     "RET ");
+        test_opcode2(2, RETI_OPCODE_T2,"RETI ");
+        test_opcode2(2, RETN_OPCODE_T2,"RETN ");
+        test_opcode(3, CALL_OPCODE,    "CALL 0");
+        test_opcode(3, JP_OPCODE,      "JP 0");
+        test_opcode(2, JR_OPCODE,      "JR 2");
+        test_opcode(1, RST_00H_OPCODE, "RST 0");
+        test_opcode(1, RST_08H_OPCODE, "RST 8");
+        test_opcode(1, RST_10H_OPCODE, "RST 16");
+        test_opcode(1, RST_18H_OPCODE, "RST 24");
+        test_opcode(1, RST_20H_OPCODE, "RST 32");
+        test_opcode(1, RST_28H_OPCODE, "RST 40");
+        test_opcode(1, RST_30H_OPCODE, "RST 48");
+        test_opcode(1, RST_38H_OPCODE, "RST 56");
+        test_opcode(2, DJNZ_OPCODE,    "DJNZ 2");
+    }
+
+    fn test_base_match(len: usize, opbase: u8, opmask: u8, cond: Condition, matching: &str) {
+        let opcode = opbase|cond.to_code();
+        test_opcode(len, opcode, matching);
+        assert_eq!((opcode & opmask), opbase);
+    }
+    fn test_base_match_ed(len: usize, opbase: u8, opmask: u8, cond: Condition, matching: &str) {
+        let opcode = opbase|cond.to_code();
+        test_opcode2(len, (ED_PREFIX, opcode), matching);
+        assert_eq!((opcode & opmask), opbase);
+    }
+
+    #[test]
+    fn opconst_base() {
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::NZ, "JP NZ, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::Z,  "JP Z, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::NC, "JP NC, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::C,  "JP C, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::PO, "JP PO, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::PE, "JP PE, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::P,  "JP P, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::M,  "JP M, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::NZ, "CALL NZ, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::Z,  "CALL Z, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::NC, "CALL NC, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::C,  "CALL C, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::PO, "CALL PO, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::PE, "CALL PE, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::P,  "CALL P, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::M,  "CALL M, 0");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::NZ, "RET NZ");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::Z,  "RET Z");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::NC, "RET NC");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::C,  "RET C");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::PO, "RET PO");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::PE, "RET PE");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::P,  "RET P");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::M,  "RET M");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::NZ, "JR NZ, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::Z,  "JR Z, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::NC, "JR NC, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::C,  "JR C, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::PO, "JR NZ, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::PE, "JR Z, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::P,  "JR NC, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::M,  "JR C, 2");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::NZ, "RETN ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::Z,  "RETI ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::NC, "RETN ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::C,  "RETN ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::PO, "RETN ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::PE, "RETN ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::P,  "RETN ");
+        test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::M,  "RETN ");
+    }
 }
