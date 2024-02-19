@@ -55,7 +55,7 @@ pub type CpuDebugFn = fn(CpuDebug);
 /// 0090 : ADC    HL, HL               [ED, 6A]
 /// 0092 : JR     NC, 0x0097           [30, 03]
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CpuDebug {
     /// A copy of bytes that assemble the command that has been executed.
     pub code: CpuDebugCode,
@@ -121,9 +121,10 @@ pub enum CpuDebugArg {
 }
 
 /// An enum holding the command arguments.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CpuDebugArgs {
     /// The command had no arguments.
+    #[default]
     None,
     /// The command had a single argument.
     Single(CpuDebugArg),

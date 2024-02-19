@@ -320,7 +320,7 @@ mod tests {
             }
             dbg = Some(deb);
             Ok(())
-        }).expect("only a single intstruction");
+        }).expect("only a single instruction");
         dbg.expect("some opcode")
     }
 
