@@ -16,7 +16,7 @@ require 'z80/stdlib'
 class RAL_1243_Kernel
   include Z80
 
-  VERSION = "1.0.0"
+  VERSION = "1.0.1"
 
   def self.swap_bytes(word)
     hi, lo = (word >> 8)&0xFF, word&0xFF
@@ -270,13 +270,21 @@ class RAL_1243_Kernel
                         ld   a, [sysvars.flags]
                         anda FLAGS_EX_ROM_TEST_MASK
                         ret  NZ
-                        di
-    back_to_menu        ld   a, 1
+    # PATCH 1.0.1 BEGIN (set IFF2 = 0 from NMI)
+    back_to_menu        di
+                        ld   a, 1
+    # PATCH 1.0.1 END
                         ld   i, a
                         ld   hl, [sysvars.ramtop]
                         inc  hl
                         ld   sp, hl
                         call reset_peripherals
+    # PATCH 1.0.1 BEGIN
+                        xor  a # clear IO/flags
+                        ld   [sysvars.io_flags], a
+                        call clear_ieo # a possible CTC/IEO
+                        call clear_ieo # a possible PIO/IEO
+    # PATCH 1.0.1 END
                         ei
                         jp   ex_rom_menu
   end
@@ -313,7 +321,9 @@ class RAL_1243_Kernel
                         }
 
   none_int_handler      ei
-                        reti
+  # PATCH 1.0.1 BEGIN
+  clear_ieo             reti
+  # PATCH 1.0.1 END
 
   with_saved :ctc0_interrupt, af, hl, ret: :ei_reti do |eoc|
                         ld   hl, sysvars.frames0
@@ -708,7 +718,7 @@ class RAL_1243_Kernel
                         put_char 0x15 # cursor
                         put_char 0x00 # hide
                         put_imm_text 0x0C, # clear terminal
-                          "RAL 1243 (c) All rights reserved j.k. 2019\r\nKernel version: #{VERSION}.\r\n\n",
+                          "RAL 1243 (c) All rights reserved j.k. 2019-2024\r\nKernel version: #{VERSION}.\r\n\n",
                           "Testing upper RAM: "
                         ld   hl, userrambot
     test_ram_loop       ld   [sysvars.ramtop], hl
