@@ -1,3 +1,12 @@
+v0.x.z
+* macros: helper macros for implementing host wrapper types
+* debug: CpuDebug and CpuDebugArgs implement Default
+* disasm: disasm_memory_once function added
+* opconsts: several opcode consts added for matching and building instructions
+* to_code and from_code const methods added for parser enums and From implementation for u8
+* Condition::from_jr_subset made public, Condition::is_satisfied is const now
+* InterruptMode::to_mode_number method and From implementation for u8 added
+
 v0.10.0
 * deps: fixed arrayvec always depending on std
 * deps: bumped bitflags to 2.4.2
