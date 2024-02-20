@@ -17,11 +17,11 @@ pub struct TClock { cur: Wrapping<Ts>, clock_hz: Ts }
 
 impl TClock {
     pub fn new(clock_hz: Ts) -> Self {
-        TClock { cur: Wrapping(0), clock_hz }
+        TClock { cur: Wrapping(clock_hz), clock_hz }
     }
 
     pub fn reset(&mut self) {
-        self.cur = Wrapping(0);
+        self.cur = Wrapping(self.clock_hz);
     }
 
     /// CPU clock in T-states / second
