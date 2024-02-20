@@ -15,7 +15,7 @@ t1       t2                      t3
 */
 use core::time::{Duration};
 use super::clock::{TClock, Ts};
-use super::bus::{BusMemory, BusDevice};
+use super::bus::BusDevice;
 
 use z80emu::{Cpu, Memory, Io, Clock, BreakCause};
 
@@ -23,9 +23,9 @@ use z80emu::{Cpu, Memory, Io, Clock, BreakCause};
 use log::{error, warn, info, debug, trace, Level};
 
 pub struct FrameRunner<const EXT_CLOCK_HZ: u32, const TIME_FRAME_HZ: u32> {
-    clock: TClock,
-    limit: Ts,
-    frame_tstates: Ts,
+    pub(crate) clock: TClock,
+    pub(crate) limit: Ts,
+    pub(crate) frame_tstates: Ts,
 }
 
 /// Return a duration of a single running frame.
@@ -64,7 +64,7 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
     }
 
     pub fn start<M, C>(&mut self, cpu: &mut C, bus: &mut M)
-        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts> + BusDevice<Timestamp=Ts> + BusMemory,
+        where M: BusDevice<Timestamp=Ts>,
               C: Cpu
     {
         self.clock.reset();
@@ -75,7 +75,7 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
 
     /// Run emulation step, return frame duration in T-states.
     pub fn step<M, C>(&mut self, cpu: &mut C, bus: &mut M) -> Ts
-        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts> + BusDevice<Timestamp=Ts> + BusMemory,
+        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts> + BusDevice<Timestamp=Ts>,
               C: Cpu
     {
         if self.clock.check_wrap_second() {
@@ -105,17 +105,21 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
     }
 
     pub fn reset<C, M>(&mut self, cpu: &mut C, bus: &mut M)
-        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts> + BusDevice<Timestamp=Ts> + BusMemory,
+        where M: BusDevice<Timestamp=Ts>,
               C: Cpu
     {
         cpu.reset();
         bus.reset(self.clock.as_timestamp());
     }
 
-    pub fn nmi<C, M>(&mut self, cpu: &mut C, bus: &mut M) -> bool
-        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts> + BusDevice<Timestamp=Ts> + BusMemory,
+    pub fn nmi<C, M>(&mut self, cpu: &mut C, bus: &mut M) -> Option<Ts>
+        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts>,
               C: Cpu
     {
-        cpu.nmi(bus, &mut self.clock)
+        let start_ts = self.clock.as_timestamp();
+        if cpu.nmi(bus, &mut self.clock) {
+            return Some(self.clock.as_timestamp().wrapping_sub(start_ts))
+        }
+        None
     }
 }

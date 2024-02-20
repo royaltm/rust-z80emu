@@ -31,7 +31,7 @@ use simplelog::*;
 use clap::App;
 use arrayvec::ArrayVec;
 use pancurses::{initscr, endwin, Input, noecho, curs_set, raw, resize_term, beep};
-use z80emu::Z80NMOS;
+use z80emu::z80::NMOS;
 use ral1243::{read_exroms, RunnerMsg, Ts};
 
 const DEFAULT_CLOCK_KHZ: Ts = 4_000;
@@ -42,7 +42,7 @@ const EXT_CLOCK_HZ: u32 = 10_000;
 /// Max CPU clock frequency.
 const MAX_CLOCK_KHZ: u32 = 40_000_000;
 
-type Ral1243 = ral1243::Ral1243<Z80NMOS,
+type Ral1243 = ral1243::Ral1243<NMOS,
                         Receiver<u8>,
                         SyncSender<u8>,
                         EXT_CLOCK_HZ,
@@ -87,6 +87,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     window.printw(r#"
 F1  - generates NMI signal
 F4  - generates RESET signal
+
+F5  - DEBUG next
+F7  - DEBUG run to IRQ
+F8  - RUN (exit DEBUG)
+
 F10 - exit
 
 press any key to start..."#);
@@ -160,6 +165,17 @@ press any key to start..."#);
             Some(Input::KeyF10) => {
                 info!("key: EXIT");
                 break;
+            }
+            Some(Input::KeyF8) => {
+                info!("key: RUN");
+                if runner_tx.send(RunnerMsg::Continue).is_err() { break; }
+            }
+            Some(Input::KeyF7) => {
+                info!("key: RUN IRQ");
+                if runner_tx.send(RunnerMsg::DebugRunIrq).is_err() { break; }
+            }
+            Some(Input::KeyF5) => {
+                if runner_tx.send(RunnerMsg::DebugNext).is_err() { break; }
             }
             Some(Input::KeyF4) => {
                 info!("key: RESET");

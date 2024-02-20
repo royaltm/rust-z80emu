@@ -25,6 +25,7 @@ pub mod bus;
 pub mod clock;
 pub mod ctc;
 pub mod ctc_trigger;
+pub mod debug;
 pub mod memory;
 pub mod pio;
 pub mod pio_device;
@@ -37,6 +38,7 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub(crate) use std::{boxed, rc, vec};
+
 #[cfg(not(feature = "std"))]
 pub(crate) use alloc::{boxed, rc, vec};
 
@@ -47,7 +49,7 @@ use std::{io, fs};
 #[cfg(feature = "std")]
 use io::Read;
 
-use z80emu::Cpu;
+use z80emu::{Z80, z80::Flavour, CpuDebug};
 
 use bus::{Bus, Terminator};
 use ctc::Ctc;
@@ -97,11 +99,11 @@ pub const EX_ROM002: &[u8] = include_bytes!("../exroms/exrom002.bin");
 ///
 /// * `EXT_HZ`: external clock frequency (for CTC) in Hz.
 /// * `FRAME_HZ`: how many frames per second will be run.
-pub struct Ral1243<C: Cpu, I: PioStream, O: PioSink,
+pub struct Ral1243<F: Flavour, I: PioStream, O: PioSink,
         const EXT_HZ: u32 = 10_000,
         const FRAME_HZ: u32 = 500> {
     runner: FrameRunner<EXT_HZ, FRAME_HZ>,
-    cpu: C,
+    cpu: Z80<F>,
     bus: BusT<I, O>,
 }
 
@@ -136,8 +138,8 @@ pub fn exrom_from_slice(exrom: &[u8]) -> Rom {
     Memory::make_rom(exrom)
 }
 
-impl<C: Cpu + Default, I: PioStream, O: PioSink,
-     const EXT_HZ: u32, const FRAME_HZ: u32> Ral1243<C, I, O, EXT_HZ, FRAME_HZ>
+impl<F: Flavour, I: PioStream, O: PioSink,
+     const EXT_HZ: u32, const FRAME_HZ: u32> Ral1243<F, I, O, EXT_HZ, FRAME_HZ>
 {
     /// A single run frame duration.
     pub fn frame_duration() -> core::time::Duration {
@@ -171,7 +173,7 @@ impl<C: Cpu + Default, I: PioStream, O: PioSink,
     {
         assert!((1..=Memory::MAXRAM_KB).contains(&ramsizekb));
         assert!(FrameRunner::<EXT_HZ, FRAME_HZ>::clock_is_valid(clock_hz));
-        let cpu = C::default();
+        let cpu = Z80::default();
         let mut memory = Memory::new(ROM, ramsizekb);
         match exroms {
             Some(exroms) => memory.attach_exroms(exroms),
@@ -219,13 +221,26 @@ impl<C: Cpu + Default, I: PioStream, O: PioSink,
         self.runner.step(&mut self.cpu, &mut self.bus)
     }
 
+
+    pub fn debug_preview(&self) -> CpuDebug {
+        self.runner.debug_preview(&self.cpu, &self.bus)
+    }
+
+    pub fn debug_step(&mut self) -> (Option<CpuDebug>, Ts) {
+        self.runner.debug_step(&mut self.cpu, &mut self.bus)
+    }
+
+    pub fn debug_runto_int(&mut self, max_frames: u32) -> (Option<CpuDebug>, Ts) {
+        self.runner.debug_runto_int(&mut self.cpu, &mut self.bus, max_frames)
+    }
+
     /// Reset computer.
     pub fn reset(&mut self) {
         self.runner.reset(&mut self.cpu, &mut self.bus)
     }
 
     /// Trigger NMI, return whether succeeded.
-    pub fn nmi(&mut self) -> bool {
+    pub fn nmi(&mut self) -> Option<Ts> {
         self.runner.nmi(&mut self.cpu, &mut self.bus)
     }
 }

@@ -5,19 +5,22 @@
     For the full copyright notice, see the mod.rs file.
 */
 //! Std thread runner for Ral1243.
+use std::io::Write;
 use std::time::{Duration, Instant};
 use std::thread::{spawn, sleep, JoinHandle};
 use std::sync::mpsc::{SyncSender, Receiver, TryRecvError};
 use log::{debug};
-use super::Ral1243;
-use super::runner::FrameRunner;
 use super::*;
-pub use pio_device::{PioStream, PioSink};
+use super::debug::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RunnerMsg {
     Terminate,
     Reset,
-    Nmi
+    Nmi,
+    DebugNext,
+    DebugRunIrq,
+    Continue
 }
 
 impl PioStream for Receiver<u8> {
@@ -35,8 +38,8 @@ impl PioSink for SyncSender<u8> {
 }
 
 
-impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
-    Ral1243<C, Receiver<u8>, SyncSender<u8>, EXT_HZ, FRAME_HZ>
+impl<F: Flavour, const EXT_HZ: u32, const FRAME_HZ: u32>
+    Ral1243<F, Receiver<u8>, SyncSender<u8>, EXT_HZ, FRAME_HZ>
 {
     pub fn start_thread<T>(ramsizekb: usize, clock_hz: Ts, exroms: Option<T>,
                 run_rx: Receiver<RunnerMsg>,
@@ -61,8 +64,9 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
         let mut total_ts = 0u64;
         let mut duration = Duration::ZERO;
         let mut frame_count = 0;
+
         loop {
-            if nmi_request && self.nmi() {
+            if nmi_request && self.nmi().is_some() {
                 nmi_request = false;
             }
 
@@ -76,11 +80,23 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
             match run_rx.try_recv() {
                 Ok(RunnerMsg::Terminate) => break,
                 Ok(RunnerMsg::Reset) => {
+                    nmi_request = false;
                     self.reset();
                 }
                 Ok(RunnerMsg::Nmi) => {
-                    nmi_request = !self.nmi();
+                    nmi_request = self.nmi().is_none();
                 }
+                Ok(RunnerMsg::DebugNext|RunnerMsg::DebugRunIrq) => {
+                    if self.debug(&run_rx, &mut nmi_request) == RunnerMsg::Terminate {
+                        break
+                    }
+                    duration = Duration::ZERO;
+                    total_ts = 0;
+                    frame_count = 0;
+                    time = Instant::now();
+                    continue
+                }
+                Ok(RunnerMsg::Continue)|
                 Err(TryRecvError::Empty) => {},
                 Err(TryRecvError::Disconnected) => break,
             }
@@ -96,6 +112,58 @@ impl<C: Cpu + Default, const EXT_HZ: u32, const FRAME_HZ: u32>
                 duration = Duration::ZERO;
                 total_ts = 0;
                 frame_count = 0;
+            }
+        }
+    }
+
+    pub fn debug(&mut self, run_rx: &Receiver<RunnerMsg>, nmi_request: &mut bool) -> RunnerMsg {
+        let stdout = io::stdout();
+        let mut header_lines = u8::MAX;
+        let mut last_ts = 0;
+        loop {
+            if *nmi_request {
+                if let Some(ts) = self.nmi() {
+                    last_ts = ts;
+                    *nmi_request = false;
+                }
+            }
+
+            let deb = self.debug_preview();
+            {
+                let mut handle = stdout.lock();
+                let _ = write!(handle, "{}T: +{}        \r", Preview::of(&deb), last_ts);
+                handle.flush().unwrap();
+            }
+
+            let (deb, ts) = match run_rx.recv() {
+                Ok(RunnerMsg::Continue) => return RunnerMsg::Continue,
+                Ok(RunnerMsg::Terminate)|
+                Err(..) => return RunnerMsg::Terminate,
+                Ok(RunnerMsg::Reset) => {
+                    *nmi_request = false;
+                    self.reset();
+                    continue
+                }
+                Ok(RunnerMsg::Nmi) => {
+                    *nmi_request = true;
+                    continue
+                }
+                Ok(RunnerMsg::DebugRunIrq) => self.debug_runto_int(EXT_HZ),
+                Ok(RunnerMsg::DebugNext) => self.debug_step(),
+            };
+
+            last_ts = ts;
+
+            if let Some(deb) = deb {
+                let mut handle = stdout.lock();
+                if header_lines > 10 {
+                    let _ = writeln!(handle, "{}", Header);
+                    header_lines = 0;
+                }
+                else {
+                    header_lines += 1;
+                }
+                let _ = writeln!(handle, "{}", Debugger::of(&deb, &self.cpu));
             }
         }
     }
