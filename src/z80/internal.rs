@@ -7,7 +7,7 @@
 //! Private methods with implementation of some of the more complicated instructions of Z80.
 use core::num::NonZeroU8;
 use super::*;
-use crate::{NMI_RESTART, Rot};
+use crate::NMI_RESTART;
 
 type R8ParseResult = core::result::Result<Reg8,()>;
 
