@@ -418,7 +418,7 @@ impl<B: Memory> Memory for DebugBus<'_, B> {
 
 #[cfg(test)]
 mod test {
-    
+
     #[derive(Default)]
     struct Bus<T>{ clock: T, io: u8, byte: u8, mem: u16, ir: u16 }
 
@@ -561,6 +561,24 @@ mod test {
         ticks.add_wait_states(0, core::num::NonZeroU16::new(2).unwrap());
         assert_eq!(ticks.as_timestamp(), 120);
         assert_eq!(ticks.as_timestamp(), ((ticks.0).0).0);
+
+        let mut ticks = RTicks { cl: ticks };
+        assert_eq!(ticks.as_timestamp(), 120);
+        assert!(ticks.is_past_limit(119));
+        assert!(ticks.is_past_limit(120));
+        assert!(!ticks.is_past_limit(121));
+        assert_eq!(ticks.add_irq(0), 122);
+        assert_eq!(ticks.as_timestamp(), 126);
+        ticks.add_no_mreq(0, core::num::NonZeroU8::new(1).unwrap());
+        assert_eq!(ticks.as_timestamp(), 127);
+        assert_eq!(ticks.add_m1(0), 131);
+        assert_eq!(ticks.add_mreq(0), 134);
+        assert_eq!(ticks.as_timestamp(), 134);
+        assert_eq!(ticks.add_io(0), 135);
+        assert_eq!(ticks.as_timestamp(), 138);
+        ticks.add_wait_states(0, core::num::NonZeroU16::new(2).unwrap());
+        assert_eq!(ticks.as_timestamp(), 140);
+        assert_eq!(ticks.as_timestamp(), (((ticks.cl).0).0).0);
     }
 
     #[test]
