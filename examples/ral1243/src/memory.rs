@@ -4,6 +4,7 @@
 
     For the full copyright notice, see the mod.rs file.
 */
+#![allow(unused_imports)]
 use core::ptr::NonNull;
 use super::vec;
 use super::vec::Vec;

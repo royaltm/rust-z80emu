@@ -5,6 +5,7 @@
     For the full copyright notice, see the mod.rs file.
 */
 use core::cell::Cell;
+#[allow(unused_imports)]
 use super::rc::Rc;
 use super::ctc::CtcTrigger;
 use super::clock::Ts;
