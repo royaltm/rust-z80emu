@@ -18,7 +18,6 @@
     Author contact information: see Cargo.toml file, section [package.authors].
 */
 //! Tests Cpu debugger.
-use std::convert::TryFrom;
 use std::str::FromStr;
 
 use arrayvec::ArrayVec;

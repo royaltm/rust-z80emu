@@ -17,7 +17,6 @@
 
     Author contact information: see Cargo.toml file, section [package.authors].
 */
-use std::convert::TryInto;
 use crate::z80::Flavour;
 use std::env;
 use std::time::{Duration, Instant};

@@ -32,7 +32,7 @@ use clap::App;
 use arrayvec::ArrayVec;
 use pancurses::{initscr, endwin, Input, noecho, curs_set, raw, resize_term, beep};
 use z80emu::Z80NMOS;
-use ral1243::{self, read_exroms, RunnerMsg, Ts};
+use ral1243::{read_exroms, RunnerMsg, Ts};
 
 const DEFAULT_CLOCK_KHZ: Ts = 4_000;
 /// How many frames / second.

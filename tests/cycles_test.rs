@@ -19,7 +19,6 @@
 */
 //! Tests cycles of Cpu instructions.
 use core::cell::RefCell;
-use core::convert::TryFrom;
 use core::num::{NonZeroU8, NonZeroU16};
 use core::str::FromStr;
 use std::collections::hash_map::HashMap;

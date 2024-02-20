@@ -230,7 +230,6 @@ impl From<BM1> for NMOS {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::z80::Z80;
 
     #[test]
     fn flavour_works() {

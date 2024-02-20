@@ -19,10 +19,9 @@
 */
 //! A shuffle test.
 use std::borrow::Cow;
-use std::convert::TryInto;
 use std::fs::{File};
 use std::io::Read;
-use self::shuffle::dir;
+use shuffle::dir;
 
 mod shuffle;
 

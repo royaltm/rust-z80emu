@@ -19,7 +19,6 @@
 */
 use core::num::NonZeroU16;
 use std::ops::Index;
-use std::convert::TryInto;
 use std::collections::HashMap;
 use std::{io::Read, fs::File};
 use serde_json::Value;
@@ -31,6 +30,7 @@ macro_rules! dir {
     };
 }
 
+#[allow(unused_imports)]
 pub(crate) use dir;
 
 #[derive(Clone, Debug, Default)]
