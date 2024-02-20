@@ -278,7 +278,7 @@ pub trait Io {
     ///
     /// Depending on the interrupt mode this method should return a tuple with its first argument being:
     /// * [IM 0][crate::InterruptMode::Mode0]: an opcode of a command to execute.
-    /// * [IM 1][crate::InterruptMode::Mode1]: irrelevant as it is just being ignored.
+    /// * [IM 1][crate::InterruptMode::Mode1]: ignored by `CPU`.
     /// * [IM 2][crate::InterruptMode::Mode2]: the lower half of an address of the vector jump table entry.
     /// The upper half of this address is being taken from the value of the register `I`.
     ///
