@@ -172,10 +172,11 @@ assert_eq!(tsc.as_timestamp(), 10+10+(FIB_N as i32)*(4+11+13)-5+4);
 */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod host;
 mod cpu;
-pub mod z80;
 pub mod disasm;
+pub mod host;
+pub mod macros;
+pub mod z80;
 
 pub use cpu::*;
 pub use host::{Clock, Io, Memory, BreakCause};
@@ -279,6 +280,15 @@ pub mod opconsts {
     pub const RST_30H_OPCODE: u8 = 0xF7;
     /// Call a system subroutine at `0x38`.
     pub const RST_38H_OPCODE: u8 = 0xFF;
+    /// Base of the `RST p` opcode.
+    ///
+    /// Match instructions with: `(code & RST_OPMASK) == RST_OPBASE`.
+    ///
+    /// Build instructions with: `RST_OPBASE|addr` where `addr` is one of:
+    /// `0x00u8, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30, 0x38`.
+    pub const RST_OPBASE:  u8 = 0b11_000_111;
+    /// Opcode mask of the `RST p` instruction.
+    pub const RST_OPMASK:  u8 = 0b11_000_111;
     /// Decrement `B` and branch to a relative address unless `B=0`.
     pub const DJNZ_OPCODE:    u8 = 0x10;
 }
@@ -347,8 +357,8 @@ mod tests {
         test_opcode(2, DJNZ_OPCODE,    "DJNZ 2");
     }
 
-    fn test_base_match(len: usize, opbase: u8, opmask: u8, cond: Condition, matching: &str) {
-        let opcode = opbase|cond.to_code();
+    fn test_base_match(len: usize, opbase: u8, opmask: u8, code: u8, matching: &str) {
+        let opcode = opbase|code;
         test_opcode(len, opcode, matching);
         assert_eq!((opcode & opmask), opbase);
     }
@@ -360,38 +370,46 @@ mod tests {
 
     #[test]
     fn opconst_base() {
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::NZ, "JP NZ, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::Z,  "JP Z, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::NC, "JP NC, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::C,  "JP C, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::PO, "JP PO, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::PE, "JP PE, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::P,  "JP P, 0");
-        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::M,  "JP M, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::NZ, "CALL NZ, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::Z,  "CALL Z, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::NC, "CALL NC, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::C,  "CALL C, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::PO, "CALL PO, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::PE, "CALL PE, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::P,  "CALL P, 0");
-        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::M,  "CALL M, 0");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::NZ, "RET NZ");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::Z,  "RET Z");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::NC, "RET NC");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::C,  "RET C");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::PO, "RET PO");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::PE, "RET PE");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::P,  "RET P");
-        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::M,  "RET M");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::NZ, "JR NZ, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::Z,  "JR Z, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::NC, "JR NC, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::C,  "JR C, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::PO, "JR NZ, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::PE, "JR Z, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::P,  "JR NC, 2");
-        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::M,  "JR C, 2");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::NZ.to_code(), "JP NZ, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::Z.to_code(),  "JP Z, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::NC.to_code(), "JP NC, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::C.to_code(),  "JP C, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::PO.to_code(), "JP PO, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::PE.to_code(), "JP PE, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::P.to_code(),  "JP P, 0");
+        test_base_match(3, JP_CC_OPBASE, JP_CC_OPMASK, Condition::M.to_code(),  "JP M, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::NZ.to_code(), "CALL NZ, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::Z.to_code(),  "CALL Z, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::NC.to_code(), "CALL NC, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::C.to_code(),  "CALL C, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::PO.to_code(), "CALL PO, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::PE.to_code(), "CALL PE, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::P.to_code(),  "CALL P, 0");
+        test_base_match(3, CALL_CC_OPBASE, CALL_CC_OPMASK, Condition::M.to_code(),  "CALL M, 0");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::NZ.to_code(), "RET NZ");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::Z.to_code(),  "RET Z");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::NC.to_code(), "RET NC");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::C.to_code(),  "RET C");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::PO.to_code(), "RET PO");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::PE.to_code(), "RET PE");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::P.to_code(),  "RET P");
+        test_base_match(1, RET_CC_OPBASE, RET_CC_OPMASK, Condition::M.to_code(),  "RET M");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::NZ.to_code(), "JR NZ, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::Z.to_code(),  "JR Z, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::NC.to_code(), "JR NC, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::C.to_code(),  "JR C, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::PO.to_code(), "JR NZ, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::PE.to_code(), "JR Z, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::P.to_code(),  "JR NC, 2");
+        test_base_match(2, JR_CC_OPBASE, JR_CC_OPMASK, Condition::M.to_code(),  "JR C, 2");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x00, "RST 0");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x08, "RST 8");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x10, "RST 16");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x18, "RST 24");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x20, "RST 32");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x28, "RST 40");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x30, "RST 48");
+        test_base_match(1, RST_OPBASE, RST_OPMASK, 0x38, "RST 56");
         test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::NZ, "RETN ");
         test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::Z,  "RETI ");
         test_base_match_ed(2, RETN_OP2_BASE, RETN_OP2_MASK, Condition::NC, "RETN ");
