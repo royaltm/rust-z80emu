@@ -81,28 +81,19 @@ pub fn disasm_memory<C: Cpu, F: FnMut(CpuDebug) -> Result<(), E>, E>(
 ///
 /// * `pc` - the address of the first byte of memory chunk given.
 /// * `memory` - a chunk of memory to disassemble.
-/// * `debug` - a function called once for the interpreted instruction with a single argument: [CpuDebug].
 ///
-/// The `debug` closure may be called once or none at all if a complete instruction wasn't found in `memory`.
-/// 
-/// When an instruction is found and `debug` closure was called the function returns `Some(R)`.
-/// Otherwise returns `None`.
-pub fn disasm_memory_once<C, F, R>(
+/// When an instruction is found the function returns `Some(CpuDebug)`. Otherwise returns `None`.
+pub fn disasm_memory_once<C: Cpu>(
         pc: u16,
-        memory: &[u8],
-        debug: F
-    ) -> Option<R>
-    where C: Cpu, F: FnOnce(CpuDebug) -> R
+        memory: &[u8]
+    ) -> Option<CpuDebug>
 {
-    let mut dbg: CpuDebug = CpuDebug::default();
-    if disasm_memory::<C,_,_>(pc, memory, |deb| {
-        dbg = deb;
+    let mut dbg = None;
+    let _ = disasm_memory::<C,_,_>(pc, memory, |deb| {
+        dbg = Some(deb);
         Err(()) /* break */
-    }).is_ok()
-    {
-        return None
-    }
-    Some(debug(dbg))
+    });
+    dbg
 }
 
 /// Instead of providing your own `debug` function to [disasm_memory], provide a [fmt::Write]
