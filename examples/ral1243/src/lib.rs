@@ -93,12 +93,12 @@ pub const EX_ROM001: &[u8] = include_bytes!("../exroms/exrom001.bin");
 /// For implementations.
 pub const EX_ROM002: &[u8] = include_bytes!("../exroms/exrom002.bin");
 
-/// The computer.
+/// The `Ral1243` computer.
 ///
-/// Require Cpu and implementations of [PioStream] and [PioSink].
+/// Requires [`Z80`] and implementations of [PioStream] and [PioSink].
 ///
-/// * `EXT_HZ`: external clock frequency (for CTC) in Hz.
-/// * `FRAME_HZ`: how many frames per second will be run.
+/// * `EXT_HZ`: external clock frequency (for `CTC`) in Hz.
+/// * `FRAME_HZ`: how many frames per second the emulation will run.
 pub struct Ral1243<F: Flavour, I: PioStream, O: PioSink,
         const EXT_HZ: u32 = 10_000,
         const FRAME_HZ: u32 = 500> {
@@ -107,7 +107,7 @@ pub struct Ral1243<F: Flavour, I: PioStream, O: PioSink,
     bus: BusT<I, O>,
 }
 
-/// Read EX-ROMS from a directory.
+/// Read EX-ROMS from a directory. `std` only.
 #[cfg(feature = "std")]
 pub fn read_exroms<P: AsRef<Path>>(dir: P) -> io::Result<Vec<Rom>> {
     let mut vec = Vec::new();
@@ -221,17 +221,29 @@ impl<F: Flavour, I: PioStream, O: PioSink,
         self.runner.step(&mut self.cpu, &mut self.bus)
     }
 
-
+    /// See [`FrameRunner::debug_preview`].
     pub fn debug_preview(&self) -> CpuDebug {
         self.runner.debug_preview(&self.cpu, &self.bus)
     }
 
+    /// See [`FrameRunner::debug_step`].
     pub fn debug_step(&mut self) -> (Option<CpuDebug>, Ts) {
         self.runner.debug_step(&mut self.cpu, &mut self.bus)
     }
 
-    pub fn debug_runto_int(&mut self, max_frames: u32) -> (Option<CpuDebug>, Ts) {
-        self.runner.debug_runto_int(&mut self.cpu, &mut self.bus, max_frames)
+    /// See [`FrameRunner::debug_runto_int`].
+    pub fn debug_runto_int(&mut self) -> (Option<CpuDebug>, Ts) {
+        self.runner.debug_runto_int(&mut self.cpu, &mut self.bus)
+    }
+
+    /// See [`FrameRunner::debug_runto_ret`].
+    pub fn debug_runto_ret(&mut self) -> (Option<CpuDebug>, Ts) {
+        self.runner.debug_runto_ret(&mut self.cpu, &mut self.bus)
+    }
+
+    /// See [`FrameRunner::run_until_brkpt`].
+    pub fn run_until_brkpt(&mut self, brkpts: &[u16]) -> (Option<usize>, Ts) {
+        self.runner.run_until_brkpt(&mut self.cpu, &mut self.bus, brkpts)
     }
 
     /// Reset computer.
@@ -239,7 +251,7 @@ impl<F: Flavour, I: PioStream, O: PioSink,
         self.runner.reset(&mut self.cpu, &mut self.bus)
     }
 
-    /// Trigger NMI, return whether succeeded.
+    /// Trigger NMI, return a number of T-states that it took on success.
     pub fn nmi(&mut self) -> Option<Ts> {
         self.runner.nmi(&mut self.cpu, &mut self.bus)
     }

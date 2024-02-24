@@ -38,18 +38,24 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
     pub const EXT_CLOCK_HZ: u32 = EXT_HZ;
     /// How many frames / second.
     pub const TIME_FRAME_HZ: u32 = FRAME_HZ;
-    /// A duration of a sinle frame.
+    /// A duration of a single frame.
     pub const FRAME_DURATION: Duration = frame_duration(FRAME_HZ);
 
+    /// Return whether the `clock_hz` is a valid clock for this runner.
     pub const fn clock_is_valid(clock_hz: Ts) -> bool {
         clock_hz % (EXT_HZ * 2) == 0 && clock_hz >= EXT_HZ * 10
     }
 
+    /// Return the external clock period in the number of T-states.
+    ///
+    /// The external clock drives the `CTC` timers.
     pub fn external_clock_tstates(&self) -> u32 {
         self.clock.clock_hz() / EXT_HZ
     }
 
-    /// `clock_hz`: CPU clock in T-states / second (modify at will as long as its divisible by EXT_HZ * 2)
+    /// Create a new runner.
+    ///
+    /// `clock_hz`: `CPU` clock in T-states per second. It must be divisible by `EXT_HZ` * 2.
     pub fn new(clock_hz: Ts) -> Self {
         assert!(Self::clock_is_valid(clock_hz));
         let clock = TClock::new(clock_hz);
@@ -59,10 +65,14 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         FrameRunner { clock, limit: 0, frame_tstates }
     }
 
+    /// A real-time duration of a single frame.
     pub fn frame_duration() -> Duration {
         Self::FRAME_DURATION
     }
 
+    /// Reset everything, including clock and the frame limit counter.
+    /// 
+    /// This function should be called before very first step.
     pub fn start<M, C>(&mut self, cpu: &mut C, bus: &mut M)
         where M: BusDevice<Timestamp=Ts>,
               C: Cpu
@@ -104,6 +114,7 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         self.clock.as_timestamp().wrapping_sub(start_ts)
     }
 
+    /// Reset CPU and BUS devices.
     pub fn reset<C, M>(&mut self, cpu: &mut C, bus: &mut M)
         where M: BusDevice<Timestamp=Ts>,
               C: Cpu
@@ -112,6 +123,7 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         bus.reset(self.clock.as_timestamp());
     }
 
+    /// Trigger NMI, return a number of T-states that it took on success.
     pub fn nmi<C, M>(&mut self, cpu: &mut C, bus: &mut M) -> Option<Ts>
         where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts>,
               C: Cpu

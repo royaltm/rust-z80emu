@@ -205,9 +205,10 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
             dbg.code.as_slice())
         .unwrap_or(dbg)
     }
-    /// Run emulation step, return a pair of an optional CpuDebug and a step duration in T-states.
+    /// Run emulation step, return a pair of an optional [`CpuDebug`] of
+    /// an executed instruction and a step duration in T-states.
     ///
-    /// Returns `((None, Ts))` if CPU was already halted.
+    /// Returns `(None, Ts)` if CPU was already halted.
     pub fn debug_step<F, M>(&mut self, cpu: &mut Z80<F>, bus: &mut M) -> (Option<CpuDebug>, Ts)
         where F: Flavour,
               M: Memory<Timestamp=Ts> +
@@ -225,7 +226,7 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
             match cpu.execute_next(&mut dbus, &mut self.clock, Some(
                 |deb| { dbg = Some(deb) }))
             {
-                Ok(())|Err(BreakCause::Halt) => {},
+                Ok(())|Err(BreakCause::Halt) => {}
                 Err(cause) => panic!("no break request was expected: {}", cause)
             }
 
@@ -254,17 +255,15 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         }
         (dbg, self.clock.as_timestamp().saturating_sub(start_ts))
     }
-    /// Run emulation, stop on an IRQ request. Return a pair of an optional `CpuDebug`
+    /// Run emulation, stop on an IRQ request. Return a pair of an optional [`CpuDebug`]
     /// of the last instruction and a total duration in T-states.
     ///
-    /// Alternatively stop after `max_frames` number of frames has passed.
-    ///
-    /// Returns `((None, Ts))` if CPU was already halted and no interrupt occured.
+    /// Returns `(None, Ts)` if CPU was already halted and no interrupt occured or
+    /// a frame has passed.
     pub fn debug_runto_int<F, M>(
             &mut self,
             cpu: &mut Z80<F>,
             bus: &mut M,
-            mut max_frames: u32
         ) -> (Option<CpuDebug>, Ts)
         where F: Flavour,
               M: Memory<Timestamp=Ts> +
@@ -272,69 +271,156 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
               BusDevice<Timestamp=Ts>
     {
         self.check_wrap_next_second(bus);
-        let mut limit = self.limit + self.frame_tstates;
+        let limit = self.limit + self.frame_tstates;
         let start_ts = self.clock.as_timestamp();
-        let mut wrapped_ts: Ts = 0;
         let mut dbg: Option<CpuDebug> = None;
-        let mut prefix = cpu.get_prefix();
         let mut pc = cpu.get_pc();
         let mut dbus = DBus::new(bus);
         loop {
             match cpu.execute_next(&mut dbus, &mut self.clock, Some(
                 |deb| { dbg = Some(deb) }))
             {
-                Ok(())|Err(BreakCause::Halt) => {},
+                Ok(())|Err(BreakCause::Halt) => {}
                 Err(cause) => panic!("no break request was expected: {}", cause)
             }
             if self.clock.is_past_limit(limit) {
                 self.limit = limit;
                 // Update bus devices once per frame
                 dbus.bus.frame_end(self.clock.as_timestamp());
-                if self.check_wrap_next_second(dbus.bus) {
-                    wrapped_ts = wrapped_ts.saturating_add(self.clock.clock_hz());
+                if dbus.data.is_none() {
+                    return (None, self.clock.as_timestamp().saturating_sub(start_ts));
                 }
-                limit = self.limit + self.frame_tstates;
-                if max_frames == 0 {
-                    break
-                }
-                max_frames -= 1;
             }
-            if dbus.data.is_some() {
+            if let Some(data) = dbus.data {
+                irq_debug_update(data, pc, cpu, &mut dbg);
                 break
-            }
-            if cpu.is_after_prefix() {
-                prefix = cpu.get_prefix();
             }
             pc = cpu.get_pc();
         }
-
-        if dbg.is_none() && !cpu.is_halt() && cpu.is_after_prefix() {
-            if let Some(pfx) = prefix {
-                dbg = Some(prefix_debug(pfx, pc));
+        (dbg, self.clock.as_timestamp().saturating_sub(start_ts))
+    }
+    /// Run emulation until a RET/RET cc/RETI/RETN is successfully executed.
+    /// Return a pair of an optional [`CpuDebug`] of the last instruction and
+    /// a total duration in T-states.
+    ///
+    /// Returns `(None, Ts)` if a frame has passed before any RET instruction.
+    pub fn debug_runto_ret<F, M>(
+            &mut self,
+            cpu: &mut Z80<F>,
+            bus: &mut M,
+        ) -> (Option<CpuDebug>, Ts)
+        where F: Flavour,
+              M: Memory<Timestamp=Ts> +
+              Io<Timestamp=Ts> +
+              BusDevice<Timestamp=Ts>
+    {
+        use opconsts::*;
+        self.check_wrap_next_second(bus);
+        let limit = self.limit + self.frame_tstates;
+        let start_ts = self.clock.as_timestamp();
+        let mut dbg: Option<CpuDebug> = None;
+        let mut run = true;
+        while run {
+            match cpu.execute_next(bus, &mut self.clock, Some(
+                |deb: CpuDebug| {
+                    match deb.code[0] {
+                        RET_OPCODE => {}
+                        ED_PREFIX if (deb.code[1] & RETN_OP2_MASK) == RETN_OP2_BASE => {}
+                        op if (op & RET_CC_OPMASK) == RET_CC_OPBASE => {}
+                        _ => return
+                    }
+                    dbg = Some(deb)
+                }))
+            {
+                Ok(())|Err(BreakCause::Halt) => {}
+                Err(cause) => panic!("no break request was expected: {}", cause)
+            }
+            if self.clock.is_past_limit(limit) {
+                self.limit = limit;
+                // Update bus devices once per frame
+                bus.frame_end(self.clock.as_timestamp());
+                run = false;
+            }
+            if let Some(deb) = dbg.as_ref() {
+                if (deb.code[0] & RET_CC_OPMASK) == RET_CC_OPBASE &&
+                    !Condition::from_code(deb.code[0])
+                        .is_satisfied(cpu.get_flags())
+                {
+                    dbg = None;
+                }
+                else {
+                    run = false;
+                }
             }
         }
-        if let Some(data) = dbus.data {
-            irq_debug_update(data, pc, cpu, &mut dbg);
+        (dbg, self.clock.as_timestamp().saturating_sub(start_ts))
+    }
+    /// Run emulation until PC equals to one of the brkpoints.
+    /// Return a pair of an optional brkpoint index and a total duration in T-states.
+    ///
+    /// Returns `((None, Ts))` if no breakpoints were hit and a frame has passed.
+    ///
+    /// **NOTE**: `brkpts` must be sorted!
+    pub fn run_until_brkpt<F, M>(
+            &mut self,
+            cpu: &mut Z80<F>,
+            bus: &mut M,
+            brkpts: &[u16]
+        ) -> (Option<usize>, Ts)
+        where F: Flavour,
+              M: Memory<Timestamp=Ts> +
+              Io<Timestamp=Ts> +
+              BusDevice<Timestamp=Ts>
+    {
+        const DEBUG: Option<CpuDebugFn> = None;
+        self.check_wrap_next_second(bus);
+        let limit = self.limit + self.frame_tstates;
+        let start_ts = self.clock.as_timestamp();
+        let mut pc = cpu.get_pc();
+        loop {
+            let next_bkpt = match brkpts.binary_search(&pc) {
+                Ok(index) => return (Some(index),
+                            self.clock.as_timestamp().saturating_sub(start_ts)),
+                Err(index) => *brkpts.get(index).unwrap_or(&u16::MAX)
+            };
+            loop {
+                match cpu.execute_next(bus, &mut self.clock, DEBUG) {
+                    Ok(())|Err(BreakCause::Halt) => {}
+                    Err(cause) => panic!("no break request was expected: {}", cause)
+                }
+                let next_pc = cpu.get_pc();
+                if self.clock.is_past_limit(limit) {
+                    self.limit = limit;
+                    // Update bus devices once per frame
+                    bus.frame_end(self.clock.as_timestamp());
+                    if next_pc == next_bkpt {
+                        pc = next_pc;
+                        break
+                    }
+                    return (None,
+                            self.clock.as_timestamp().saturating_sub(start_ts));
+                }
+                if next_pc >= next_bkpt || next_pc < pc {
+                    pc = next_pc;
+                    break
+                }
+                pc = next_pc
+            }
         }
-        (dbg, self.clock.as_timestamp()
-                .saturating_add(wrapped_ts)
-                .saturating_sub(start_ts))
     }
 
-    fn check_wrap_next_second<M>(&mut self, bus: &mut M) -> bool
+    fn check_wrap_next_second<M>(&mut self, bus: &mut M)
         where M: BusDevice<Timestamp=Ts>
     {
         if self.clock.check_wrap_second() {
             let clock_hz = self.clock.clock_hz();
             self.limit -= clock_hz;
             bus.next_second(clock_hz);
-            return true
         }
-        false
     }
 }
 
-/// Return standalone prefix pseudo-mnemonic info
+/// Return a standalone prefix pseudo-mnemonic info
 fn prefix_debug(pfx: Prefix, pc: u16) -> CpuDebug {
     let prefix = Some(pfx);
     let mut code = CpuDebugCode::new();
@@ -348,6 +434,7 @@ fn prefix_debug(pfx: Prefix, pc: u16) -> CpuDebug {
     }
 }
 
+/// Update an IM-2 IRQ request pseudo-mnemonic info.
 fn irq_debug_update<F: Flavour>(data: u8, pc: u16, cpu: &mut Z80<F>, dbg: &mut Option<CpuDebug>) {
     if cpu.get_im() == InterruptMode::Mode2 {
         if let Some(deb) = dbg.as_mut() {
@@ -357,5 +444,31 @@ fn irq_debug_update<F: Flavour>(data: u8, pc: u16, cpu: &mut Z80<F>, dbg: &mut O
             deb.code.remove(0); /* remove JP opcode */
             deb.args = CpuDebugArgs::Single(CpuDebugArg::Imm16(vector));
         }
+    }
+}
+
+/// Return whether a successful CALL/CALL cc/RST instruction was executed.
+pub fn was_just_a_call<F: Flavour>(deb: &CpuDebug, cpu: &Z80<F>) -> bool {
+    use opconsts::*;
+    match deb.code[0] {
+        CALL_OPCODE => true,
+        op if (op & RST_OPMASK) == RST_OPBASE => true,
+        op if (op & CALL_CC_OPMASK) == CALL_CC_OPBASE => {
+            Condition::from_code(op).is_satisfied(cpu.get_flags())
+        }
+        _ => false
+    }
+}
+
+/// Return whether a successful RET/RET cc/RETI/RETN instruction was executed.
+pub fn was_just_a_ret<F: Flavour>(deb: &CpuDebug, cpu: &Z80<F>) -> bool {
+    use opconsts::*;
+    match deb.code[0] {
+        RET_OPCODE => true,
+        ED_PREFIX if (deb.code[1] & RETN_OP2_MASK) == RETN_OP2_BASE => true,
+        op if (op & RET_CC_OPMASK) == RET_CC_OPBASE => {
+            Condition::from_code(op).is_satisfied(cpu.get_flags())
+        }
+        _ => false
     }
 }

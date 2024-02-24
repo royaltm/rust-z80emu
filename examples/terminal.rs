@@ -89,6 +89,7 @@ F1  - generates NMI signal
 F4  - generates RESET signal
 
 F5  - DEBUG next
+F6  - DEBUG run to completion
 F7  - DEBUG run to IRQ
 F8  - RUN (exit DEBUG)
 
@@ -173,6 +174,10 @@ press any key to start..."#);
             Some(Input::KeyF7) => {
                 info!("key: RUN IRQ");
                 if runner_tx.send(RunnerMsg::DebugRunIrq).is_err() { break; }
+            }
+            Some(Input::KeyF6) => {
+                info!("key: RUN to completion");
+                if runner_tx.send(RunnerMsg::DebugCompletion).is_err() { break; }
             }
             Some(Input::KeyF5) => {
                 if runner_tx.send(RunnerMsg::DebugNext).is_err() { break; }
