@@ -7,6 +7,8 @@ description = "RAL 1243 is a fictional computer emulator for z80emu"
 license = "LGPL-3.0-or-later"
 categories = ["emulators", "no-std"]
 keywords = ["Z80"]
+readme = "README.md"
+repository = "https://github.com/royaltm/rust-z80emu"
 
 [features]
 default = []
