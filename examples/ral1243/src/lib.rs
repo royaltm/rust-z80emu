@@ -210,7 +210,7 @@ impl<F: Flavour, I: PioStream, O: PioSink,
         let mut cpu = Z80::default();
         let mut memory = Memory::new(ROM, ramsizekb);
         match exroms {
-            Some(exroms) => memory.attach_exroms(exroms),
+            Some(exroms) => { memory.attach_exroms(exroms); }
             None => {
                 memory.attach_exrom(Memory::make_rom(EX_ROM001));
                 memory.attach_exrom(Memory::make_rom(EX_ROM002));
