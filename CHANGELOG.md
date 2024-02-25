@@ -1,4 +1,4 @@
-v0.x.z
+v0.11.0
 * macros: helper macros for implementing host wrapper types
 * debug: CpuDebug and CpuDebugArgs implement Default
 * disasm: disasm_memory_once function added
