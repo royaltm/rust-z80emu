@@ -10,6 +10,9 @@ keywords = ["Z80"]
 readme = "README.md"
 repository = "https://github.com/royaltm/rust-z80emu"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
 std = ["z80emu/std"]
