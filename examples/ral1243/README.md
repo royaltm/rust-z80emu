@@ -14,21 +14,7 @@ The RAL 1243 computer is a library. Ready for embedded.
 Usage
 -----
 
-An example using this library can be found in [z80emu][z80emu repo] repository, called `terminal`.
-
-To run the emulator with the built-in ex-ROMs and default 16kb of user RAM and with the CPU clocked at 4MHz:
-
-```
-cargo run -r --example terminal
-```
-
-To run the emulator with 48kb RAM, the CPU at 8MHz and externally loaded ex-ROMs:
-
-```
-cargo run -r --example terminal -- examples/ral1243/exroms -m 48 -c 8000
-```
-
-... so you may enjoy "Sssshnake", the only game written for RAL 1243.
+An example using this library can be found in [z80emu/examples][z80emu examples], called `terminal`.
 
 
 Memory
@@ -167,3 +153,4 @@ Special output control terminal I/O codes:
 Depending on the terminal capability more shapes may be available.
 
 [z80emu repo]: https://github.com/royaltm/rust-z80emu
+[z80emu examples]: https://github.com/royaltm/rust-z80emu/examples
