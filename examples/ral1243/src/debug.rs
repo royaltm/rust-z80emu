@@ -328,16 +328,16 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         let mut dbg: Option<CpuDebug> = None;
         let mut run = true;
         while run {
-            match cpu.execute_next(bus, &mut self.clock, Some(
-                |deb: CpuDebug| {
-                    match deb.code[0] {
-                        RET_OPCODE => {}
-                        ED_PREFIX if (deb.code[1] & RETN_OP2_MASK) == RETN_OP2_BASE => {}
-                        op if (op & RET_CC_OPMASK) == RET_CC_OPBASE => {}
-                        _ => return
-                    }
-                    dbg = Some(deb)
-                }))
+            let debug = Some(|deb: CpuDebug| {
+                match deb.code[0] {
+                    RET_OPCODE => {}
+                    ED_PREFIX if (deb.code[1] & RETN_OP2_MASK) == RETN_OP2_BASE => {}
+                    op if (op & RET_CC_OPMASK) == RET_CC_OPBASE => {}
+                    _ => return
+                }
+                dbg = Some(deb)
+            });
+            match cpu.execute_next(bus, &mut self.clock, debug)
             {
                 Ok(())|Err(BreakCause::Halt) => {}
                 Err(cause) => panic!("no break request was expected: {}", cause)

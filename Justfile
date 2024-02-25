@@ -56,10 +56,16 @@ test-nocapt:
     cargo test -- --nocapture
 
 # run clippy tests
-clippy:
+clippy: clippy-ral
     touch src/lib.rs
     cargo clippy -- -D warnings
     cargo clippy --no-default-features -- -D warnings
+
+# run clippy tests for ral1243
+clippy-ral:
+    touch examples/ral1243/src/lib.rs
+    cargo clippy -p ral1243 -- -D warnings
+    cargo clippy -p ral1243 --features=std -- -D warnings
 
 clean:
     cargo clean

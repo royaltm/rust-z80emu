@@ -147,7 +147,7 @@ impl<F: Flavour, const EXT_HZ: u32, const FRAME_HZ: u32>
                 return (dbg, ts);
             }
             else if was_just_a_call(deb, &self.cpu) {
-                print_debug(&deb, &self.cpu);
+                print_debug(deb, &self.cpu);
                 let pc = deb.pc.wrapping_add(deb.code.len() as u16);
                 let (_, ts) = run_for(ts, FRAME_HZ, || self.run_until_brkpt(core::slice::from_ref(&pc)));
                 return (None, ts);

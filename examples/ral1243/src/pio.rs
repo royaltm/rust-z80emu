@@ -245,10 +245,9 @@ where T: Copy + Add<T, Output=T> + From<u8>,
         if self.ieo {
             false
         }
-        else if self.channel_a.check_int(ts) {
-            true
-        }
-        else if self.channel_b.check_int(ts) {
+        else if self.channel_a.check_int(ts) ||
+                self.channel_b.check_int(ts)
+        {
             true
         }
         else {

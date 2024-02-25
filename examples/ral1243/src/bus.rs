@@ -15,6 +15,7 @@ use z80emu::{Io, Memory};
 /// A terminator peripheral device.
 ///
 /// Should be inserted as a last peripheral device in a daisy chain.
+#[derive(Default)]
 pub struct Terminator<T: Copy>(PhantomData<T>);
 
 /// Return an 8-bit mask from a given bit number.

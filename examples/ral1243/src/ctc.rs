@@ -359,6 +359,7 @@ where T: Copy + Eq + Ord + Add<T, Output=T> + Sub<T, Output=T> + From<u32>, u32:
         if self.channel0.int_active {
             // trace!("irq_data: channel0");
             self.channel0.int_active = false;
+            #[allow(clippy::identity_op)]
             (self.vector | 0 << 1, None)
         }
         else if self.channel1.int_active {
