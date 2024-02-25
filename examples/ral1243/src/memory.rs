@@ -78,12 +78,11 @@ impl Memory {
     }
     /// Return a number of `EX-ROM` slots that can still be populated.
     pub fn free_exrom_slots(&self) -> usize {
-        u8::max_value() as usize - self.exroms.len()
+        (u8::max_value() as usize + 1) - self.exroms.len()
     }
     /// Attach `EX-ROMS` from the given `exroms` collection.
-    ///
-    /// **Panics** if there is no more room for `exroms`.
-    pub fn attach_exroms<I>(&mut self, exroms: I)
+    /// Return the number of inserted `EX-ROMS`.
+    pub fn attach_exroms<I>(&mut self, exroms: I) -> usize
         where I: IntoIterator<Item=Rom>,
               I::IntoIter: ExactSizeIterator
     {
@@ -92,6 +91,7 @@ impl Memory {
         for exrom in exroms.take(max_exroms) {
             self.attach_exrom(exrom);
         }
+        max_exroms
     }
     /// Attach a given `EX-ROM`. Return a total number of inserted `EX-ROMS`.
     ///
