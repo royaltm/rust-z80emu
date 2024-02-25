@@ -153,4 +153,4 @@ Special output control terminal I/O codes:
 Depending on the terminal capability more shapes may be available.
 
 [z80emu repo]: https://github.com/royaltm/rust-z80emu
-[z80emu examples]: https://github.com/royaltm/rust-z80emu/examples
+[z80emu examples]: https://github.com/royaltm/rust-z80emu/tree/master/examples
