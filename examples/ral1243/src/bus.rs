@@ -2,8 +2,9 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
+//! System `BUS` organization traits and structs.
 #[allow(unused_imports)]
 use super::vec::Vec;
 use core::num::NonZeroU16;
@@ -11,37 +12,53 @@ use core::ops::Range;
 use core::marker::PhantomData;
 use z80emu::{Io, Memory};
 
+/// A terminator peripheral device.
+///
+/// Should be inserted as a last peripheral device in a daisy chain.
 pub struct Terminator<T: Copy>(PhantomData<T>);
 
+/// Return an 8-bit mask from a given bit number.
 pub const fn bit8(n: u32) -> u8 {
     1 << n
 }
 
+/// A helper trait that allows debugging the memory content.
 pub trait BusMemory {
+    /// Return a copy of the system memory view of the given address range.
     fn memory_debug(&self, addr: Range<u16>) -> Vec<u8>;
 }
 
+/// A trait that all emulated devices must implement.
 pub trait BusDevice {
+    /// The timestamp type used.
     type Timestamp: Copy;
+    /// The next device type in a daisy chain.
     type NextDevice: BusDevice;
-    /// This is called on hard reset.
+    /// This method is called on hard reset.
     fn reset(&mut self, ts: Self::Timestamp);
-    /// This is called once per frame so devices can update themselves.
+    /// This method is called once at the end of an emulated frame,
+    //  so devices can update themselves.
     fn frame_end(&mut self, ts: Self::Timestamp);
-    /// This will be called whenever [Memory::read_opcode] is being called.
+    /// This method will be called whenever [`Memory::read_opcode`]
+    /// is being called from the `CPU` emulator.
     fn m1(&mut self, ts: Self::Timestamp);
-    /// Allows access to the next device in a daisy chain.
+    /// Provide a mutable access to the next device in a daisy chain.
     fn next_device(&mut self) -> &mut Self::NextDevice;
-    /// Decrease all stored timestamps by the provided interval.
+    /// Implementations should decrease all stored timestamps by the provided interval.
     fn next_second(&mut self, delta: Self::Timestamp);
 }
 
+/// A trait implementing `Ral1243` I/O memory control port.
 pub trait MemoryControl {
+    /// Read the current memory control data.
     fn read_ctrl(&self) -> u8;
+    /// Write a control data into the memory I/O port.
     fn write_ctrl(&mut self, data: u8);
+    /// Return a copy of the system memory view of the given address range.
     fn memory_debug(&self, addr: Range<u16>) -> Vec<u8>;
 }
 
+/// This struct organizes the peripheral device chain of the `Ral1243`.
 pub struct Bus<D, M> {
     port_match_mask: u16,
     port_match_bits: u16,
@@ -80,15 +97,30 @@ where D: BusDevice<Timestamp=T>
 }
 
 impl<D, M> Bus<D, M> {
+    /// Create a new instance of the device chain from the given `device` and
+    /// `memory` instances.
     pub fn new(device: D, memory: M) -> Self {
         Bus { port_match_mask: 0, port_match_bits: 0, device, memory }
     }
 
+    /// Configure the mask and the address of the memory control I/O port.
     pub fn with_port_bits(mut self, port_match_mask: u16, port_match_bits: u16) -> Self {
         assert_eq!(port_match_mask & port_match_bits, port_match_bits);
         self.port_match_mask = port_match_mask;
         self.port_match_bits = port_match_bits;
         self
+    }
+    /// Provide a reference to the instance of memory.
+    pub fn memory_ref(&self) -> &M {
+        &self.memory
+    }
+    /// Provide a mutable reference to the instance of memory.
+    pub fn memory_mut(&mut self) -> &mut M {
+        &mut self.memory
+    }
+    /// Destruct `Bus` and return a pair of a `device` chain and a `memory`.
+    pub fn into_inner(self) -> (D, M) {
+        (self.device, self.memory)
     }
 }
 

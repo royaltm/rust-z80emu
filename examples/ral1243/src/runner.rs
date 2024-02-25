@@ -2,16 +2,7 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
-*/
-/*
- Emulation runner.
-
- Emulates in frame pulses.
-
-|<-      1/TIME_FRAME_HZ s.     ->|
-t1       t2                      t3
-<- work -><======= sleep =========>
+    For the full copyright notice, see the lib.rs file.
 */
 use core::time::{Duration};
 use super::clock::{TClock, Ts};
@@ -22,40 +13,62 @@ use z80emu::{Cpu, Memory, Io, Clock, BreakCause};
 #[allow(unused_imports)]
 use log::{error, warn, info, debug, trace, Level};
 
+/// A helper for running emulated frames.
+///
+/// ```text
+/// FRAME_PERIOD = 1 / TIME_FRAME_HZ
+///
+/// |<-        FRAME_PERIOD         ->|
+/// t1          t2                   t3
+/// <- emulate -><====== sleep =======>
+/// ```
+///
+/// The `FrameRunner` keeps track of and manages the emulated time.
+/// It holds the instance of [`TClock`] and a current frame limit.
+/// 
+/// The implementation methods running the emulation expect an instance
+/// of a Z80 emulator implementing the [`Cpu`] trait and the system bus
+/// emulator implementing [`Memory`], [`Io`] and [`BusDevice`] traits.
+///
+/// * `EXT_CLOCK_HZ`: an external clock frequency in hertz (NOT THE CPU CLOCK).
+/// * `TIME_FRAME_HZ`: how many frames per second the emulation will run.
 pub struct FrameRunner<const EXT_CLOCK_HZ: u32, const TIME_FRAME_HZ: u32> {
     pub(crate) clock: TClock,
     pub(crate) limit: Ts,
     pub(crate) frame_tstates: Ts,
 }
 
-/// Return a duration of a single running frame.
+/// Return a real-time duration of a running frame from a given frames frequency.
 pub const fn frame_duration(frame_hz: u32) -> core::time::Duration {
     Duration::from_nanos(1e9 as u64 / frame_hz as u64)
 }
 
 impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
-    /// External clock frequency.
+    /// The external clock frequency used by peripherals.
     pub const EXT_CLOCK_HZ: u32 = EXT_HZ;
-    /// How many frames / second.
+    /// Emulation frames frequency.
     pub const TIME_FRAME_HZ: u32 = FRAME_HZ;
-    /// A duration of a single frame.
+    /// A real-time duration of a single frame.
     pub const FRAME_DURATION: Duration = frame_duration(FRAME_HZ);
 
-    /// Return whether the `clock_hz` is a valid clock for this runner.
+    /// Return whether the `clock_hz` is a valid CPU clock for this runner.
     pub const fn clock_is_valid(clock_hz: Ts) -> bool {
         clock_hz % (EXT_HZ * 2) == 0 && clock_hz >= EXT_HZ * 10
     }
 
     /// Return the external clock period in the number of T-states.
     ///
-    /// The external clock drives the `CTC` timers.
+    /// The external clock drives some peripherals.
     pub fn external_clock_tstates(&self) -> u32 {
         self.clock.clock_hz() / EXT_HZ
     }
 
     /// Create a new runner.
     ///
-    /// `clock_hz`: `CPU` clock in T-states per second. It must be divisible by `EXT_HZ` * 2.
+    /// `clock_hz`: a `CPU` clock in T-states per second.
+    /// It must be divisible by [`Self::EXT_CLOCK_HZ`] * 2.
+    ///
+    /// **Panics** if the clock is invalid.
     pub fn new(clock_hz: Ts) -> Self {
         assert!(Self::clock_is_valid(clock_hz));
         let clock = TClock::new(clock_hz);
@@ -65,17 +78,16 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         FrameRunner { clock, limit: 0, frame_tstates }
     }
 
-    /// A real-time duration of a single frame.
+    /// A real-time duration of a single running frame.
     pub fn frame_duration() -> Duration {
         Self::FRAME_DURATION
     }
 
-    /// Reset everything, including clock and the frame limit counter.
+    /// Reset everything including clock and the frame limit counter.
     /// 
     /// This function should be called before very first step.
-    pub fn start<M, C>(&mut self, cpu: &mut C, bus: &mut M)
-        where M: BusDevice<Timestamp=Ts>,
-              C: Cpu
+    pub fn start<C: Cpu, M>(&mut self, cpu: &mut C, bus: &mut M)
+        where M: BusDevice<Timestamp=Ts>
     {
         self.clock.reset();
         cpu.reset();
@@ -83,10 +95,12 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         self.limit = self.clock.as_timestamp();
     }
 
-    /// Run emulation step, return frame duration in T-states.
-    pub fn step<M, C>(&mut self, cpu: &mut C, bus: &mut M) -> Ts
-        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts> + BusDevice<Timestamp=Ts>,
-              C: Cpu
+    /// Run the emulation for a period of a single frame and return the
+    /// frame duration in emulated T-states.
+    pub fn step<C: Cpu, M>(&mut self, cpu: &mut C, bus: &mut M) -> Ts
+        where M: Memory<Timestamp=Ts>
+              + Io<Timestamp=Ts>
+              + BusDevice<Timestamp=Ts>
     {
         if self.clock.check_wrap_second() {
             let clock_hz = self.clock.clock_hz();
@@ -114,19 +128,18 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         self.clock.as_timestamp().wrapping_sub(start_ts)
     }
 
-    /// Reset CPU and BUS devices.
-    pub fn reset<C, M>(&mut self, cpu: &mut C, bus: &mut M)
-        where M: BusDevice<Timestamp=Ts>,
-              C: Cpu
+    /// Reset the `cpu` and `bus` devices.
+    pub fn reset<C: Cpu, M>(&mut self, cpu: &mut C, bus: &mut M)
+        where M: BusDevice<Timestamp=Ts>
     {
         cpu.reset();
         bus.reset(self.clock.as_timestamp());
     }
 
-    /// Trigger NMI, return a number of T-states that it took on success.
-    pub fn nmi<C, M>(&mut self, cpu: &mut C, bus: &mut M) -> Option<Ts>
-        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts>,
-              C: Cpu
+    /// Trigger a non-maskable interrupt and return a number of T-states that
+    /// it took on success.
+    pub fn nmi<C: Cpu, M>(&mut self, cpu: &mut C, bus: &mut M) -> Option<Ts>
+        where M: Memory<Timestamp=Ts> + Io<Timestamp=Ts>
     {
         let start_ts = self.clock.as_timestamp();
         if cpu.nmi(bus, &mut self.clock) {

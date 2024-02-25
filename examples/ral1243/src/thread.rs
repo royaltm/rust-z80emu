@@ -2,7 +2,7 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
 //! Std thread runner for Ral1243.
 use std::io::Write;
@@ -13,7 +13,7 @@ use log::{debug};
 use super::*;
 use super::debug::*;
 
-/// A message for controlling the emulation in a thread.
+/// A message for controlling the emulation in a thread. `std`-only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RunnerMsg {
     /// Terminates an emulation thread.
@@ -74,7 +74,6 @@ impl<F: Flavour, const EXT_HZ: u32, const FRAME_HZ: u32>
     }
 
     fn run(&mut self, run_rx: Receiver<RunnerMsg>) {
-        self.start();
         let frame_duration: Duration = FrameRunner::<EXT_HZ, FRAME_HZ>::frame_duration();
 
         let mut nmi_request = false;

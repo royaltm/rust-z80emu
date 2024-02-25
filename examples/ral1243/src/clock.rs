@@ -2,38 +2,45 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
+//! [`Clock`] implementation for `Ral1243`.
 use core::num::{NonZeroU8, NonZeroU16};
 use core::ops::{Deref, DerefMut};
 use core::num::Wrapping;
 use z80emu::host::{cycles, Clock};
 use cycles::*;
 
+/// The type used for `Timestamps`.
 pub type Ts = u32;
 
+/// The clock of `Ral1243`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TClock { cur: Wrapping<Ts>, clock_hz: Ts }
 
 impl TClock {
+    /// Return a new instance of the clock from a given number of T-states per second.
     pub fn new(clock_hz: Ts) -> Self {
         TClock { cur: Wrapping(clock_hz), clock_hz }
     }
 
+    /// Reset the internal counter.
     pub fn reset(&mut self) {
         self.cur = Wrapping(self.clock_hz);
     }
 
-    /// CPU clock in T-states / second
+    /// Return the `CPU` clock frequency in T-states per second.
     pub fn clock_hz(&self) -> Ts {
         self.clock_hz
     }
 
-    /// Nanoseconds / T-state
-    pub fn ts_duration_nanos(&self) -> Ts {
-        1e9 as Ts/self.clock_hz
+    /// Return a duraction of a single T-state in nanoseconds.
+    pub fn ts_duration_nanos(&self) -> u32 {
+        1e9 as u32 / self.clock_hz
     }
 
+    /// Check if the internal clock counter exceeds the value of an emulated second
+    /// and decrease the clock accordingly. Return whether the counter was wrapped.
     pub fn check_wrap_second(&mut self) -> bool {
         if self.cur.0 > 2*self.clock_hz {
             self.cur -= Wrapping(self.clock_hz);

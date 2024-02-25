@@ -2,8 +2,11 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
+//! `PIO Z8420` emulator.
+//!
+//! The emulator does not implement the bi-directional `PIO` channel mode.
 use core::num::NonZeroU16;
 use core::ops::Add;
 use z80emu::Io;
@@ -12,20 +15,37 @@ use super::bus::{BusDevice, bit8};
 #[allow(unused_imports)]
 use log::{error, warn, info, debug, trace, Level};
 
-/// A device connected to each channel of PIO.
+/// A device connected to each channel of PIO Z8420.
 pub trait PioDevice {
     type Timestamp: Copy;
-    /// input mode was set
+    /// Called when the input mode was selected for this channel.
+    ///
+    /// The implementation should raise the `ready` flag.
     fn set_floating_bus(&mut self, _ts: Self::Timestamp) {}
-    /// The READY goes high on read in input mode.
+    /// Called only in input mode when the `READY` line goes high
+    /// after a `CPU` read data from a device.
+    ///
+    /// The implementation should raise the `ready` flag.
     fn ready(&mut self, _ts: Self::Timestamp) {}
-    /// If the STROBE had signalled sampling of any new data on the bus.
+    /// Called in input mode asking if the channel wants to activate `STROBE` line
+    /// singalling sampling of a new data on the bus.
+    ///
+    /// The implementation should provide data for sampling only if the `ready`
+    /// flag was raised and should clear the `ready` flag only if data is sampled.
     fn try_sample_data(&mut self, _ts: Self::Timestamp) -> Option<u8> { None }
-    /// output mode was set
+    /// Called when the output mode was selected for this channel.
+    ///
+    /// The `data` is whatever was on the data bus prior to when the mode was selected.
     fn set_bus_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
-    /// The READY goes high on write in output mode.
+    /// Called only in output mode when the `READY` line goes high on `CPU` write.
+    ///
+    /// The implementation should take `data` and use it or store it as pending.
     fn ready_with_data(&mut self, _data: u8, _ts: Self::Timestamp) {}
-    /// If the STROBE signalled the device is ready for more writes.
+    /// Called only in output mode asking if the `STROBE` line signalled the device is
+    /// ready for more writes.
+    ///
+    /// The implementation should attempt to use any pending data and report
+    /// a success or return `true` if no data is pending.
     fn was_strobe(&mut self, _ts: Self::Timestamp) -> bool { false }
 }
 
@@ -49,7 +69,9 @@ struct Channel<T: Copy, D: PioDevice<Timestamp=T>> {
     device: D
 }
 
-/// Emulator of PIO Z8420 for [z80emu].
+/// Emulator of the `PIO Z8420`.
+///
+/// `A` and `B` are types implementing [`PioDevice`] representing `PIO` channels.
 pub struct Pio<T: Copy, A: PioDevice<Timestamp=T>, B: PioDevice<Timestamp=T>, D> {
     port_match_mask: u16,
     port_match_bits: u16,
@@ -68,9 +90,10 @@ where T: Copy,
       B: PioDevice<Timestamp=T>,
       D: BusDevice + Io<Timestamp=T>
 {
-    /// Create a new instance of [Pio]. Provide implementations of [PioDevice]
-    /// for channel A and B and a remeaining [BusDevice] devices in a device chain
-    /// or a [Terminator](crate::bus::Terminator).
+    /// Return a new instance of the [`Pio`] peripheral.
+    ///
+    /// Provide the [`PioDevice`] implementations for channels `A` and `B`
+    /// and the remaining daisy-chained devices or a [Terminator](crate::bus::Terminator).
     pub fn new(pio_device_a: A, pio_device_b: B, daisy_chained: D) -> Self {
         Pio {
             port_match_mask: 0,
@@ -83,10 +106,37 @@ where T: Copy,
             daisy_chained
         }
     }
-
-    /// Configure I/O ports.
-    pub fn with_port_bits(mut self, port_match_mask: u16, port_match_bits: u16,
-                                    channel_select_bit: u32, control_select_bit: u32) -> Self {
+    /// Configure the `CPU` [`Io`] port interface for this `PIO` instance.
+    ///
+    /// * `port_match_mask` should contain the base port mask.
+    /// * `port_match_bits` should contain the base port address.
+    /// * `channel_select_bit` should contain the number of the port address bit
+    ///   that selects the PIO channel.
+    /// * `control_select_bit` should contain the number of the port address bit
+    ///   that selects write access between `PIO` device `data` output and the
+    ///   `PIO` channel `control` word.
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// I/O port address bits:  xxxxxx01_xPxxxxDx
+    /// ```
+    /// where `x` bits are ignored, `P` bit selects between `A`(=0) and `B`(=1)
+    /// channel and `D` bit selects between writing to `data`(=0) or `control`(=1) word,
+    /// the arguments should be:
+    ///
+    /// * `port_match_mask` = `0b11_00000000`
+    /// * `port_match_bits` = `0b01_00000000`
+    /// * `channel_select_bit` = 6
+    /// * `control_select_bit` = 1
+    pub fn with_port_bits(
+            mut self,
+            port_match_mask: u16,
+            port_match_bits: u16,
+            channel_select_bit: u32,
+            control_select_bit: u32
+        ) -> Self
+    {
         assert_ne!(channel_select_bit, control_select_bit);
         assert!(channel_select_bit < 16);
         assert!(control_select_bit < 16);
@@ -99,15 +149,18 @@ where T: Copy,
         self.port_control_mask = 1 << control_select_bit;
         self
     }
-
-    /// Mutably access PIO device attached to channel A.
+    /// Mutably access the channel A `PIO` device implementation.
     pub fn pio_device_a(&mut self) -> &mut A {
         &mut self.channel_a.device
     }
-
-    /// Mutably access PIO device attached to channel B.
+    /// Mutably access the channel B `PIO` device implementation.
     pub fn pio_device_b(&mut self) -> &mut B {
         &mut self.channel_b.device
+    }
+    /// Destruct `PIO` and return channels A and B `PIO` devices and a
+    /// daisy-chained device.
+    pub fn into_inner(self) -> (A, B, D) {
+        (self.channel_a.device, self.channel_b.device, self.daisy_chained)
     }
 }
 

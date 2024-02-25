@@ -2,8 +2,9 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
+//! Memory for `Ral1243`.
 #![allow(unused_imports)]
 use core::ptr::NonNull;
 use super::vec;
@@ -24,8 +25,10 @@ const BANK1: u16 = BANK0 + BANK_SIZE;
 const BANK2: u16 = BANK1 + BANK_SIZE;
 const ROMSIZE: usize = BANK_SIZE as usize;
 
+/// An instance of a `ROM` or an `EX-ROM`.
 pub type Rom = Box<[u8;ROMSIZE]>;
 
+/// The type that organizes memory of `Ral1243`.
 pub struct Memory {
     rom: Rom,
     bank1: Option<NonNull<[u8;ROMSIZE]>>,
@@ -42,9 +45,14 @@ unsafe fn read_unaligned16(ptr: *const u8) -> u16 {
 }
 
 impl Memory {
+    /// Maximum size of an `EX-ROM` or a `ROM` in bytes.
     pub const ROMSIZE: usize = ROMSIZE;
+    /// Maximum user `RAM` in kilobytes.
     pub const MAXRAM_KB: usize = MAXRAMSIZE / 1024;
-
+    /// Return a new instance from the given `rom_in` `ROM` binary
+    /// and the declared size of user `RAM` in kilobytes.
+    ///
+    /// **Panics** if `ramsizekilos` is larger than [`Self::MAXRAM_KB`].
     pub fn new(rom_in: &[u8], ramsizekilos: usize) -> Self {
         let ramsize = ramsizekilos * 1024;
         let rom = Self::make_rom(rom_in);
@@ -54,25 +62,27 @@ impl Memory {
         let ram1 = vec![0;ramsize].into_boxed_slice();
         Memory { rom, bank1, ram0, ram1, exroms: Vec::new(), exrom_select: 0, bank1_is_ram: false }
     }
-
+    /// Ejects all `EX-ROMS` returning the ownership of them.
     pub fn eject_exroms(&mut self) -> Vec<Rom> {
         if !self.bank1_is_ram {
             self.bank1 = None;
         }
         core::mem::take(&mut self.exroms)
     }
-
+    /// Return a new `EX-ROM` or a `ROM` instance from a binary.
     pub fn make_rom(rom_in: &[u8]) -> Rom {
         assert!(rom_in.len() <= ROMSIZE);
         let mut rom = Box::new([u8::max_value();ROMSIZE]);
         rom[0..rom_in.len()].copy_from_slice(rom_in);
         rom
     }
-
+    /// Return a number of `EX-ROM` slots that can still be populated.
     pub fn free_exrom_slots(&self) -> usize {
         u8::max_value() as usize - self.exroms.len()
     }
-
+    /// Attach `EX-ROMS` from the given `exroms` collection.
+    ///
+    /// **Panics** if there is no more room for `exroms`.
     pub fn attach_exroms<I>(&mut self, exroms: I)
         where I: IntoIterator<Item=Rom>,
               I::IntoIter: ExactSizeIterator
@@ -83,8 +93,10 @@ impl Memory {
             self.attach_exrom(exrom);
         }
     }
-
-    pub fn attach_exrom(&mut self, exrom: Rom) -> u8 {
+    /// Attach a given `EX-ROM`. Return a total number of inserted `EX-ROMS`.
+    ///
+    /// **Panics** if there is no more room for an `exrom`.
+    pub fn attach_exrom(&mut self, exrom: Rom) -> usize {
         if self.free_exrom_slots() == 0 {
             panic!("No free EXROM slots left!");
         }
@@ -92,7 +104,7 @@ impl Memory {
         if !self.bank1_is_ram {
             self.exrom_to_bank1();
         }
-        self.exroms.len() as u8
+        self.exroms.len()
     }
 
     #[inline(always)]

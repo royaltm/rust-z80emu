@@ -109,7 +109,7 @@ press any key to start..."#);
     let (pio_out_tx, pio_out_rx) = sync_channel(1);
     let mut need_refresh = false;
 
-    let runner_handle = Ral1243::start_thread(ramsizekb, clock_hz, exroms, runner_rx, pio_in_rx, pio_out_tx);
+    let runner_handle = Ral1243::start_thread(runner_rx, ramsizekb, clock_hz, exroms, pio_in_rx, pio_out_tx);
 
     let mut control_multichar: Option<u8> = None;
     let mut collected: ArrayVec<u8,2> = ArrayVec::new();

@@ -2,8 +2,9 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
+//! `CTC Z8430` emulator.
 use core::num::{NonZeroU16, Wrapping};
 use core::ops::{Add, Sub};
 use z80emu::Io;
@@ -12,18 +13,19 @@ use super::bus::{BusDevice, bit8};
 #[allow(unused_imports)]
 use log::{error, warn, info, debug, trace, Level};
 
-/// An interface to trigger lines: CLK/TRG in and ZC/TO out.
+/// An interface for triggering lines: `CLK/TRG` in and `ZC/TO` out.
 pub trait CtcTrigger {
     type Timestamp: Copy;
-    /// Should return `Ok(Timestamp)` of the first CLK/TRG edge mathing `rising_edge` before or at `ts`.
-    /// Or return the next `Err(Timestamp)` hint in the future.
-    /// The timestamp returned should be synchronized to the edge of the following CTC's clock pulse.
+    /// Should return `Ok(Timestamp)` of the first `CLK/TRG` edge mathing
+    /// the `rising_edge` before or at the `ts`. Otherwise return the next
+    /// future timestamp hint as `Err(Timestamp)`.
     fn next_clk_trg(&mut self, rising_edge: bool, ts: Self::Timestamp) -> Result<Self::Timestamp, Self::Timestamp>;
-    /// Purge all CLK/TRG events before `ts`, return next timestamp hint in the future.
+    /// Purge all `CLK/TRG` events before `ts`, return the next future timestamp hint.
     fn purge_clk_trg(&mut self, ts: Self::Timestamp) -> Self::Timestamp;
-    /// A pulse on ZC/TO is being signalled with the given `ts`. The pulse is high and lasts 2 T-states.
+    /// A pulse on `ZC/TO` is being triggered with the given `ts`.
+    /// The pulse is high (rising) and lasts 2 T-states.
     fn zc_to_pulse(&mut self, ts: Self::Timestamp);
-    /// Next second wrap
+    /// Wrap the internal counters by the given `delta` T-states.
     fn next_second(&mut self, delta: Self::Timestamp);
 }
 
@@ -64,7 +66,10 @@ struct Channel<T: Copy, R: CtcTrigger<Timestamp=T>> {
     trigger: R
 }
 
-/// Emulator of CTC Z8430 for [z80emu].
+/// Emulator of the `CTC Z8430`.
+///
+/// `R0` to `R3` are types implementing [`CtcTrigger`] representing
+/// `CTC` channels 0 to 3.
 pub struct Ctc<T: Copy,
         R0: CtcTrigger<Timestamp=T>,
         R1: CtcTrigger<Timestamp=T>,
@@ -93,9 +98,18 @@ where T: Copy + Default,
       R2: CtcTrigger<Timestamp=T>,
       R3: CtcTrigger<Timestamp=T>
 {
-    /// Create a new [Ctc] instance, provide trigger implementations for channels
-    /// and a remaining [BusDevice] devices in a device chain or a [Terminator](crate::bus::Terminator).
-    pub fn new(ctc_trigger0: R0, ctc_trigger1: R1, ctc_trigger2: R2, ctc_trigger3: R3, daisy_chained: D) -> Self {
+    /// Return a new instance of the [`Ctc`] peripheral.
+    ///
+    /// Provide the [`CtcTrigger`] implementations for each `CTC` channel
+    /// and the remaining daisy-chained devices or a [Terminator](crate::bus::Terminator).
+    pub fn new(
+            ctc_trigger0: R0,
+            ctc_trigger1: R1,
+            ctc_trigger2: R2,
+            ctc_trigger3: R3,
+            daisy_chained: D
+        ) -> Self
+    {
         Ctc {
             next_ts_hint: T::default(),
             port_match_mask: 0,
@@ -111,10 +125,38 @@ where T: Copy + Default,
             daisy_chained
         }
     }
-
-    /// Configure I/O ports.
-    pub fn with_port_bits(mut self, port_match_mask: u16, port_match_bits: u16,
-                                    channel_select1_bit: u32, channel_select0_bit: u32) -> Self {
+    /// Configure the `CPU` [`Io`] port interface for this `CTC` instance.
+    ///
+    /// * `port_match_mask` should contain the base port mask.
+    /// * `port_match_bits` should contain the base port address.
+    /// * `channel_select1_bit` should contain the number of the port address MSB bit
+    ///   that selects the CTC channel.
+    /// * `channel_select0_bit` should contain the number of the port address LSB bit
+    ///   that selects the CTC channel.
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// I/O port address bits:  xxxxxx10_MxxxxxxL
+    /// ```
+    /// where `x` bits are ignored and `M` and `L` bits select the channel such as:
+    /// ```text
+    /// ML = 00 - channel 0, 01 - channel 1, 10 - channel 2, 11 - channel 3.
+    /// ```
+    /// the arguments should be:
+    ///
+    /// * `port_match_mask` = `0b11_00000000`
+    /// * `port_match_bits` = `0b10_00000000`
+    /// * `channel_select1_bit` = 7
+    /// * `channel_select0_bit` = 0
+    pub fn with_port_bits(
+            mut self,
+            port_match_mask: u16,
+            port_match_bits: u16,
+            channel_select1_bit: u32,
+            channel_select0_bit: u32
+        ) -> Self
+    {
         assert_ne!(channel_select1_bit, channel_select0_bit);
         assert!(channel_select1_bit < 16);
         assert!(channel_select0_bit < 16);
@@ -127,25 +169,40 @@ where T: Copy + Default,
         self.port_cs1_mask = 1 << channel_select1_bit;
         self
     }
-
-    /// Mutably access channel-0 trigger implementation.
+    /// Mutably access the channel 0 trigger implementation.
     pub fn ctc0_trigger(&mut self) -> &mut R0 {
         &mut self.channel0.trigger
     }
 
-    /// Mutably access channel-1 trigger implementation.
+    /// Mutably access the channel 1 trigger implementation.
     pub fn ctc1_trigger(&mut self) -> &mut R1 {
         &mut self.channel1.trigger
     }
 
-    /// Mutably access channel-2 trigger implementation.
+    /// Mutably access the channel 2 trigger implementation.
     pub fn ctc2_trigger(&mut self) -> &mut R2 {
         &mut self.channel2.trigger
     }
 
-    /// Mutably access channel-3 trigger implementation.
+    /// Mutably access the channel 3 trigger implementation.
     pub fn ctc3_trigger(&mut self) -> &mut R3 {
         &mut self.channel3.trigger
+    }
+    /// Destruct `CTC` and return all triggers and a daisy-chained device.
+    pub fn into_inner(self) -> (R0, R1, R2, R3, D) {
+        let Ctc {
+            channel0,
+            channel1,
+            channel2,
+            channel3,
+            daisy_chained,
+            ..
+        } = self;
+        (channel0.trigger,
+         channel1.trigger,
+         channel2.trigger,
+         channel3.trigger,
+         daisy_chained)
     }
 }
 

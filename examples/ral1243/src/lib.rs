@@ -18,8 +18,9 @@
     Author contact information: see Cargo.toml file, section [package.authors].
 */
 //! RAL 1243 is a fictional computer brought into its virtual existence to provide
-//! an example on how to implement emulators based on [z80emu](https://github.com/royaltm/rust-z80emu)
-//! Z80 CPU emulator.
+//! an example of how to implement emulators based on the [Z80 CPU emulator].
+//!
+//! [Z80 CPU emulator]: https://github.com/royaltm/rust-z80emu
 #![cfg_attr(not(feature = "std"), no_std)]
 pub mod bus;
 pub mod clock;
@@ -58,7 +59,6 @@ use memory::{Rom, Memory};
 use pio::Pio;
 use pio_device::{PioInput, PioOutput};
 
-/// For implementations.
 pub use clock::Ts;
 pub use pio_device::{PioStream, PioSink};
 pub use runner::FrameRunner;
@@ -67,38 +67,52 @@ pub use thread::RunnerMsg;
 
 const MAX_PULSES: usize = 4;
 
-type PioT<I, O> = Pio<Ts, PioInput<I>, PioOutput<O>, Terminator<Ts>>;
-type CtcT<I, O> = Ctc<Ts,
+/// `PIO Z8420` device definition for `Ral1243`.
+pub type PioT<I, O> = Pio<Ts, PioInput<I>, PioOutput<O>, Terminator<Ts>>;
+/// `CTC Z8430` device definition for `Ral1243`.
+pub type CtcT<I, O> = Ctc<Ts,
     CtcActive<MAX_PULSES>,
     CtcPassive<MAX_PULSES>,
     CtcActive<MAX_PULSES>,
     CtcPassive<MAX_PULSES>,
     PioT<I, O>>;
-type BusT<I, O> = Bus<CtcT<I, O>, Memory>;
+/// `Ral1243` memory and peripherals.
+pub type BusT<I, O> = Bus<CtcT<I, O>, Memory>;
 
-const MEMORY_PORT_MASK: u16 = 0b11111111;
-const MEMORY_PORT_BITS: u16 = 124;
-const PIO_PORT_MASK: u16 = 0b11111100;
-const PIO_PORT_BITS: u16 = 0b00001000;    // 8,9,10,11
-const PIO_PORT_CHANNEL_SELECT: u32 = 1;
-const PIO_PORT_CONTROL_SELECT: u32 = 0;
-const CTC_PORT_MASK: u16 = 0b11111100;
-const CTC_PORT_BITS: u16 = 0b00000100;    // 4,5,6,7
-const CTC_PORT_CHANNEL_SELECT1: u32 = 1;
-const CTC_PORT_CHANNEL_SELECT0: u32 = 0;
+/// Memory control I/O port mask.
+pub const MEMORY_PORT_MASK: u16 = 0b11111111;
+/// Memory control I/O port address.
+pub const MEMORY_PORT_BITS: u16 = 124;
+/// PIO peripheral I/O port mask.
+pub const PIO_PORT_MASK: u16 = 0b11111100;
+/// PIO peripheral I/O port address.
+pub const PIO_PORT_BITS: u16 = 0b00001000;    // 8,9,10,11
+/// PIO peripheral I/O port mask bit number selecting a PIO channel.
+pub const PIO_PORT_CHANNEL_SELECT: u32 = 1;
+/// PIO peripheral I/O port mask bit number selecting between data and control access.
+pub const PIO_PORT_CONTROL_SELECT: u32 = 0;
+/// CTC peripheral I/O port mask.
+pub const CTC_PORT_MASK: u16 = 0b11111100;
+/// PIO peripheral I/O port address.
+pub const CTC_PORT_BITS: u16 = 0b00000100;    // 4,5,6,7
+/// PIO peripheral I/O port mask MSB bit number selecting a CTC channel.
+pub const CTC_PORT_CHANNEL_SELECT1: u32 = 1;
+/// PIO peripheral I/O port mask LSB bit number selecting a CTC channel.
+pub const CTC_PORT_CHANNEL_SELECT0: u32 = 0;
 
-const ROM: &[u8] = include_bytes!("../rom/rom.bin");
-/// For implementations.
+/// `Ral1243` ROM binary.
+pub const ROM: &[u8] = include_bytes!("../rom/rom.bin");
+/// `Ral1243` EX-ROM 1 binary.
 pub const EX_ROM001: &[u8] = include_bytes!("../exroms/exrom001.bin");
-/// For implementations.
+/// `Ral1243` EX-ROM 2 binary.
 pub const EX_ROM002: &[u8] = include_bytes!("../exroms/exrom002.bin");
 
 /// The `Ral1243` computer.
 ///
-/// Requires [`Z80`] and implementations of [PioStream] and [PioSink].
+/// Requires one of `Z80` [`Flavour`]s and implementations of [PioStream] and [PioSink].
 ///
 /// * `EXT_HZ`: external clock frequency (for `CTC`) in Hz.
-/// * `FRAME_HZ`: how many frames per second the emulation will run.
+/// * `FRAME_HZ`: in how many frames per second the emulation will run.
 pub struct Ral1243<F: Flavour, I: PioStream, O: PioSink,
         const EXT_HZ: u32 = 10_000,
         const FRAME_HZ: u32 = 500> {
@@ -107,7 +121,7 @@ pub struct Ral1243<F: Flavour, I: PioStream, O: PioSink,
     bus: BusT<I, O>,
 }
 
-/// Read EX-ROMS from a directory. `std` only.
+/// Read `EX-ROMS` from a directory. `std` only.
 #[cfg(feature = "std")]
 pub fn read_exroms<P: AsRef<Path>>(dir: P) -> io::Result<Vec<Rom>> {
     let mut vec = Vec::new();
@@ -133,7 +147,7 @@ pub fn read_exroms<P: AsRef<Path>>(dir: P) -> io::Result<Vec<Rom>> {
     Ok(vec)
 }
 
-/// Read EX-ROM from a slice.
+/// Create an `EX-ROM` from a slice.
 pub fn exrom_from_slice(exrom: &[u8]) -> Rom {
     Memory::make_rom(exrom)
 }
@@ -141,11 +155,17 @@ pub fn exrom_from_slice(exrom: &[u8]) -> Rom {
 impl<F: Flavour, I: PioStream, O: PioSink,
      const EXT_HZ: u32, const FRAME_HZ: u32> Ral1243<F, I, O, EXT_HZ, FRAME_HZ>
 {
-    /// A single run frame duration.
+    /// A real-time duration of a single emulated frame.
     pub fn frame_duration() -> core::time::Duration {
         FrameRunner::<EXT_HZ, FRAME_HZ>::frame_duration()
     }
-    /// Handy tool to validate CPU clock frequency.
+    /// Validate whether a given `CPU` clock frequency `clock_hz` can be used with
+    /// the emulator. `max_clock_hz` provides an upper limit of the clock.
+    /// Returns an error with a message if the check fails.
+    /// 
+    /// While the upper limit depends on how fast the `Z80` can be emulated on a given
+    /// hardware, `EX-ROM 1` program will report wrong `CPU` frequency if it's above
+    /// `40_000_000`.
     pub fn check_clock(clock_hz: Ts, max_clock_hz: Ts) -> Result<(), &'static str> {
         if !FrameRunner::<EXT_HZ, FRAME_HZ>::clock_is_valid(clock_hz) ||
             clock_hz > max_clock_hz
@@ -155,25 +175,39 @@ impl<F: Flavour, I: PioStream, O: PioSink,
         Ok(())
     }
 
-    /// Handy tool to validate RAM size in kilobytes.
+    /// Validate whether a given RAM size in kilobytes can be used with the emulator.
+    /// Returns an error with a message if the check fails.
     pub fn check_ram_size(ramsizekb: usize) -> Result<(), &'static str> {
         if !(1..=Memory::MAXRAM_KB).contains(&ramsizekb) {
             return Err("please specify RAM between 1 and 48");
         }
         Ok(())
     }
-
-    /// Return a new instance of the computer.
-    ///
-    /// Panics if `ramsizekb` or `clock_hz` are out of range or otherwise invalid.
-    pub fn new<T>(ramsizekb: usize, clock_hz: Ts, exroms: Option<T>,
-                  pio_stream: I, pio_sink: O) -> Self
+    /// Return a new instance of the `Ral1243` computer.
+    /// 
+    /// Provide the user RAM size in kilobytes and the `CPU` clock frequency.
+    /// The frequency must be divisible by `EXT_HZ * 2`.
+    /// 
+    /// Optionally an iterator that yields `EX-ROMS` as [`Rom`] instances can be
+    /// given. If not provided `EX_ROM001` and `EX_ROM002` will be inserted by default.
+    /// 
+    /// * `pio_stream` should be an instance implementing [`PioStream`].
+    /// * `pio_sink` should be an instance implementing [`PioSink`].
+    /// 
+    /// **Panics** if `ramsizekb` or `clock_hz` are out of range or otherwise invalid.
+    pub fn new<T>(
+            ramsizekb: usize,
+            clock_hz: Ts,
+            exroms: Option<T>,
+            pio_stream: I,
+            pio_sink: O
+        ) -> Self
         where T: IntoIterator<Item=Rom>,
               T::IntoIter: ExactSizeIterator
     {
         assert!((1..=Memory::MAXRAM_KB).contains(&ramsizekb));
         assert!(FrameRunner::<EXT_HZ, FRAME_HZ>::clock_is_valid(clock_hz));
-        let cpu = Z80::default();
+        let mut cpu = Z80::default();
         let mut memory = Memory::new(ROM, ramsizekb);
         match exroms {
             Some(exroms) => memory.attach_exroms(exroms),
@@ -183,7 +217,7 @@ impl<F: Flavour, I: PioStream, O: PioSink,
             }
         }
 
-        let runner = FrameRunner::new(clock_hz);
+        let mut runner = FrameRunner::new(clock_hz);
 
         let pio_input = PioInput::new(pio_stream);
         let pio_output = PioOutput::new(pio_sink);
@@ -205,18 +239,20 @@ impl<F: Flavour, I: PioStream, O: PioSink,
                     CTC_PORT_CHANNEL_SELECT1,
                     CTC_PORT_CHANNEL_SELECT0);
 
-        let bus = Bus::new(ctc, memory).with_port_bits(
+        let mut bus = Bus::new(ctc, memory).with_port_bits(
                     MEMORY_PORT_MASK, MEMORY_PORT_BITS);
 
+        runner.start(&mut cpu, &mut bus);
         Ral1243 { runner, cpu, bus }
     }
 
-    /// Resets all components and begins emulation.
+    /// Resets all components and begins a new emulation.
     pub fn start(&mut self) {
         self.runner.start(&mut self.cpu, &mut self.bus);
     }
 
-    /// Execute single step.
+    /// Run emulation for a period of a single frame.
+    /// Return the duration of a frame in T-states.
     pub fn step(&mut self) -> Ts {
         self.runner.step(&mut self.cpu, &mut self.bus)
     }
@@ -246,12 +282,13 @@ impl<F: Flavour, I: PioStream, O: PioSink,
         self.runner.run_until_brkpt(&mut self.cpu, &mut self.bus, brkpts)
     }
 
-    /// Reset computer.
+    /// Reset the computer.
     pub fn reset(&mut self) {
         self.runner.reset(&mut self.cpu, &mut self.bus)
     }
 
-    /// Trigger NMI, return a number of T-states that it took on success.
+    /// Trigger non-maskable interrupt and return a number of T-states
+    /// that it took on success.
     pub fn nmi(&mut self) -> Option<Ts> {
         self.runner.nmi(&mut self.cpu, &mut self.bus)
     }

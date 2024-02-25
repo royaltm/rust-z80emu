@@ -1,4 +1,11 @@
 /*
+    ral1243: Emulator program as an example implementation for the z80emu library.
+    Copyright (C) 2019-2024  Rafal Michalski
+
+    For the full copyright notice, see the lib.rs file.
+*/
+//! Debugger helpers.
+/*
                                   SZYHXPNC A F  B C  D E  H L  A'F' B'C' D'E' H'L'  IX   IY   SP   PC   IR  M IF MPTR
 0000 SET  3, (IX+00h), A 00000000 00000000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0 00 0000
 0000>SET  3, (IX+00h), A 00 00 00 00
@@ -14,6 +21,7 @@ use core::fmt;
 use crate::{Ts, FrameRunner, bus::BusDevice};
 use z80emu::{*, z80::Flavour, disasm::disasm_memory_once};
 
+/// Implements [`fmt::Display`] for printing a debug header.
 pub struct Header;
 
 pub const HEADER: &str = "SZYHXPNC A F  B C  D E  H L  A'F' B'C' D'E' H'L'  IX   IY   SP   PC   IR  IFM MPTR";
@@ -30,6 +38,7 @@ impl fmt::Display for Header {
     }
 }
 
+/// Implements [`fmt::Display`] for printing a wrapped debug preview.
 pub struct Preview<'a>(pub &'a CpuDebug);
 
 impl<'a> Preview<'a> {
@@ -44,6 +53,8 @@ impl<'a> fmt::Display for Preview<'a> {
     }
 }
 
+/// Implements [`fmt::Display`] for debug printing an instruction
+/// and a `CPU` state.
 pub struct Debugger<'a, 'b, F: Flavour> {
     pub deb: &'a CpuDebug,
     pub cpu: &'b Z80<F>
@@ -173,18 +184,17 @@ impl<'a, M: Memory> Memory for DBus<'a, M> {
 }
 
 impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
-    /// Return a `CpuDebug` as a preview of the instruction to be executed next.
+    /// Return a [`CpuDebug`] as a preview of the instruction to execute next.
     /// 
-    /// The instruction shown will not necessarily be the one that will be executed
-    /// in cases such as:
+    /// The instruction shown will not necessarily be the one that will execute
+    /// next in cases such as:
     /// 
-    /// * An IRQ might be requested before CPU fetches the instructions.
-    /// * The memory page `0x2000 - 0x3FFF` might be containing the RAM page and will
-    ///   change the contents to the ROM page when the CPU fetches the instructions.
-    /// * A more than one of `0xFD`/`0xDD` prefixes in a row resides in memory at PC.
-    pub fn debug_preview<F, M>(&self, cpu: &Z80<F>, bus: &M) -> CpuDebug
-        where M: Memory<Timestamp=Ts>,
-              F: Flavour
+    /// * An IRQ can be requested before CPU fetches the instructions.
+    /// * The memory page `0x2000 - 0x3FFF` might contain the RAM page and will
+    ///   change the contents to the ROM page when the CPU fetches an instruction.
+    /// * A more than one of `0xFD/0xDD` prefixes in a row resides in memory at PC.
+    pub fn debug_preview<C: Cpu, M>(&self, cpu: &C, bus: &M) -> CpuDebug
+        where M: Memory<Timestamp=Ts>
     {
         let mut dbg = CpuDebug {
             pc: cpu.get_pc(),
@@ -200,18 +210,17 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         for n in start..dbg.code.capacity().try_into().unwrap() {
             dbg.code.push(bus.read_debug(dbg.pc.wrapping_add(n)));
         }
-        disasm_memory_once::<Z80<F>>(
+        disasm_memory_once::<C>(
             dbg.pc,
             dbg.code.as_slice())
         .unwrap_or(dbg)
     }
-    /// Run emulation step, return a pair of an optional [`CpuDebug`] of
+    /// Run emulation step and return a pair of an optional [`CpuDebug`] of
     /// an executed instruction and a step duration in T-states.
     ///
-    /// Returns `(None, Ts)` if CPU was already halted.
-    pub fn debug_step<F, M>(&mut self, cpu: &mut Z80<F>, bus: &mut M) -> (Option<CpuDebug>, Ts)
-        where F: Flavour,
-              M: Memory<Timestamp=Ts> +
+    /// Returns `(None, Ts)` if [`Cpu`] was already halted.
+    pub fn debug_step<C: Cpu, M>(&mut self, cpu: &mut C, bus: &mut M) -> (Option<CpuDebug>, Ts)
+        where M: Memory<Timestamp=Ts> +
                  Io<Timestamp=Ts> +
                  BusDevice<Timestamp=Ts>
     {
@@ -255,18 +264,17 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
         }
         (dbg, self.clock.as_timestamp().saturating_sub(start_ts))
     }
-    /// Run emulation, stop on an IRQ request. Return a pair of an optional [`CpuDebug`]
+    /// Run emulation and stop on an IRQ request. Return a pair of an optional [`CpuDebug`]
     /// of the last instruction and a total duration in T-states.
     ///
     /// Returns `(None, Ts)` if CPU was already halted and no interrupt occured or
     /// a frame has passed.
-    pub fn debug_runto_int<F, M>(
+    pub fn debug_runto_int<C: Cpu, M>(
             &mut self,
-            cpu: &mut Z80<F>,
+            cpu: &mut C,
             bus: &mut M,
         ) -> (Option<CpuDebug>, Ts)
-        where F: Flavour,
-              M: Memory<Timestamp=Ts> +
+        where M: Memory<Timestamp=Ts> +
               Io<Timestamp=Ts> +
               BusDevice<Timestamp=Ts>
     {
@@ -304,13 +312,12 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
     /// a total duration in T-states.
     ///
     /// Returns `(None, Ts)` if a frame has passed before any RET instruction.
-    pub fn debug_runto_ret<F, M>(
+    pub fn debug_runto_ret<C: Cpu, M>(
             &mut self,
-            cpu: &mut Z80<F>,
+            cpu: &mut C,
             bus: &mut M,
         ) -> (Option<CpuDebug>, Ts)
-        where F: Flavour,
-              M: Memory<Timestamp=Ts> +
+        where M: Memory<Timestamp=Ts> +
               Io<Timestamp=Ts> +
               BusDevice<Timestamp=Ts>
     {
@@ -358,17 +365,16 @@ impl<const EXT_HZ: u32, const FRAME_HZ: u32> FrameRunner<EXT_HZ, FRAME_HZ> {
     /// Run emulation until PC equals to one of the brkpoints.
     /// Return a pair of an optional brkpoint index and a total duration in T-states.
     ///
-    /// Returns `((None, Ts))` if no breakpoints were hit and a frame has passed.
+    /// Returns `((None, Ts))` if no brkpoints were hit and a frame has passed.
     ///
-    /// **NOTE**: `brkpts` must be sorted!
-    pub fn run_until_brkpt<F, M>(
+    /// **NOTE**: `brkpts` MUST be sorted!
+    pub fn run_until_brkpt<C: Cpu, M>(
             &mut self,
-            cpu: &mut Z80<F>,
+            cpu: &mut C,
             bus: &mut M,
             brkpts: &[u16]
         ) -> (Option<usize>, Ts)
-        where F: Flavour,
-              M: Memory<Timestamp=Ts> +
+        where M: Memory<Timestamp=Ts> +
               Io<Timestamp=Ts> +
               BusDevice<Timestamp=Ts>
     {
@@ -435,7 +441,7 @@ fn prefix_debug(pfx: Prefix, pc: u16) -> CpuDebug {
 }
 
 /// Update an IM-2 IRQ request pseudo-mnemonic info.
-fn irq_debug_update<F: Flavour>(data: u8, pc: u16, cpu: &mut Z80<F>, dbg: &mut Option<CpuDebug>) {
+fn irq_debug_update<C: Cpu>(data: u8, pc: u16, cpu: &mut C, dbg: &mut Option<CpuDebug>) {
     if cpu.get_im() == InterruptMode::Mode2 {
         if let Some(deb) = dbg.as_mut() {
             let vector = u16::from_le_bytes([data, cpu.get_i()]);
@@ -447,8 +453,8 @@ fn irq_debug_update<F: Flavour>(data: u8, pc: u16, cpu: &mut Z80<F>, dbg: &mut O
     }
 }
 
-/// Return whether a successful CALL/CALL cc/RST instruction was executed.
-pub fn was_just_a_call<F: Flavour>(deb: &CpuDebug, cpu: &Z80<F>) -> bool {
+/// Return whether a successful `CALL/CALL cc/RST` instruction was executed.
+pub fn was_just_a_call<C: Cpu>(deb: &CpuDebug, cpu: &C) -> bool {
     use opconsts::*;
     match deb.code[0] {
         CALL_OPCODE => true,
@@ -460,8 +466,8 @@ pub fn was_just_a_call<F: Flavour>(deb: &CpuDebug, cpu: &Z80<F>) -> bool {
     }
 }
 
-/// Return whether a successful RET/RET cc/RETI/RETN instruction was executed.
-pub fn was_just_a_ret<F: Flavour>(deb: &CpuDebug, cpu: &Z80<F>) -> bool {
+/// Return whether a successful `RET/RET cc/RETI/RETN` instruction was executed.
+pub fn was_just_a_ret<C: Cpu>(deb: &CpuDebug, cpu: &C) -> bool {
     use opconsts::*;
     match deb.code[0] {
         RET_OPCODE => true,

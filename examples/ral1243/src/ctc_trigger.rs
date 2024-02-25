@@ -2,8 +2,9 @@
     ral1243: Emulator program as an example implementation for the z80emu library.
     Copyright (C) 2019-2024  Rafal Michalski
 
-    For the full copyright notice, see the mod.rs file.
+    For the full copyright notice, see the lib.rs file.
 */
+//! `CTC` triggers.
 use core::cell::Cell;
 #[allow(unused_imports)]
 use super::rc::Rc;
@@ -29,10 +30,10 @@ impl<const N: usize> Default for CtcPulse<N> {
     }
 }
 
-/// Active CTC component with external clock.
-/// Chains ZC/TO with the next CTC channel's CLK/TRG.
+/// A `CLK/TRG` trigger activated by an external clock.
+/// Chains its `ZC/TO` with a passive trigger's `CLK/TRG`.
 ///
-/// For `N` see [CtcPulse].
+/// For `N` see [`CtcPulse`].
 pub struct CtcActive<const N: usize> {
     /// External clock half-period in T-states.
     ///
@@ -46,16 +47,18 @@ pub struct CtcActive<const N: usize> {
     next: Rc<CtcPulse<N>>
 }
 
-/// Passive CTC component chained to another components ZC/TO line.
+/// A passive `CLK/TRG` trigger connected to the active trigger's `ZC/TO` line.
 ///
-/// For `N` see [CtcPulse].
+/// For `N` see [`CtcPulse`].
 pub struct CtcPassive<const N: usize> {
     pulse: Rc<CtcPulse<N>>
 }
 
 impl<const N: usize> CtcActive<N> {
-    /// Create active CTC component from external clock period in T-states.
-    /// Panics if `ext_clock` is not even.
+    /// Return an active `CTC` channel trigger from external clock period
+    /// given in T-states.
+    ///
+    /// **Panics** if `ext_clock` is not even.
     pub fn new(ext_clock: Ts) -> Self {
         assert_eq!(ext_clock & 1, 0);
         CtcActive {
@@ -65,7 +68,7 @@ impl<const N: usize> CtcActive<N> {
             next: Rc::new(CtcPulse::default())
         }
     }
-    /// Create a ZC/TO to CLK/TRG connected passive CTC.
+    /// Return a new passive `CLK/TRG` trigger connect to `self` `ZC/TO` line.
     pub fn new_passive(&self) -> CtcPassive<N> {
         CtcPassive {
             pulse: Rc::clone(&self.next)
